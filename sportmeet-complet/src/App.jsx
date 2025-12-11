@@ -8,13 +8,25 @@ import { seedProfiles } from "./data/seedProfiles";
 
 const LOCAL_STORAGE_KEY = "sportmeet_profiles";
 
+// liste des sports standards utilisés dans les filtres
+const STANDARD_SPORTS = [
+  "Running",
+  "Fitness",
+  "Football",
+  "Basket",
+  "Tennis",
+  "Cyclisme",
+  "Randonnée",
+  "Natation",
+  "Musculation"
+];
+
 export default function App() {
   const [profiles, setProfiles] = useState([]);
   const [filters, setFilters] = useState({
     sport: "",
     level: "",
-    city: "",
-    search: ""
+    city: ""
   });
   const [highlightNewProfile, setHighlightNewProfile] = useState(null);
   const [likedProfiles, setLikedProfiles] = useState([]);
@@ -63,24 +75,33 @@ export default function App() {
     setFilters({
       sport: "",
       level: "",
-      city: "",
-      search: ""
+      city: ""
     });
   };
 
   const filteredProfiles = useMemo(() => {
     return profiles.filter((p) => {
-      if (filters.sport && p.sport !== filters.sport) return false;
-      if (filters.level && p.level !== filters.level) return false;
-      if (filters.city && !p.city.toLowerCase().includes(filters.city.toLowerCase().trim()))
-        return false;
-      if (filters.search) {
-        const s = filters.search.toLowerCase();
-        const blob = `${p.name} ${p.city} ${p.sport} ${p.bio ?? ""} ${
-          p.availability ?? ""
-        }`.toLowerCase();
-        if (!blob.includes(s)) return false;
+      // Filtre sport
+      if (filters.sport) {
+        if (filters.sport === "Autre") {
+          // "Autre sport" = on garde les profils dont le sport n'est pas dans la liste standard
+          if (STANDARD_SPORTS.includes(p.sport)) return false;
+        } else {
+          if (p.sport !== filters.sport) return false;
+        }
       }
+
+      // Filtre niveau
+      if (filters.level && p.level !== filters.level) return false;
+
+      // Filtre ville
+      if (
+        filters.city &&
+        !p.city.toLowerCase().includes(filters.city.toLowerCase().trim())
+      ) {
+        return false;
+      }
+
       return true;
     });
   }, [profiles, filters]);
@@ -99,12 +120,10 @@ export default function App() {
     <div className="app-root">
       <Header
         onOpenProfile={openProfileModal}
-        // plus tard tu pourras passer un vrai onOpenAuth
-        onOpenAuth={null}
+        onOpenAuth={null} // à connecter plus tard à une vraie page d'auth
       />
 
       <main className="container main-layout">
-        {/* On n'a plus la carte à gauche : tout est centré sur les swipes */}
         <section className="card card-results">
           <FiltersBar
             filters={filters}
