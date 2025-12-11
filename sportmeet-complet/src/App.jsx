@@ -18,6 +18,7 @@ export default function App() {
   });
   const [highlightNewProfile, setHighlightNewProfile] = useState(null);
   const [likedProfiles, setLikedProfiles] = useState([]);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Chargement initial : profils démo + profils custom (localStorage)
   useEffect(() => {
@@ -91,15 +92,19 @@ export default function App() {
     });
   };
 
+  const openProfileModal = () => setIsProfileModalOpen(true);
+  const closeProfileModal = () => setIsProfileModalOpen(false);
+
   return (
     <div className="app-root">
-      <Header />
+      <Header
+        onOpenProfile={openProfileModal}
+        // plus tard tu pourras passer un vrai onOpenAuth
+        onOpenAuth={null}
+      />
 
       <main className="container main-layout">
-        <section className="card card-form">
-          <ProfileForm onCreateProfile={handleCreateProfile} />
-        </section>
-
+        {/* On n'a plus la carte à gauche : tout est centré sur les swipes */}
         <section className="card card-results">
           <FiltersBar
             filters={filters}
@@ -128,8 +133,24 @@ export default function App() {
         </section>
       </main>
 
+      {/* Modal "Mon profil" avec le formulaire */}
+      {isProfileModalOpen && (
+        <div className="modal-backdrop" onClick={closeProfileModal}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Mon profil sportif</h3>
+              <button type="button" className="btn-ghost" onClick={closeProfileModal}>
+                Fermer
+              </button>
+            </div>
+            <div className="modal-body">
+              <ProfileForm onCreateProfile={handleCreateProfile} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );
 }
-
