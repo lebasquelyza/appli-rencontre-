@@ -1,9 +1,17 @@
 import React from "react";
 
-export function Header() {
+export function Header({ onOpenProfile, onOpenAuth }) {
+  const handleProfileClick = () => {
+    if (onOpenProfile) onOpenProfile();
+  };
+
   const handleAuthClick = () => {
-    // Ici tu pourras plus tard ouvrir un modal ou rediriger vers /login
-    alert("Ici on ouvrira la page de connexion / création de compte 🙂");
+    if (onOpenAuth) {
+      onOpenAuth();
+    } else {
+      // À remplacer plus tard par une vraie page / modal d'auth
+      alert("Ici on ouvrira la page de connexion / création de compte 🙂");
+    }
   };
 
   return (
@@ -22,6 +30,14 @@ export function Header() {
             <span className="header-badge-pill">MVP Front</span>
             <span>Prêt pour GitHub + Netlify</span>
           </div>
+
+          <button
+            type="button"
+            className="btn-auth-secondary"
+            onClick={handleProfileClick}
+          >
+            Mon profil
+          </button>
 
           <button type="button" className="btn-auth" onClick={handleAuthClick}>
             Se connecter / Créer un compte
