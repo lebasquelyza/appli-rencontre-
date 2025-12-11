@@ -6,7 +6,7 @@ export function FiltersBar({ filters, onChange, onReset }) {
       <div className="filters-header">
         <div className="filters-title">
           <h2>Explorer les sportifs</h2>
-          <span>Filtre par sport, niveau, ville ou mot-clé.</span>
+          <span>Filtre par sport, niveau et ville.</span>
         </div>
         <div className="filters-actions">
           <button type="button" className="btn-secondary" onClick={onReset}>
@@ -33,6 +33,7 @@ export function FiltersBar({ filters, onChange, onReset }) {
             <option value="Randonnée">Randonnée</option>
             <option value="Natation">Natation</option>
             <option value="Musculation">Musculation</option>
+            <option value="Autre">Autre sport</option>
           </select>
         </div>
 
@@ -60,20 +61,6 @@ export function FiltersBar({ filters, onChange, onReset }) {
             onChange={(e) => onChange({ city: e.target.value })}
             placeholder="Ex : Paris"
           />
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="filter-search">Recherche libre</label>
-        <div className="search-input-wrapper">
-          <input
-            id="filter-search"
-            type="text"
-            value={filters.search}
-            onChange={(e) => onChange({ search: e.target.value })}
-            placeholder="Nom, bio, disponibilité…"
-          />
-          <span className="search-icon">⌕</span>
         </div>
       </div>
     </div>
