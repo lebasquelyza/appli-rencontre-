@@ -113,7 +113,7 @@ body {
   font-size: 0.74rem;
 }
 
-/* Zone de droite du header (badge + bouton auth) */
+/* Zone de droite du header (badge + bouton profil + bouton auth) */
 
 .header-right {
   display: flex;
@@ -146,11 +146,34 @@ body {
   transform: translateY(-1px);
 }
 
-/* Main layout */
+.btn-auth-secondary {
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: transparent;
+  color: #e5e7eb;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.btn-auth-secondary:hover {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(248, 250, 252, 0.5);
+  transform: translateY(-1px);
+}
+
+/* Main layout : une seule colonne */
 
 .main-layout {
   display: grid;
-  grid-template-columns: minmax(0, 380px) minmax(0, 1.3fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   padding: 20px 16px 32px;
   flex: 1;
@@ -164,12 +187,6 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.16);
   box-shadow: var(--shadow-soft);
   padding: 20px 18px;
-}
-
-.card-form {
-  position: sticky;
-  top: 90px;
-  align-self: flex-start;
 }
 
 .card-results {
@@ -772,18 +789,6 @@ textarea {
 /* Responsive */
 
 @media (max-width: 900px) {
-  .main-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .card-form {
-    position: static;
-  }
-
-  .profiles-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .filters-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -798,7 +803,8 @@ textarea {
 
   .header-right {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .main-layout {
@@ -818,3 +824,4 @@ textarea {
     align-items: flex-start;
   }
 }
+
