@@ -5,6 +5,7 @@ const defaultForm = {
   age: "",
   city: "",
   sport: "",
+  otherSport: "",
   level: "",
   availability: "",
   bio: ""
@@ -22,19 +23,32 @@ export function ProfileForm({ onCreateProfile }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.name || !form.city || !form.sport || !form.level) {
+
+    const isOtherSport = form.sport === "Autre";
+    const finalSport = isOtherSport
+      ? (form.otherSport || "").trim()
+      : form.sport;
+
+    if (!form.name || !form.city || !finalSport || !form.level) {
       setIsError(true);
-      setMessage("Merci de remplir au minimum le nom, la ville, le sport et le niveau.");
+      setMessage(
+        "Merci de remplir au minimum le nom, la ville, le sport (ou autre sport) et le niveau."
+      );
       return;
     }
+
     onCreateProfile({
       ...form,
+      sport: finalSport,
       age: form.age ? Number(form.age) : null
     });
+
     setForm(defaultForm);
     setIsError(false);
     setMessage("Profil créé ! Tu apparais maintenant dans la liste de sportifs.");
   };
+
+  const isOtherSport = form.sport === "Autre";
 
   return (
     <>
@@ -86,7 +100,12 @@ export function ProfileForm({ onCreateProfile }) {
         <div className="form-row-inline">
           <div className="form-group">
             <label htmlFor="sport">Sport principal *</label>
-            <select id="sport" name="sport" value={form.sport} onChange={handleChange}>
+            <select
+              id="sport"
+              name="sport"
+              value={form.sport}
+              onChange={handleChange}
+            >
               <option value="">Choisis un sport</option>
               <option value="Running">Running</option>
               <option value="Fitness">Fitness</option>
@@ -97,12 +116,18 @@ export function ProfileForm({ onCreateProfile }) {
               <option value="Randonnée">Randonnée</option>
               <option value="Natation">Natation</option>
               <option value="Musculation">Musculation</option>
+              <option value="Autre">Autre sport…</option>
             </select>
           </div>
 
           <div className="form-group">
             <label htmlFor="level">Niveau *</label>
-            <select id="level" name="level" value={form.level} onChange={handleChange}>
+            <select
+              id="level"
+              name="level"
+              value={form.level}
+              onChange={handleChange}
+            >
               <option value="">Choisis un niveau</option>
               <option value="Débutant">Débutant</option>
               <option value="Intermédiaire">Intermédiaire</option>
@@ -111,6 +136,20 @@ export function ProfileForm({ onCreateProfile }) {
             </select>
           </div>
         </div>
+
+        {isOtherSport && (
+          <div className="form-group">
+            <label htmlFor="otherSport">Autre sport (précise lequel) *</label>
+            <input
+              id="otherSport"
+              name="otherSport"
+              type="text"
+              value={form.otherSport}
+              onChange={handleChange}
+              placeholder="Ex : Escalade, boxe, paddle…"
+            />
+          </div>
+        )}
 
         <div className="form-group">
           <label htmlFor="availability">Disponibilités</label>
