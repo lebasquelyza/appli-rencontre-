@@ -85,19 +85,6 @@ body::before{
   min-width: 0;
 }
 
-.logoMark{
-  width: 38px;
-  height: 38px;
-  border-radius: 14px;
-  display:grid;
-  place-items:center;
-  font-weight: 900;
-  letter-spacing:.5px;
-  color: #0b0c10;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  box-shadow: 0 16px 40px rgba(255,77,109,.22);
-}
-
 .brandText{ min-width:0; }
 .brandName{
   font-weight: 900;
@@ -117,7 +104,7 @@ body::before{
 .topbarRight{
   display:flex;
   align-items:center;
-  gap:10px;
+  gap:8px; /* un peu plus compact */
 }
 
 /* badge */
@@ -133,6 +120,16 @@ body::before{
 @media (max-width: 520px){
   .badge{ display:none; }
   .brandTag{ display:none; }
+}
+
+/* Logo image */
+.brandLogo{
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 16px 40px rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.10);
 }
 
 /* ============ Card base ============ */
@@ -250,6 +247,16 @@ input:focus, select:focus, textarea:focus{
 }
 .btn-primary:active{ transform: scale(.99); }
 .btn-block{ width: 100%; }
+
+/* ✅ Boutons plus petits (Profil + Se connecter) */
+.btn-sm{
+  padding: 7px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+}
+@media (max-width: 520px){
+  .btn-sm{ padding: 7px 9px; }
+}
 
 /* ============ Swipe deck ============ */
 .swipe-container{
@@ -527,13 +534,3 @@ input:focus, select:focus, textarea:focus{
 
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
-
-.brandLogo{
-  width: 38px;
-  height: 38px;
-  border-radius: 14px;
-  object-fit: cover;
-  box-shadow: 0 16px 40px rgba(0,0,0,.35);
-  border: 1px solid rgba(255,255,255,.10);
-}
-
