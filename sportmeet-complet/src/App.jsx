@@ -6,7 +6,7 @@ import { FiltersBar } from "./components/FiltersBar";
 import { SwipeDeck } from "./components/SwipeDeck";
 import { seedProfiles } from "./data/seedProfiles";
 
-const LOCAL_STORAGE_KEY = "sportmeet_profiles";
+const LOCAL_STORAGE_KEY = "matchfit_profiles";
 
 // liste des sports standards utilisés dans les filtres
 const STANDARD_SPORTS = [
