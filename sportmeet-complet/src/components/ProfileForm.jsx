@@ -43,14 +43,14 @@ export function ProfileForm({ onCreateProfile }) {
 
     setForm(defaultForm);
     setIsError(false);
-    setMessage("Profil créé ! Tu apparais maintenant dans la liste de sportifs.");
+    setMessage("Profil créé ! Tu apparais maintenant dans MatchFit.");
   };
 
   const isOtherSport = form.sport === "Autre";
 
   return (
     <>
-      <h2 className="modalTitle">Créer ton profil sportif</h2>
+      <h2 className="modalTitle">Créer ton profil</h2>
       <p className="card-subtitle">
         Remplis ton profil pour être visible des autres sportifs. Les données sont stockées seulement
         dans ton navigateur.
