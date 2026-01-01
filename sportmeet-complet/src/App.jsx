@@ -29,7 +29,10 @@ export default function App() {
     city: ""
   });
   const [highlightNewProfile, setHighlightNewProfile] = useState(null);
-  const [likedProfiles, setLikedProfiles] = useState([]);
+
+  // MVP: pour l’instant, un "like" = un "match"
+  const [matches, setMatches] = useState([]);
+
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Chargement initial : profils démo + profils custom (localStorage)
@@ -106,8 +109,9 @@ export default function App() {
     });
   }, [profiles, filters]);
 
-  const handleLikeProfile = (profile) => {
-    setLikedProfiles((prev) => {
+  // Like => Match (MVP)
+  const handleMatch = (profile) => {
+    setMatches((prev) => {
       if (prev.some((p) => p.id === profile.id)) return prev;
       return [profile, ...prev];
     });
@@ -118,10 +122,7 @@ export default function App() {
 
   return (
     <div className="app-root">
-      <Header
-        onOpenProfile={openProfileModal}
-        onOpenAuth={null} // à connecter plus tard à une vraie page d'auth
-      />
+      <Header onOpenProfile={openProfileModal} onOpenAuth={null} />
 
       <main className="page">
         <div className="shell">
@@ -134,15 +135,15 @@ export default function App() {
 
             <SwipeDeck
               profiles={filteredProfiles}
-              onLikeProfile={handleLikeProfile}
+              onLikeProfile={handleMatch}
               highlightId={highlightNewProfile}
             />
 
-            {likedProfiles.length > 0 && (
+            {matches.length > 0 && (
               <div className="liked-list">
-                <h3>Profils que tu as likés</h3>
+                <h3>Matchs</h3>
                 <div className="liked-chips">
-                  {likedProfiles.map((p) => (
+                  {matches.map((p) => (
                     <span key={p.id} className="chip">
                       {p.name} · {p.sport} · {p.city}
                     </span>
