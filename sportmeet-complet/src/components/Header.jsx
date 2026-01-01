@@ -34,11 +34,10 @@ export function Header({ onOpenProfile, onOpenAuth }) {
           </button>
 
           <button type="button" className="btn-primary btn-sm" onClick={handleAuthClick}>
-            Se connecter
+            Connexion
           </button>
         </div>
       </div>
     </header>
   );
 }
-
