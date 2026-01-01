@@ -21,43 +21,55 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
     next();
   };
 
-  const handleSkip = () => {
-    next();
-  };
-
-  const handleReset = () => {
-    setIndex(0);
-  };
+  const handleSkip = () => next();
+  const handleReset = () => setIndex(0);
 
   return (
-    <div className="swipe-container">
+    <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
           <SwipeCard profile={currentProfile} />
-          <div className="swipe-actions">
+
+          <div className="actions">
             <button
               type="button"
-              className="btn-swipe btn-swipe-nope"
+              className="swBtn swBtnBad"
               onClick={handleSkip}
+              aria-label="Passer"
+              title="Passer"
             >
               ✕
             </button>
+
             <button
               type="button"
-              className="btn-swipe btn-swipe-like"
+              className="swBtn swBtnPrimary"
               onClick={handleLike}
+              aria-label="Liker"
+              title="Liker"
             >
-              ❤️
+              ❤
+            </button>
+
+            <button
+              type="button"
+              className="swBtn swBtnGood"
+              onClick={handleLike}
+              aria-label="Super like (like)"
+              title="Super like (like)"
+            >
+              ★
             </button>
           </div>
-          <div className="swipe-meta">
-            <span>{remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}</span>
+
+          <div className="hint">
+            {remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}
           </div>
         </>
       ) : (
         <div className="swipe-empty">
           <p>Aucun autre profil dans cette sélection.</p>
-          <button type="button" className="btn-secondary" onClick={handleReset}>
+          <button type="button" className="btn-ghost" onClick={handleReset}>
             Revoir depuis le début
           </button>
         </div>
