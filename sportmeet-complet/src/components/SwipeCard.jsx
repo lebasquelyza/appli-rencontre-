@@ -7,8 +7,9 @@ function hashToHue(str = "") {
 }
 
 export function SwipeCard({ profile }) {
-  const initial = profile.name?.[0]?.toUpperCase() ?? "S";
+  const initial = profile.name?.[0]?.toUpperCase() ?? "M";
   const hue = hashToHue(`${profile.name}-${profile.city}-${profile.sport}`);
+
   const bg = {
     background: `
       radial-gradient(900px 450px at 20% 20%, hsla(${hue}, 90%, 60%, .28), transparent 55%),
