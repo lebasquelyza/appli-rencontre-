@@ -17,7 +17,9 @@ export function Header({ onOpenProfile, onOpenAuth }) {
     <header className="topbar">
       <div className="topbar-inner">
         <div className="brand">
-          <span className="logoMark">MF</span>
+          {/* ✅ Vrai logo */}
+          <img className="brandLogo" src="/logo.png" alt="MatchFit" />
+
           <div className="brandText">
             <div className="brandName">MatchFit</div>
             <div className="brandTag">Trouve ton partenaire d’entraînement, dans ta ville</div>
