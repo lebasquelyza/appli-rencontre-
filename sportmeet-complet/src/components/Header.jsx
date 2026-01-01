@@ -17,7 +17,7 @@ export function Header({ onOpenProfile, onOpenAuth }) {
     <header className="topbar">
       <div className="topbar-inner">
         <div className="brand">
-          {/* ✅ Vrai logo */}
+          {/* Vrai logo */}
           <img className="brandLogo" src="/logo.png" alt="MatchFit" />
 
           <div className="brandText">
@@ -29,11 +29,11 @@ export function Header({ onOpenProfile, onOpenAuth }) {
         <div className="topbarRight">
           <span className="badge">MVP · Front</span>
 
-          <button type="button" className="btn-ghost" onClick={handleProfileClick}>
-            Mon profil
+          <button type="button" className="btn-ghost btn-sm" onClick={handleProfileClick}>
+            Profil
           </button>
 
-          <button type="button" className="btn-primary" onClick={handleAuthClick}>
+          <button type="button" className="btn-primary btn-sm" onClick={handleAuthClick}>
             Se connecter
           </button>
         </div>
@@ -41,3 +41,4 @@ export function Header({ onOpenProfile, onOpenAuth }) {
     </header>
   );
 }
+
