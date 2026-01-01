@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 
 export function FiltersBar({ filters, onChange, onReset }) {
   const [isOpen, setIsOpen] = useState(false);
+  const panelRef = useRef(null);
 
   const activeCount = useMemo(() => {
     let n = 0;
@@ -12,6 +13,15 @@ export function FiltersBar({ filters, onChange, onReset }) {
   }, [filters]);
 
   const toggle = () => setIsOpen((v) => !v);
+
+  // hauteur dynamique pour un slide propre (sans “jump”)
+  const panelStyle = useMemo(() => {
+    const el = panelRef.current;
+    const h = el ? el.scrollHeight : 0;
+    return {
+      maxHeight: isOpen ? `${h}px` : "0px"
+    };
+  }, [isOpen, filters]); // filters pour recalculer si contenu change
 
   return (
     <div className="filters">
@@ -41,7 +51,6 @@ export function FiltersBar({ filters, onChange, onReset }) {
         </div>
       </div>
 
-      {/* chips résumé quand fermé */}
       {!isOpen && activeCount > 0 && (
         <div className="filters-summary">
           {filters.sport ? <span className="chip chip-soft">🏅 {filters.sport}</span> : null}
@@ -52,9 +61,13 @@ export function FiltersBar({ filters, onChange, onReset }) {
         </div>
       )}
 
-      {/* panneau déroulant */}
-      {isOpen && (
-        <div className="filters-panel" id="filters-panel">
+      {/* Wrapper animé */}
+      <div
+        className={`filters-panelWrap ${isOpen ? "open" : ""}`}
+        style={panelStyle}
+        id="filters-panel"
+      >
+        <div ref={panelRef} className="filters-panel">
           <div className="filters-grid">
             <div className="form-group">
               <label htmlFor="filter-sport">Sport</label>
@@ -113,7 +126,7 @@ export function FiltersBar({ filters, onChange, onReset }) {
             </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
