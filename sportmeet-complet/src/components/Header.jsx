@@ -17,10 +17,10 @@ export function Header({ onOpenProfile, onOpenAuth }) {
     <header className="topbar">
       <div className="topbar-inner">
         <div className="brand">
-          <span className="logoMark">SM</span>
+          <span className="logoMark">MF</span>
           <div className="brandText">
-            <div className="brandName">SportMeet</div>
-            <div className="brandTag">Rencontres sportives par affinités, dans ta ville</div>
+            <div className="brandName">MatchFit</div>
+            <div className="brandTag">Trouve ton partenaire d’entraînement, dans ta ville</div>
           </div>
         </div>
 
@@ -39,4 +39,3 @@ export function Header({ onOpenProfile, onOpenAuth }) {
     </header>
   );
 }
-
