@@ -77,3 +77,4 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
     </div>
   );
 }
+
