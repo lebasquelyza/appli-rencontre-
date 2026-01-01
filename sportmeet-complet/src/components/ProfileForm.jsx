@@ -25,9 +25,7 @@ export function ProfileForm({ onCreateProfile }) {
     e.preventDefault();
 
     const isOtherSport = form.sport === "Autre";
-    const finalSport = isOtherSport
-      ? (form.otherSport || "").trim()
-      : form.sport;
+    const finalSport = isOtherSport ? (form.otherSport || "").trim() : form.sport;
 
     if (!form.name || !form.city || !finalSport || !form.level) {
       setIsError(true);
@@ -52,11 +50,12 @@ export function ProfileForm({ onCreateProfile }) {
 
   return (
     <>
-      <h2>Créer ton profil sportif</h2>
+      <h2 className="modalTitle">Créer ton profil sportif</h2>
       <p className="card-subtitle">
-        Remplis ton profil pour être visible des autres sportifs. Les données sont stockées
-        seulement dans ton navigateur.
+        Remplis ton profil pour être visible des autres sportifs. Les données sont stockées seulement
+        dans ton navigateur.
       </p>
+
       <form className="form" onSubmit={handleSubmit}>
         <div className="form-group">
           <label htmlFor="name">Prénom / Pseudo *</label>
@@ -84,6 +83,7 @@ export function ProfileForm({ onCreateProfile }) {
               placeholder="Ex : 28"
             />
           </div>
+
           <div className="form-group">
             <label htmlFor="city">Ville *</label>
             <input
@@ -100,12 +100,7 @@ export function ProfileForm({ onCreateProfile }) {
         <div className="form-row-inline">
           <div className="form-group">
             <label htmlFor="sport">Sport principal *</label>
-            <select
-              id="sport"
-              name="sport"
-              value={form.sport}
-              onChange={handleChange}
-            >
+            <select id="sport" name="sport" value={form.sport} onChange={handleChange}>
               <option value="">Choisis un sport</option>
               <option value="Running">Running</option>
               <option value="Fitness">Fitness</option>
@@ -122,12 +117,7 @@ export function ProfileForm({ onCreateProfile }) {
 
           <div className="form-group">
             <label htmlFor="level">Niveau *</label>
-            <select
-              id="level"
-              name="level"
-              value={form.level}
-              onChange={handleChange}
-            >
+            <select id="level" name="level" value={form.level} onChange={handleChange}>
               <option value="">Choisis un niveau</option>
               <option value="Débutant">Débutant</option>
               <option value="Intermédiaire">Intermédiaire</option>
@@ -175,15 +165,11 @@ export function ProfileForm({ onCreateProfile }) {
           />
         </div>
 
-        <button type="submit" className="btn-primary">
+        <button type="submit" className="btn-primary btn-block">
           Enregistrer mon profil
         </button>
 
-        <p
-          className={`form-message ${
-            message ? (isError ? "error" : "success") : ""
-          }`}
-        >
+        <p className={`form-message ${message ? (isError ? "error" : "success") : ""}`}>
           {message}
         </p>
       </form>
