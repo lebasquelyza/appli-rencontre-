@@ -228,7 +228,7 @@ input:focus, select:focus, textarea:focus{
   background: rgba(255,255,255,.04);
 }
 
-/* ✅ Filters (nouvelle version: bouton déroulant) */
+/* Filters (bouton + panel déroulant) */
 .filters{
   display:flex;
   flex-direction:column;
@@ -280,6 +280,20 @@ input:focus, select:focus, textarea:focus{
   flex-wrap:wrap;
   gap:8px;
   padding-bottom: 2px;
+}
+
+/* ✅ Slide fluide */
+.filters-panelWrap{
+  overflow: hidden;
+  max-height: 0px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: max-height .28s ease, opacity .22s ease, transform .22s ease;
+  will-change: max-height, opacity, transform;
+}
+.filters-panelWrap.open{
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .filters-panel{
