@@ -527,3 +527,13 @@ input:focus, select:focus, textarea:focus{
 
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
+
+.brandLogo{
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 16px 40px rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.10);
+}
+
