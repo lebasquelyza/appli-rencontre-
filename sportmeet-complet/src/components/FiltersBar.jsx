@@ -8,8 +8,9 @@ export function FiltersBar({ filters, onChange, onReset }) {
           <h2>Explorer les sportifs</h2>
           <span>Filtre par sport, niveau et ville.</span>
         </div>
+
         <div className="filters-actions">
-          <button type="button" className="btn-secondary" onClick={onReset}>
+          <button type="button" className="btn-ghost" onClick={onReset}>
             Réinitialiser
           </button>
         </div>
