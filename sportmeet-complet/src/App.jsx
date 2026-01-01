@@ -123,33 +123,35 @@ export default function App() {
         onOpenAuth={null} // à connecter plus tard à une vraie page d'auth
       />
 
-      <main className="container main-layout">
-        <section className="card card-results">
-          <FiltersBar
-            filters={filters}
-            onChange={handleFiltersChange}
-            onReset={handleResetFilters}
-          />
+      <main className="page">
+        <div className="shell">
+          <section className="card card-results">
+            <FiltersBar
+              filters={filters}
+              onChange={handleFiltersChange}
+              onReset={handleResetFilters}
+            />
 
-          <SwipeDeck
-            profiles={filteredProfiles}
-            onLikeProfile={handleLikeProfile}
-            highlightId={highlightNewProfile}
-          />
+            <SwipeDeck
+              profiles={filteredProfiles}
+              onLikeProfile={handleLikeProfile}
+              highlightId={highlightNewProfile}
+            />
 
-          {likedProfiles.length > 0 && (
-            <div className="liked-list">
-              <h3>Profils que tu as likés</h3>
-              <div className="liked-chips">
-                {likedProfiles.map((p) => (
-                  <span key={p.id} className="chip">
-                    {p.name} · {p.sport} · {p.city}
-                  </span>
-                ))}
+            {likedProfiles.length > 0 && (
+              <div className="liked-list">
+                <h3>Profils que tu as likés</h3>
+                <div className="liked-chips">
+                  {likedProfiles.map((p) => (
+                    <span key={p.id} className="chip">
+                      {p.name} · {p.sport} · {p.city}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </section>
+            )}
+          </section>
+        </div>
       </main>
 
       {/* Modal "Mon profil" avec le formulaire */}
