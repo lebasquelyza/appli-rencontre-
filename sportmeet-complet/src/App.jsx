@@ -4,11 +4,11 @@ import { Footer } from "./components/Footer";
 import { ProfileForm } from "./components/ProfileForm";
 import { FiltersBar } from "./components/FiltersBar";
 import { SwipeDeck } from "./components/SwipeDeck";
+import { AuthModal } from "./components/AuthModal";
 import { seedProfiles } from "./data/seedProfiles";
 
 const LOCAL_STORAGE_KEY = "matchfit_profiles";
 
-// liste des sports standards utilisés dans les filtres
 const STANDARD_SPORTS = [
   "Running",
   "Fitness",
@@ -28,22 +28,23 @@ export default function App() {
     level: "",
     city: ""
   });
+
+  const [matches, setMatches] = useState([]);
   const [highlightNewProfile, setHighlightNewProfile] = useState(null);
 
-  // MVP: pour l’instant, un "like" = un "match"
-  const [matches, setMatches] = useState([]);
-
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Chargement initial : profils démo + profils custom (localStorage)
+  /* -------------------------------
+     Chargement profils (localStorage)
+  -------------------------------- */
   useEffect(() => {
     const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         setProfiles([...seedProfiles, ...parsed]);
-      } catch (e) {
-        console.error("Erreur de parsing localStorage", e);
+      } catch {
         setProfiles(seedProfiles);
       }
     } else {
@@ -51,12 +52,14 @@ export default function App() {
     }
   }, []);
 
-  // Sauvegarde des profils créés par l’utilisateur
   useEffect(() => {
     const customProfiles = profiles.filter((p) => p.isCustom);
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(customProfiles));
   }, [profiles]);
 
+  /* -------------------------------
+     Création de profil
+  -------------------------------- */
   const handleCreateProfile = (data) => {
     const id = `user-${Date.now()}`;
     const newProfile = {
@@ -65,39 +68,33 @@ export default function App() {
       isCustom: true,
       createdAt: new Date().toISOString()
     };
+
     setProfiles((prev) => [newProfile, ...prev]);
     setHighlightNewProfile(id);
     setTimeout(() => setHighlightNewProfile(null), 3000);
   };
 
+  /* -------------------------------
+     Filtres
+  -------------------------------- */
   const handleFiltersChange = (partial) => {
     setFilters((prev) => ({ ...prev, ...partial }));
   };
 
   const handleResetFilters = () => {
-    setFilters({
-      sport: "",
-      level: "",
-      city: ""
-    });
+    setFilters({ sport: "", level: "", city: "" });
   };
 
   const filteredProfiles = useMemo(() => {
     return profiles.filter((p) => {
-      // Filtre sport
       if (filters.sport) {
         if (filters.sport === "Autre") {
-          // "Autre sport" = on garde les profils dont le sport n'est pas dans la liste standard
           if (STANDARD_SPORTS.includes(p.sport)) return false;
-        } else {
-          if (p.sport !== filters.sport) return false;
-        }
+        } else if (p.sport !== filters.sport) return false;
       }
 
-      // Filtre niveau
       if (filters.level && p.level !== filters.level) return false;
 
-      // Filtre ville
       if (
         filters.city &&
         !p.city.toLowerCase().includes(filters.city.toLowerCase().trim())
@@ -109,7 +106,9 @@ export default function App() {
     });
   }, [profiles, filters]);
 
-  // Like => Match (MVP)
+  /* -------------------------------
+     Match (like = match pour MVP)
+  -------------------------------- */
   const handleMatch = (profile) => {
     setMatches((prev) => {
       if (prev.some((p) => p.id === profile.id)) return prev;
@@ -117,12 +116,12 @@ export default function App() {
     });
   };
 
-  const openProfileModal = () => setIsProfileModalOpen(true);
-  const closeProfileModal = () => setIsProfileModalOpen(false);
-
   return (
     <div className="app-root">
-      <Header onOpenProfile={openProfileModal} onOpenAuth={null} />
+      <Header
+        onOpenProfile={() => setIsProfileModalOpen(true)}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+      />
 
       <main className="page">
         <div className="shell">
@@ -155,13 +154,14 @@ export default function App() {
         </div>
       </main>
 
-      {/* Modal "Mon profil" avec le formulaire */}
+      {/* ---------- MODALS ---------- */}
+
       {isProfileModalOpen && (
-        <div className="modal-backdrop" onClick={closeProfileModal}>
+        <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Mon profil sportif</h3>
-              <button type="button" className="btn-ghost" onClick={closeProfileModal}>
+              <button className="btn-ghost" onClick={() => setIsProfileModalOpen(false)}>
                 Fermer
               </button>
             </div>
@@ -170,6 +170,10 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {isAuthModalOpen && (
+        <AuthModal onClose={() => setIsAuthModalOpen(false)} />
       )}
 
       <Footer />
