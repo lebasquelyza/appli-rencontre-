@@ -226,7 +226,7 @@ input:focus, select:focus, textarea:focus{
 .chip-soft{
   border-color: rgba(255,255,255,.10);
   background: rgba(255,255,255,.04);
-}
+ }
 
 /* Filters (bouton + panel déroulant) */
 .filters{
@@ -547,3 +547,49 @@ input:focus, select:focus, textarea:focus{
 
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
+
+/* -------------------------------
+   Modal mobile-friendly (profil etc.)
+-------------------------------- */
+
+/* Variante "sheet" utilisée dans App.jsx : .modal-card.modal-card--sheet */
+.modal-card--sheet{
+  width: min(520px, 100%); /* garde ton style desktop */
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Le contenu scrolle DANS le modal */
+.modal-body--scroll{
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile : modal plein écran */
+@media (max-width: 640px){
+  .modal-backdrop{
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .modal-card--sheet{
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  /* Un peu d’air en bas pour le bouton sticky */
+  .modal-body--scroll{
+    padding-bottom: 96px;
+  }
+
+  /* Bouton "Enregistrer" toujours accessible */
+  .form .btn-primary.btn-block{
+    position: sticky;
+    bottom: 12px;
+    z-index: 5;
+  }
+}
