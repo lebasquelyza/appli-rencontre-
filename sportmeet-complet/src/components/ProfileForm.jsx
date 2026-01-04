@@ -16,7 +16,6 @@ function loadGooglePlaces(apiKey) {
     if (!apiKey) return reject(new Error("Missing Google Maps API key"));
     if (window.google?.maps?.places) return resolve(true);
 
-    // Évite de charger 2 fois
     const existing = document.querySelector('script[data-google-maps="true"]');
     if (existing) {
       existing.addEventListener("load", () => resolve(true));
@@ -45,18 +44,35 @@ export function ProfileForm({ onCreateProfile }) {
   const [loading, setLoading] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
 
+  // Photos
+  const [photos, setPhotos] = useState([]); // File[]
+  const [photoPreviews, setPhotoPreviews] = useState([]); // string[]
+  const fileInputRef = useRef(null);
+
   const cityInputRef = useRef(null);
   const autocompleteRef = useRef(null);
+
+  // Preview URLs
+  useEffect(() => {
+    // cleanup old previews
+    photoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    const next = photos.map((f) => URL.createObjectURL(f));
+    setPhotoPreviews(next);
+
+    return () => {
+      next.forEach((url) => URL.revokeObjectURL(url));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Google Places Autocomplete (villes)
+  // Google Places (optionnel)
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
     let cancelled = false;
 
     const initAutocomplete = async () => {
@@ -64,8 +80,6 @@ export function ProfileForm({ onCreateProfile }) {
         await loadGooglePlaces(apiKey);
         if (cancelled) return;
         if (!cityInputRef.current) return;
-
-        // Ne pas ré-instancier
         if (autocompleteRef.current) return;
 
         const ac = new window.google.maps.places.Autocomplete(cityInputRef.current, {
@@ -74,32 +88,23 @@ export function ProfileForm({ onCreateProfile }) {
 
         ac.addListener("place_changed", () => {
           const place = ac.getPlace();
-
-          // On préfère une valeur simple : "Ville, Pays"
           const formatted =
-            place?.formatted_address ||
-            place?.name ||
-            cityInputRef.current?.value ||
-            "";
-
+            place?.formatted_address || place?.name || cityInputRef.current?.value || "";
           setForm((prev) => ({ ...prev, city: formatted }));
         });
 
         autocompleteRef.current = ac;
       } catch {
-        // Si la clé est absente ou le script ne charge pas, on ignore :
-        // le champ reste utilisable en saisie manuelle + bouton 📍
+        // ignore (fallback manuel + bouton 📍)
       }
     };
 
     initAutocomplete();
-
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // ✅ Bouton "utiliser ma position" => reverse geocoding (OpenStreetMap Nominatim)
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
       setIsError(true);
@@ -115,31 +120,15 @@ export function ProfileForm({ onCreateProfile }) {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-
-          // Nominatim (gratuit) — ajoute un param "email" recommandé pour l’identification
-          // (mets une adresse générique si tu veux, ou laisse vide)
           const url = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=fr`;
 
-          const res = await fetch(url, {
-            headers: {
-              "Accept": "application/json"
-            }
-          });
-
+          const res = await fetch(url, { headers: { Accept: "application/json" } });
           if (!res.ok) throw new Error("Reverse geocoding failed");
 
           const data = await res.json();
           const addr = data?.address || {};
-
           const city =
-            addr.city ||
-            addr.town ||
-            addr.village ||
-            addr.municipality ||
-            addr.county ||
-            "";
-
-          // si on a aussi un "state" / "country", on peut enrichir légèrement
+            addr.city || addr.town || addr.village || addr.municipality || addr.county || "";
           const country = addr.country || "";
           const finalText = city ? (country ? `${city}, ${country}` : city) : "";
 
@@ -166,10 +155,28 @@ export function ProfileForm({ onCreateProfile }) {
     );
   };
 
+  const handlePhotosSelected = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const imagesOnly = files.filter((f) => f.type.startsWith("image/"));
+    const next = [...photos, ...imagesOnly].slice(0, 5);
+
+    setPhotos(next);
+
+    // reset input to allow re-select same file later
+    e.target.value = "";
+  };
+
+  const removePhotoAt = (idx) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const isOtherSport = form.sport === "Autre";
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const isOtherSport = form.sport === "Autre";
     const finalSport = isOtherSport ? (form.otherSport || "").trim() : form.sport;
 
     if (!form.name || !form.city || !finalSport || !form.level) {
@@ -180,16 +187,32 @@ export function ProfileForm({ onCreateProfile }) {
       return;
     }
 
+    if (photos.length < 1) {
+      setIsError(true);
+      setMessage("Merci d’ajouter au moins 1 photo.");
+      return;
+    }
+
+    if (photos.length > 5) {
+      setIsError(true);
+      setMessage("Maximum 5 photos.");
+      return;
+    }
+
     try {
       setLoading(true);
+      setIsError(false);
+      setMessage(null);
 
-      await onCreateProfile({
+      await onCreateProfile?.({
         ...form,
         sport: finalSport,
-        age: form.age ? Number(form.age) : null
+        age: form.age ? Number(form.age) : null,
+        photos // 👈 on envoie les fichiers à App.jsx
       });
 
       setForm(defaultForm);
+      setPhotos([]);
       setIsError(false);
       setMessage("Profil créé ! Tu apparais maintenant dans MatchFit.");
     } catch (err) {
@@ -201,13 +224,11 @@ export function ProfileForm({ onCreateProfile }) {
     }
   };
 
-  const isOtherSport = form.sport === "Autre";
-
   return (
     <>
       <h2 className="modalTitle">Créer ton profil</h2>
       <p className="card-subtitle">
-        Remplis ton profil pour être visible des autres sportifs.
+        Ajoute au moins 1 photo (max 5) pour apparaître dans les profils.
       </p>
 
       <form className="form" onSubmit={handleSubmit}>
@@ -240,7 +261,6 @@ export function ProfileForm({ onCreateProfile }) {
 
           <div className="form-group">
             <label htmlFor="city">Localisation *</label>
-
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input
                 id="city"
@@ -251,7 +271,6 @@ export function ProfileForm({ onCreateProfile }) {
                 placeholder="Ex : Lyon"
                 ref={cityInputRef}
               />
-
               <button
                 type="button"
                 className="btn-ghost btn-sm"
@@ -263,11 +282,72 @@ export function ProfileForm({ onCreateProfile }) {
                 {loadingLocation ? "..." : "📍"}
               </button>
             </div>
-
-            <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>
-              Astuce : tape pour voir des suggestions, ou clique sur 📍.
-            </small>
           </div>
+        </div>
+
+        {/* Photos */}
+        <div className="form-group">
+          <label>Photos *</label>
+
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn-ghost btn-sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={photos.length >= 5}
+            >
+              Ajouter une photo ({photos.length}/5)
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handlePhotosSelected}
+              style={{ display: "none" }}
+            />
+          </div>
+
+          {photos.length === 0 && (
+            <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>
+              1 photo minimum.
+            </small>
+          )}
+
+          {photoPreviews.length > 0 && (
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              {photoPreviews.map((src, idx) => (
+                <div key={src} style={{ position: "relative" }}>
+                  <img
+                    src={src}
+                    alt={`photo-${idx + 1}`}
+                    style={{
+                      width: 84,
+                      height: 84,
+                      objectFit: "cover",
+                      borderRadius: 10
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePhotoAt(idx)}
+                    className="btn-ghost btn-sm"
+                    style={{
+                      position: "absolute",
+                      top: -8,
+                      right: -8,
+                      borderRadius: 999
+                    }}
+                    aria-label="Supprimer"
+                    title="Supprimer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="form-row-inline">
