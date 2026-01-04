@@ -66,7 +66,7 @@ export default function App() {
     if (error) {
       console.error("Supabase fetch profiles error:", error);
       setProfilesError("Impossible de charger les profils pour le moment.");
-      setProfiles(seedProfiles); // fallback optionnel
+      setProfiles(seedProfiles);
       setLoadingProfiles(false);
       return;
     }
@@ -135,7 +135,6 @@ export default function App() {
 
     const optimisticId = `user-${Date.now()}`;
 
-    // Optimistic UI (pas de File dans le state)
     const optimisticProfile = {
       id: optimisticId,
       name: data.name,
@@ -192,13 +191,11 @@ export default function App() {
         throw updateError;
       }
     } catch (err) {
-      // Si upload/update échoue : on supprime le profil pour cohérence
       await supabase.from("profiles").delete().eq("id", profileId);
       setProfiles((prev) => prev.filter((p) => p.id !== optimisticId));
       throw err;
     }
 
-    // 4) Recharge depuis Supabase
     await fetchProfiles();
   };
 
@@ -294,13 +291,10 @@ export default function App() {
 
       {/* ---------- MODALS ---------- */}
 
-      {/* ✅ MODAL PROFIL MOBILE FRIENDLY */}
+      {/* ✅ MODAL PROFIL : plein écran mobile + scroll interne */}
       {isProfileModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
-          <div
-            className="modal-card modal-card--sheet"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Mon profil sportif</h3>
               <button className="btn-ghost" onClick={() => setIsProfileModalOpen(false)}>
