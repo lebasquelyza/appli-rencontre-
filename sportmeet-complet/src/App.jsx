@@ -8,6 +8,8 @@ import { AuthModal } from "./components/AuthModal";
 import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 
+const BUCKET = "profile-photos";
+
 const STANDARD_SPORTS = [
   "Running",
   "Fitness",
@@ -19,6 +21,18 @@ const STANDARD_SPORTS = [
   "Natation",
   "Musculation"
 ];
+
+function safeFileExt(file) {
+  const byMime = (file.type || "").split("/")[1];
+  if (byMime) return byMime.replace("jpeg", "jpg");
+  const byName = (file.name || "").split(".").pop();
+  return (byName || "jpg").toLowerCase();
+}
+
+function randomId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 export default function App() {
   const [profiles, setProfiles] = useState([]);
@@ -67,6 +81,7 @@ export default function App() {
       level: p.level,
       availability: p.availability || "",
       bio: p.bio || "",
+      photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
       isCustom: true,
       createdAt: p.created_at
     }));
@@ -82,16 +97,57 @@ export default function App() {
   }, []);
 
   /* -------------------------------
-     Création de profil => INSERT Supabase
+     Upload photos (Storage) + URLs publiques
+  -------------------------------- */
+  const uploadProfilePhotos = async (profileId, files) => {
+    const urls = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const ext = safeFileExt(file);
+      const path = `profiles/${profileId}/${randomId()}-${i + 1}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error("Supabase upload error:", uploadError);
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      if (data?.publicUrl) urls.push(data.publicUrl);
+    }
+
+    return urls;
+  };
+
+  /* -------------------------------
+     Création de profil => INSERT Supabase + photos
   -------------------------------- */
   const handleCreateProfile = async (data) => {
-    // On garde ton highlight logique, mais l'id final sera celui de Supabase
-    const optimisticId = `user-${Date.now()}`;
+    const photos = Array.isArray(data.photos) ? data.photos : [];
 
-    // Optimistic UI (optionnel mais agréable) :
+    // Sécurité (normalement déjà bloqué dans ProfileForm)
+    if (photos.length < 1) throw new Error("PHOTO_REQUIRED");
+    if (photos.length > 5) throw new Error("MAX_5_PHOTOS");
+
+    // Optimistic UI (on n’enregistre pas les File dans le state)
+    const optimisticId = `user-${Date.now()}`;
     const optimisticProfile = {
       id: optimisticId,
-      ...data,
+      name: data.name,
+      age: data.age ?? null,
+      city: data.city,
+      sport: data.sport,
+      level: data.level,
+      availability: data.availability || "",
+      bio: data.bio || "",
+      photo_urls: [],
       isCustom: true,
       createdAt: new Date().toISOString()
     };
@@ -100,24 +156,51 @@ export default function App() {
     setHighlightNewProfile(optimisticId);
     setTimeout(() => setHighlightNewProfile(null), 3000);
 
-    const { error } = await supabase.from("profiles").insert({
-      name: data.name,
-      age: data.age ?? null,
-      city: data.city,
-      sport: data.sport,
-      level: data.level,
-      availability: data.availability || "",
-      bio: data.bio || ""
-    });
+    // 1) Insert profil (on récupère l'id réel)
+    const { data: inserted, error: insertError } = await supabase
+      .from("profiles")
+      .insert({
+        name: data.name,
+        age: data.age ?? null,
+        city: data.city,
+        sport: data.sport,
+        level: data.level,
+        availability: data.availability || "",
+        bio: data.bio || ""
+      })
+      .select("id")
+      .single();
 
-    if (error) {
-      console.error("Supabase insert error:", error);
-      // On retire l’optimistic si insert fail
+    if (insertError) {
+      console.error("Supabase insert error:", insertError);
       setProfiles((prev) => prev.filter((p) => p.id !== optimisticId));
-      throw error;
+      throw insertError;
     }
 
-    // Recharge depuis Supabase pour avoir l’ID réel + ordre propre
+    const profileId = inserted.id;
+
+    try {
+      // 2) Upload photos
+      const urls = await uploadProfilePhotos(profileId, photos);
+
+      // 3) Update profil avec photo_urls
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ photo_urls: urls })
+        .eq("id", profileId);
+
+      if (updateError) {
+        console.error("Supabase update photo_urls error:", updateError);
+        throw updateError;
+      }
+    } catch (err) {
+      // Si upload/update échoue : on supprime le profil créé pour rester cohérent
+      await supabase.from("profiles").delete().eq("id", profileId);
+      setProfiles((prev) => prev.filter((p) => p.id !== optimisticId));
+      throw err;
+    }
+
+    // 4) Recharge depuis Supabase pour l’ID réel + URLs
     await fetchProfiles();
   };
 
