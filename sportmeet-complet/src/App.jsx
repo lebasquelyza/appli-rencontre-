@@ -8,8 +8,6 @@ import { AuthModal } from "./components/AuthModal";
 import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 
-const LOCAL_STORAGE_KEY = "matchfit_profiles";
-
 const STANDARD_SPORTS = [
   "Running",
   "Fitness",
@@ -36,114 +34,91 @@ export default function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [profilesError, setProfilesError] = useState(null);
+
   /* -------------------------------
-     Chargement profils (localStorage)
+     Supabase = source principale
   -------------------------------- */
-  useEffect(() => {
-    const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setProfiles([...seedProfiles, ...parsed]);
-      } catch {
-        setProfiles(seedProfiles);
-      }
-    } else {
+  const fetchProfiles = async () => {
+    setLoadingProfiles(true);
+    setProfilesError(null);
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Supabase fetch profiles error:", error);
+      setProfilesError("Impossible de charger les profils pour le moment.");
+      // Fallback : seedProfiles (optionnel)
       setProfiles(seedProfiles);
+      setLoadingProfiles(false);
+      return;
     }
-  }, []);
+
+    const mapped = (data || []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      age: p.age ?? null,
+      city: p.city,
+      sport: p.sport,
+      level: p.level,
+      availability: p.availability || "",
+      bio: p.bio || "",
+      isCustom: true,
+      createdAt: p.created_at
+    }));
+
+    // Si base vide : fallback sur seed (optionnel)
+    setProfiles(mapped.length ? mapped : seedProfiles);
+    setLoadingProfiles(false);
+  };
 
   useEffect(() => {
-    const customProfiles = profiles.filter((p) => p.isCustom);
-    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(customProfiles));
-  }, [profiles]);
-
-  /* -------------------------------
-     (Optionnel) Chargement profils depuis Supabase
-     - N'enlève pas ta logique actuelle
-     - Si ça marche, on fusionne avec ta liste existante
-  -------------------------------- */
-  useEffect(() => {
-    const fetchProfilesFromSupabase = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error || !data) return;
-
-        // On transforme le format DB vers ton format existant
-        const supabaseProfiles = data.map((p) => ({
-          id: p.id,
-          name: p.name,
-          age: p.age ?? null,
-          city: p.city,
-          sport: p.sport,
-          level: p.level,
-          availability: p.availability || "",
-          bio: p.bio || "",
-          isCustom: true,
-          createdAt: p.created_at
-        }));
-
-        // Fusion simple sans casser ton flux :
-        // on garde seed + local + supabase, sans doublons par id
-        setProfiles((prev) => {
-          const byId = new Map();
-          [...prev, ...supabaseProfiles].forEach((p) => {
-            if (!byId.has(p.id)) byId.set(p.id, p);
-          });
-          return Array.from(byId.values());
-        });
-      } catch {
-        // si supabase est down, on ne casse rien
-      }
-    };
-
-    fetchProfilesFromSupabase();
+    fetchProfiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* -------------------------------
-     Création de profil
-     - Ta logique: ajout immédiat en local + highlight
-     - Ajout: on tente aussi un insert Supabase en arrière-plan (sans casser)
+     Création de profil => INSERT Supabase
   -------------------------------- */
-  const handleCreateProfile = (data) => {
-    const id = `user-${Date.now()}`;
-    const newProfile = {
-      id,
+  const handleCreateProfile = async (data) => {
+    // On garde ton highlight logique, mais l'id final sera celui de Supabase
+    const optimisticId = `user-${Date.now()}`;
+
+    // Optimistic UI (optionnel mais agréable) :
+    const optimisticProfile = {
+      id: optimisticId,
       ...data,
       isCustom: true,
       createdAt: new Date().toISOString()
     };
 
-    // Ta logique actuelle (inchangée)
-    setProfiles((prev) => [newProfile, ...prev]);
-    setHighlightNewProfile(id);
+    setProfiles((prev) => [optimisticProfile, ...prev]);
+    setHighlightNewProfile(optimisticId);
     setTimeout(() => setHighlightNewProfile(null), 3000);
 
-    // Ajout optionnel Supabase (ne bloque pas l'UI, ne casse pas ton flux)
-    (async () => {
-      try {
-        const { error } = await supabase.from("profiles").insert({
-          name: newProfile.name,
-          age: newProfile.age ?? null,
-          city: newProfile.city,
-          sport: newProfile.sport,
-          level: newProfile.level,
-          availability: newProfile.availability || "",
-          bio: newProfile.bio || ""
-        });
+    const { error } = await supabase.from("profiles").insert({
+      name: data.name,
+      age: data.age ?? null,
+      city: data.city,
+      sport: data.sport,
+      level: data.level,
+      availability: data.availability || "",
+      bio: data.bio || ""
+    });
 
-        if (error) {
-          // On ne casse pas ta logique actuelle, mais on log pour debug
-          console.error("Supabase insert error:", error);
-        }
-      } catch (e) {
-        console.error("Supabase insert exception:", e);
-      }
-    })();
+    if (error) {
+      console.error("Supabase insert error:", error);
+      // On retire l’optimistic si insert fail
+      setProfiles((prev) => prev.filter((p) => p.id !== optimisticId));
+      throw error;
+    }
+
+    // Recharge depuis Supabase pour avoir l’ID réel + ordre propre
+    await fetchProfiles();
   };
 
   /* -------------------------------
@@ -204,11 +179,21 @@ export default function App() {
               onReset={handleResetFilters}
             />
 
-            <SwipeDeck
-              profiles={filteredProfiles}
-              onLikeProfile={handleMatch}
-              highlightId={highlightNewProfile}
-            />
+            {profilesError && (
+              <p className="form-message error" style={{ marginTop: 8 }}>
+                {profilesError}
+              </p>
+            )}
+
+            {loadingProfiles ? (
+              <p className="form-message">Chargement des profils…</p>
+            ) : (
+              <SwipeDeck
+                profiles={filteredProfiles}
+                onLikeProfile={handleMatch}
+                highlightId={highlightNewProfile}
+              />
+            )}
 
             {matches.length > 0 && (
               <div className="liked-list">
@@ -227,7 +212,6 @@ export default function App() {
       </main>
 
       {/* ---------- MODALS ---------- */}
-
       {isProfileModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
