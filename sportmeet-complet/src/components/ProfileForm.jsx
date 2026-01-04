@@ -15,13 +15,14 @@ export function ProfileForm({ onCreateProfile }) {
   const [form, setForm] = useState(defaultForm);
   const [message, setMessage] = useState(null);
   const [isError, setIsError] = useState(false);
+  const [loading, setLoading] = useState(false); // ✅ ajout léger pour éviter double submit
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const isOtherSport = form.sport === "Autre";
@@ -35,15 +36,28 @@ export function ProfileForm({ onCreateProfile }) {
       return;
     }
 
-    onCreateProfile({
-      ...form,
-      sport: finalSport,
-      age: form.age ? Number(form.age) : null
-    });
+    try {
+      setLoading(true);
+      setIsError(false);
+      setMessage(null);
 
-    setForm(defaultForm);
-    setIsError(false);
-    setMessage("Profil créé ! Tu apparais maintenant dans MatchFit.");
+      // ✅ on garde EXACTEMENT ton payload, juste sport final + age number
+      await onCreateProfile?.({
+        ...form,
+        sport: finalSport,
+        age: form.age ? Number(form.age) : null
+      });
+
+      setForm(defaultForm);
+      setIsError(false);
+      setMessage("Profil créé ! Tu apparais maintenant dans MatchFit.");
+    } catch (err) {
+      console.error(err);
+      setIsError(true);
+      setMessage("Erreur : impossible d’enregistrer le profil pour le moment.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const isOtherSport = form.sport === "Autre";
@@ -52,8 +66,7 @@ export function ProfileForm({ onCreateProfile }) {
     <>
       <h2 className="modalTitle">Créer ton profil</h2>
       <p className="card-subtitle">
-        Remplis ton profil pour être visible des autres sportifs. Les données sont stockées seulement
-        dans ton navigateur.
+        Remplis ton profil pour être visible des autres sportifs. Les données sont enregistrées.
       </p>
 
       <form className="form" onSubmit={handleSubmit}>
@@ -165,8 +178,8 @@ export function ProfileForm({ onCreateProfile }) {
           />
         </div>
 
-        <button type="submit" className="btn-primary btn-block">
-          Enregistrer mon profil
+        <button type="submit" className="btn-primary btn-block" disabled={loading}>
+          {loading ? "Enregistrement..." : "Enregistrer mon profil"}
         </button>
 
         <p className={`form-message ${message ? (isError ? "error" : "success") : ""}`}>
