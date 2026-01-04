@@ -6,6 +6,7 @@ import { FiltersBar } from "./components/FiltersBar";
 import { SwipeDeck } from "./components/SwipeDeck";
 import { AuthModal } from "./components/AuthModal";
 import { seedProfiles } from "./data/seedProfiles";
+import { supabase } from "./lib/supabase";
 
 const LOCAL_STORAGE_KEY = "matchfit_profiles";
 
@@ -58,7 +59,55 @@ export default function App() {
   }, [profiles]);
 
   /* -------------------------------
+     (Optionnel) Chargement profils depuis Supabase
+     - N'enlève pas ta logique actuelle
+     - Si ça marche, on fusionne avec ta liste existante
+  -------------------------------- */
+  useEffect(() => {
+    const fetchProfilesFromSupabase = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error || !data) return;
+
+        // On transforme le format DB vers ton format existant
+        const supabaseProfiles = data.map((p) => ({
+          id: p.id,
+          name: p.name,
+          age: p.age ?? null,
+          city: p.city,
+          sport: p.sport,
+          level: p.level,
+          availability: p.availability || "",
+          bio: p.bio || "",
+          isCustom: true,
+          createdAt: p.created_at
+        }));
+
+        // Fusion simple sans casser ton flux :
+        // on garde seed + local + supabase, sans doublons par id
+        setProfiles((prev) => {
+          const byId = new Map();
+          [...prev, ...supabaseProfiles].forEach((p) => {
+            if (!byId.has(p.id)) byId.set(p.id, p);
+          });
+          return Array.from(byId.values());
+        });
+      } catch {
+        // si supabase est down, on ne casse rien
+      }
+    };
+
+    fetchProfilesFromSupabase();
+  }, []);
+
+  /* -------------------------------
      Création de profil
+     - Ta logique: ajout immédiat en local + highlight
+     - Ajout: on tente aussi un insert Supabase en arrière-plan (sans casser)
   -------------------------------- */
   const handleCreateProfile = (data) => {
     const id = `user-${Date.now()}`;
@@ -69,9 +118,32 @@ export default function App() {
       createdAt: new Date().toISOString()
     };
 
+    // Ta logique actuelle (inchangée)
     setProfiles((prev) => [newProfile, ...prev]);
     setHighlightNewProfile(id);
     setTimeout(() => setHighlightNewProfile(null), 3000);
+
+    // Ajout optionnel Supabase (ne bloque pas l'UI, ne casse pas ton flux)
+    (async () => {
+      try {
+        const { error } = await supabase.from("profiles").insert({
+          name: newProfile.name,
+          age: newProfile.age ?? null,
+          city: newProfile.city,
+          sport: newProfile.sport,
+          level: newProfile.level,
+          availability: newProfile.availability || "",
+          bio: newProfile.bio || ""
+        });
+
+        if (error) {
+          // On ne casse pas ta logique actuelle, mais on log pour debug
+          console.error("Supabase insert error:", error);
+        }
+      } catch (e) {
+        console.error("Supabase insert exception:", e);
+      }
+    })();
   };
 
   /* -------------------------------
@@ -172,9 +244,7 @@ export default function App() {
         </div>
       )}
 
-      {isAuthModalOpen && (
-        <AuthModal onClose={() => setIsAuthModalOpen(false)} />
-      )}
+      {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} />}
 
       <Footer />
     </div>
