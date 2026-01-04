@@ -1,3 +1,4 @@
+// sportmeet-complet/src/components/SwipeCard.jsx
 import React from "react";
 
 function hashToHue(str = "") {
@@ -10,13 +11,23 @@ export function SwipeCard({ profile }) {
   const initial = profile.name?.[0]?.toUpperCase() ?? "M";
   const hue = hashToHue(`${profile.name}-${profile.city}-${profile.sport}`);
 
-  const bg = {
-    background: `
-      radial-gradient(900px 450px at 20% 20%, hsla(${hue}, 90%, 60%, .28), transparent 55%),
-      radial-gradient(900px 450px at 80% 30%, hsla(${(hue + 40) % 360}, 90%, 60%, .20), transparent 60%),
-      linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.25))
-    `
-  };
+  // ✅ Photo principale (upload Supabase)
+  const mainPhoto = Array.isArray(profile.photo_urls) ? profile.photo_urls[0] : null;
+
+  // ✅ Fond: photo si dispo, sinon ton gradient
+  const bg = mainPhoto
+    ? {
+        backgroundImage: `url(${mainPhoto})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center"
+      }
+    : {
+        background: `
+          radial-gradient(900px 450px at 20% 20%, hsla(${hue}, 90%, 60%, .28), transparent 55%),
+          radial-gradient(900px 450px at 80% 30%, hsla(${(hue + 40) % 360}, 90%, 60%, .20), transparent 60%),
+          linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.25))
+        `
+      };
 
   return (
     <article className="card swipeCard">
