@@ -66,8 +66,7 @@ export default function App() {
     if (error) {
       console.error("Supabase fetch profiles error:", error);
       setProfilesError("Impossible de charger les profils pour le moment.");
-      // Fallback : seedProfiles (optionnel)
-      setProfiles(seedProfiles);
+      setProfiles(seedProfiles); // fallback optionnel
       setLoadingProfiles(false);
       return;
     }
@@ -86,7 +85,6 @@ export default function App() {
       createdAt: p.created_at
     }));
 
-    // Si base vide : fallback sur seed (optionnel)
     setProfiles(mapped.length ? mapped : seedProfiles);
     setLoadingProfiles(false);
   };
@@ -132,12 +130,12 @@ export default function App() {
   const handleCreateProfile = async (data) => {
     const photos = Array.isArray(data.photos) ? data.photos : [];
 
-    // Sécurité (normalement déjà bloqué dans ProfileForm)
     if (photos.length < 1) throw new Error("PHOTO_REQUIRED");
     if (photos.length > 5) throw new Error("MAX_5_PHOTOS");
 
-    // Optimistic UI (on n’enregistre pas les File dans le state)
     const optimisticId = `user-${Date.now()}`;
+
+    // Optimistic UI (pas de File dans le state)
     const optimisticProfile = {
       id: optimisticId,
       name: data.name,
@@ -156,7 +154,7 @@ export default function App() {
     setHighlightNewProfile(optimisticId);
     setTimeout(() => setHighlightNewProfile(null), 3000);
 
-    // 1) Insert profil (on récupère l'id réel)
+    // 1) Insert profil (récupérer l'id réel)
     const { data: inserted, error: insertError } = await supabase
       .from("profiles")
       .insert({
@@ -194,13 +192,13 @@ export default function App() {
         throw updateError;
       }
     } catch (err) {
-      // Si upload/update échoue : on supprime le profil créé pour rester cohérent
+      // Si upload/update échoue : on supprime le profil pour cohérence
       await supabase.from("profiles").delete().eq("id", profileId);
       setProfiles((prev) => prev.filter((p) => p.id !== optimisticId));
       throw err;
     }
 
-    // 4) Recharge depuis Supabase pour l’ID réel + URLs
+    // 4) Recharge depuis Supabase
     await fetchProfiles();
   };
 
@@ -295,16 +293,22 @@ export default function App() {
       </main>
 
       {/* ---------- MODALS ---------- */}
+
+      {/* ✅ MODAL PROFIL MOBILE FRIENDLY */}
       {isProfileModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-card modal-card--sheet"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h3>Mon profil sportif</h3>
               <button className="btn-ghost" onClick={() => setIsProfileModalOpen(false)}>
                 Fermer
               </button>
             </div>
-            <div className="modal-body">
+
+            <div className="modal-body modal-body--scroll">
               <ProfileForm onCreateProfile={handleCreateProfile} />
             </div>
           </div>
