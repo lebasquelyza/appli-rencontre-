@@ -1,3 +1,4 @@
+// sportmeet-complet/src/components/ProfileForm.jsx
 import React, { useEffect, useRef, useState } from "react";
 
 const defaultForm = {
@@ -52,17 +53,16 @@ export function ProfileForm({ onCreateProfile }) {
   const cityInputRef = useRef(null);
   const autocompleteRef = useRef(null);
 
-  // Preview URLs
+  // Preview URLs (avec cleanup propre)
   useEffect(() => {
-    // cleanup old previews
-    photoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    // crée les previews
     const next = photos.map((f) => URL.createObjectURL(f));
     setPhotoPreviews(next);
 
+    // cleanup des URLs créées pour éviter les fuites mémoire
     return () => {
       next.forEach((url) => URL.revokeObjectURL(url));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos]);
 
   const handleChange = (e) => {
@@ -159,7 +159,7 @@ export function ProfileForm({ onCreateProfile }) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const imagesOnly = files.filter((f) => f.type.startsWith("image/"));
+    const imagesOnly = files.filter((f) => (f.type || "").startsWith("image/"));
     const next = [...photos, ...imagesOnly].slice(0, 5);
 
     setPhotos(next);
@@ -187,6 +187,12 @@ export function ProfileForm({ onCreateProfile }) {
       return;
     }
 
+    if (isOtherSport && !finalSport) {
+      setIsError(true);
+      setMessage("Merci de préciser ton autre sport.");
+      return;
+    }
+
     if (photos.length < 1) {
       setIsError(true);
       setMessage("Merci d’ajouter au moins 1 photo.");
@@ -208,7 +214,7 @@ export function ProfileForm({ onCreateProfile }) {
         ...form,
         sport: finalSport,
         age: form.age ? Number(form.age) : null,
-        photos // 👈 on envoie les fichiers à App.jsx
+        photos // 👈 File[]
       });
 
       setForm(defaultForm);
@@ -217,8 +223,28 @@ export function ProfileForm({ onCreateProfile }) {
       setMessage("Profil créé ! Tu apparais maintenant dans MatchFit.");
     } catch (err) {
       console.error(err);
+
+      // Erreurs “propres” (mêmes codes que App.jsx)
+      if (err?.message === "PHOTO_REQUIRED") {
+        setIsError(true);
+        setMessage("Merci d’ajouter au moins 1 photo.");
+        return;
+      }
+      if (err?.message === "MAX_5_PHOTOS") {
+        setIsError(true);
+        setMessage("Maximum 5 photos.");
+        return;
+      }
+
+      // Supabase / réseau : afficher un vrai message
+      const supaMsg =
+        err?.message ||
+        err?.error_description ||
+        err?.details ||
+        (typeof err === "string" ? err : null);
+
       setIsError(true);
-      setMessage("Erreur : impossible d’enregistrer le profil pour le moment.");
+      setMessage(`Erreur : ${supaMsg || "impossible d’enregistrer le profil pour le moment."}`);
     } finally {
       setLoading(false);
     }
@@ -227,9 +253,7 @@ export function ProfileForm({ onCreateProfile }) {
   return (
     <>
       <h2 className="modalTitle">Créer ton profil</h2>
-      <p className="card-subtitle">
-        Ajoute au moins 1 photo (max 5) pour apparaître dans les profils.
-      </p>
+      <p className="card-subtitle">Ajoute au moins 1 photo (max 5) pour apparaître dans les profils.</p>
 
       <form className="form" onSubmit={handleSubmit}>
         <div className="form-group">
@@ -294,7 +318,7 @@ export function ProfileForm({ onCreateProfile }) {
               type="button"
               className="btn-ghost btn-sm"
               onClick={() => fileInputRef.current?.click()}
-              disabled={photos.length >= 5}
+              disabled={photos.length >= 5 || loading}
             >
               Ajouter une photo ({photos.length}/5)
             </button>
@@ -310,9 +334,7 @@ export function ProfileForm({ onCreateProfile }) {
           </div>
 
           {photos.length === 0 && (
-            <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>
-              1 photo minimum.
-            </small>
+            <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>1 photo minimum.</small>
           )}
 
           {photoPreviews.length > 0 && (
@@ -322,25 +344,16 @@ export function ProfileForm({ onCreateProfile }) {
                   <img
                     src={src}
                     alt={`photo-${idx + 1}`}
-                    style={{
-                      width: 84,
-                      height: 84,
-                      objectFit: "cover",
-                      borderRadius: 10
-                    }}
+                    style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 10 }}
                   />
                   <button
                     type="button"
                     onClick={() => removePhotoAt(idx)}
                     className="btn-ghost btn-sm"
-                    style={{
-                      position: "absolute",
-                      top: -8,
-                      right: -8,
-                      borderRadius: 999
-                    }}
+                    style={{ position: "absolute", top: -8, right: -8, borderRadius: 999 }}
                     aria-label="Supprimer"
                     title="Supprimer"
+                    disabled={loading}
                   >
                     ✕
                   </button>
@@ -422,9 +435,7 @@ export function ProfileForm({ onCreateProfile }) {
           {loading ? "Enregistrement..." : "Enregistrer mon profil"}
         </button>
 
-        <p className={`form-message ${message ? (isError ? "error" : "success") : ""}`}>
-          {message}
-        </p>
+        <p className={`form-message ${message ? (isError ? "error" : "success") : ""}`}>{message}</p>
       </form>
     </>
   );
