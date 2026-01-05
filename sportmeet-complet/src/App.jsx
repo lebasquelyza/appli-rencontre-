@@ -37,11 +37,7 @@ function randomId() {
 
 export default function App() {
   const [profiles, setProfiles] = useState([]);
-  const [filters, setFilters] = useState({
-    sport: "",
-    level: "",
-    city: ""
-  });
+  const [filters, setFilters] = useState({ sport: "", level: "", city: "" });
 
   const [matches, setMatches] = useState([]);
   const [highlightNewProfile, setHighlightNewProfile] = useState(null);
@@ -51,6 +47,32 @@ export default function App() {
 
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [profilesError, setProfilesError] = useState(null);
+
+  const [user, setUser] = useState(null);
+
+  /* -------------------------------
+     Auth session (pour user_id dans profiles)
+  -------------------------------- */
+  useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setUser(data?.session?.user ?? null);
+    };
+
+    init();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   /* -------------------------------
      Supabase = source principale
@@ -74,6 +96,7 @@ export default function App() {
 
     const mapped = (data || []).map((p) => ({
       id: p.id,
+      user_id: p.user_id ?? null,
       name: p.name,
       age: p.age ?? null,
       city: p.city,
@@ -81,7 +104,6 @@ export default function App() {
       level: p.level,
       availability: p.availability || "",
       bio: p.bio || "",
-      // ✅ text[] en DB => array en JS normalement (on garde robuste quand même)
       photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
       isCustom: true,
       createdAt: p.created_at
@@ -109,10 +131,7 @@ export default function App() {
 
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)
-        .upload(path, file, {
-          cacheControl: "3600",
-          upsert: false
-        });
+        .upload(path, file, { cacheControl: "3600", upsert: false });
 
       if (uploadError) {
         console.error("Supabase upload error:", uploadError);
@@ -128,18 +147,28 @@ export default function App() {
 
   /* -------------------------------
      Création de profil => INSERT Supabase + photos
+     ✅ nécessite un user connecté (profiles.user_id)
   -------------------------------- */
   const handleCreateProfile = async (data) => {
     const photos = Array.isArray(data.photos) ? data.photos : [];
-
-    // validations (utilisées aussi côté ProfileForm)
     if (photos.length < 1) throw new Error("PHOTO_REQUIRED");
     if (photos.length > 5) throw new Error("MAX_5_PHOTOS");
+
+    // ✅ Auth required
+    const { data: authData, error: authErr } = await supabase.auth.getUser();
+    const currentUser = authData?.user ?? null;
+
+    if (authErr) console.error(authErr);
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      throw new Error("AUTH_REQUIRED");
+    }
 
     const optimisticId = `user-${Date.now()}`;
 
     const optimisticProfile = {
       id: optimisticId,
+      user_id: currentUser.id,
       name: data.name,
       age: data.age ?? null,
       city: data.city,
@@ -147,7 +176,7 @@ export default function App() {
       level: data.level,
       availability: data.availability || "",
       bio: data.bio || "",
-      photo_urls: [], // on mettra les urls après
+      photo_urls: [],
       isCustom: true,
       createdAt: new Date().toISOString()
     };
@@ -160,6 +189,7 @@ export default function App() {
     const { data: inserted, error: insertError } = await supabase
       .from("profiles")
       .insert({
+        user_id: currentUser.id, // ✅ LIEN AU COMPTE
         name: data.name,
         age: data.age ?? null,
         city: data.city,
@@ -182,15 +212,11 @@ export default function App() {
     try {
       // 2) Upload photos
       const urls = await uploadProfilePhotos(profileId, photos);
-
-      // ✅ Debug utile si un jour ça recasse
       console.log("Uploaded photo URLs:", urls);
 
-      if (!urls.length) {
-        throw new Error("UPLOAD_RETURNED_EMPTY_URLS");
-      }
+      if (!urls.length) throw new Error("UPLOAD_RETURNED_EMPTY_URLS");
 
-      // 3) Update profil avec photo_urls (et on lit la valeur stockée)
+      // 3) Update profil avec photo_urls (et lecture du résultat)
       const { data: updated, error: updateError } = await supabase
         .from("profiles")
         .update({ photo_urls: urls })
@@ -205,18 +231,17 @@ export default function App() {
 
       console.log("DB photo_urls after update:", updated?.photo_urls);
 
-      // ✅ Optionnel : mettre à jour l'optimistic profile tout de suite (sans attendre fetchProfiles)
+      // update optimistic profile
       setProfiles((prev) =>
         prev.map((p) => (p.id === optimisticId ? { ...p, photo_urls: urls } : p))
       );
     } catch (err) {
-      // rollback (on supprime le profil créé si photos KO)
+      // rollback
       await supabase.from("profiles").delete().eq("id", profileId);
       setProfiles((prev) => prev.filter((p) => p.id !== optimisticId));
       throw err;
     }
 
-    // 4) Refresh liste (source de vérité)
     await fetchProfiles();
   };
 
@@ -253,7 +278,8 @@ export default function App() {
   }, [profiles, filters]);
 
   /* -------------------------------
-     Match (like = match pour MVP)
+     Match (like = match pour MVP local)
+     (on remplacera par la logique Supabase "likes/matches" juste après)
   -------------------------------- */
   const handleMatch = (profile) => {
     setMatches((prev) => {
@@ -267,6 +293,7 @@ export default function App() {
       <Header
         onOpenProfile={() => setIsProfileModalOpen(true)}
         onOpenAuth={() => setIsAuthModalOpen(true)}
+        user={user}
       />
 
       <main className="page">
@@ -277,6 +304,12 @@ export default function App() {
               onChange={handleFiltersChange}
               onReset={handleResetFilters}
             />
+
+            {!user && (
+              <p className="form-message" style={{ marginTop: 8 }}>
+                Connecte-toi pour créer ton profil et matcher.
+              </p>
+            )}
 
             {profilesError && (
               <p className="form-message error" style={{ marginTop: 8 }}>
@@ -292,7 +325,7 @@ export default function App() {
 
             {matches.length > 0 && (
               <div className="liked-list">
-                <h3>Matchs</h3>
+                <h3>Favoris</h3>
                 <div className="liked-chips">
                   {matches.map((p) => (
                     <span key={p.id} className="chip">
@@ -307,22 +340,12 @@ export default function App() {
       </main>
 
       {/* ---------- MODALS ---------- */}
-
       {isProfileModalOpen && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setIsProfileModalOpen(false)}
-        >
-          <div
-            className="modal-card modal-card--sheet"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
+          <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Mon profil sportif</h3>
-              <button
-                className="btn-ghost"
-                onClick={() => setIsProfileModalOpen(false)}
-              >
+              <button className="btn-ghost" onClick={() => setIsProfileModalOpen(false)}>
                 Fermer
               </button>
             </div>
