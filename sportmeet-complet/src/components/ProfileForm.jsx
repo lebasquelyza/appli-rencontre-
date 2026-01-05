@@ -1,3 +1,4 @@
+// sportmeet-complet/src/components/ProfileForm.jsx
 import React, { useEffect, useRef, useState } from "react";
 
 const emptyForm = {
@@ -51,6 +52,9 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
   const [photoPreviews, setPhotoPreviews] = useState([]); // string[]
   const fileInputRef = useRef(null);
 
+  // ✅ Photos existantes (urls) conservées en édition
+  const [keptPhotoUrls, setKeptPhotoUrls] = useState([]); // string[]
+
   const cityInputRef = useRef(null);
   const autocompleteRef = useRef(null);
 
@@ -58,6 +62,8 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
   useEffect(() => {
     if (!existingProfile) {
       setForm(emptyForm);
+      setPhotos([]);
+      setKeptPhotoUrls([]);
       return;
     }
 
@@ -66,13 +72,16 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
       age: existingProfile.age ?? "",
       city: existingProfile.city || "",
       sport: STANDARDIZE_SPORT(existingProfile.sport || ""),
-      otherSport: isStandardSport(existingProfile.sport) ? "" : (existingProfile.sport || ""),
+      otherSport: isStandardSport(existingProfile.sport) ? "" : existingProfile.sport || "",
       level: existingProfile.level || "",
       availability: existingProfile.availability || "",
       bio: existingProfile.bio || ""
     });
-    // reset photos locales
+
+    // reset photos locales + init photos existantes
     setPhotos([]);
+    setKeptPhotoUrls(Array.isArray(existingProfile?.photo_urls) ? existingProfile.photo_urls : []);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingProfile?.id]);
 
@@ -183,13 +192,25 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
     if (!files.length) return;
 
     const imagesOnly = files.filter((f) => f.type.startsWith("image/"));
-    const next = [...photos, ...imagesOnly].slice(0, 5);
-    setPhotos(next);
+
+    // ✅ max 5 au total (photos existantes conservées + nouvelles)
+    const remainingSlots = 5 - (keptPhotoUrls.length + photos.length);
+    if (remainingSlots <= 0) {
+      e.target.value = "";
+      return;
+    }
+
+    const toAdd = imagesOnly.slice(0, remainingSlots);
+    setPhotos((prev) => [...prev, ...toAdd]);
 
     e.target.value = "";
   };
 
   const removePhotoAt = (idx) => setPhotos((prev) => prev.filter((_, i) => i !== idx));
+
+  // ✅ Retirer une photo existante (sans obliger à tout remplacer)
+  const removeExistingPhotoAt = (idx) =>
+    setKeptPhotoUrls((prev) => prev.filter((_, i) => i !== idx));
 
   const isOtherSport = form.sport === "Autre";
 
@@ -204,7 +225,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
       return;
     }
 
-    // ✅ en édition : photos facultatives (si tu veux changer -> tu en ajoutes)
+    // ✅ en édition : photos facultatives (tu peux garder, supprimer, ou ajouter)
     // ✅ en création : App.jsx exigera 1 photo si profil n'existe pas
 
     try {
@@ -216,11 +237,14 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
         ...form,
         sport: finalSport,
         age: form.age ? Number(form.age) : null,
-        photos // peut être vide en édition
+        photos, // nouveaux fichiers (peut être vide)
+        keptPhotoUrls // urls existantes à conserver (peut être vide)
       });
 
       setIsError(false);
       setMessage(isEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
+
+      // ✅ on vide seulement les nouvelles photos sélectionnées
       setPhotos([]);
     } catch (err) {
       console.error(err);
@@ -243,6 +267,8 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
       setLoading(false);
     }
   };
+
+  const totalPhotosCount = (isEdit ? keptPhotoUrls.length : 0) + photos.length;
 
   return (
     <>
@@ -317,20 +343,41 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
         <div className="form-group">
           <label>Photos {isEdit ? "(optionnel)" : "*"}</label>
 
-          {isEdit && Array.isArray(existingProfile?.photo_urls) && existingProfile.photo_urls.length > 0 && (
-            <small style={{ display: "block", opacity: 0.75, marginBottom: 8 }}>
-              Photos actuelles : {existingProfile.photo_urls.length} (ajoute des nouvelles pour remplacer)
-            </small>
+          {/* ✅ Affichage des photos existantes en édition (conservées par défaut) */}
+          {isEdit && keptPhotoUrls.length > 0 && (
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              {keptPhotoUrls.map((src, idx) => (
+                <div key={`${src}-${idx}`} style={{ position: "relative" }}>
+                  <img
+                    src={src}
+                    alt={`photo-existante-${idx + 1}`}
+                    style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 10 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeExistingPhotoAt(idx)}
+                    className="btn-ghost btn-sm"
+                    style={{ position: "absolute", top: -8, right: -8, borderRadius: 999 }}
+                    aria-label="Supprimer"
+                    title="Supprimer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
             <button
               type="button"
               className="btn-ghost btn-sm"
               onClick={() => fileInputRef.current?.click()}
-              disabled={photos.length >= 5 || loadingExisting}
+              disabled={totalPhotosCount >= 5 || loadingExisting}
             >
-              {isEdit ? `Remplacer les photos (${photos.length}/5)` : `Ajouter une photo (${photos.length}/5)`}
+              {isEdit
+                ? `Ajouter des photos (${totalPhotosCount}/5)`
+                : `Ajouter une photo (${photos.length}/5)`}
             </button>
 
             <input
@@ -344,9 +391,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
           </div>
 
           {!isEdit && photos.length === 0 && (
-            <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>
-              1 photo minimum.
-            </small>
+            <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>1 photo minimum.</small>
           )}
 
           {photoPreviews.length > 0 && (
@@ -461,9 +506,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
           {loading ? "Enregistrement..." : isEdit ? "Mettre à jour mon profil" : "Enregistrer mon profil"}
         </button>
 
-        <p className={`form-message ${message ? (isError ? "error" : "success") : ""}`}>
-          {message}
-        </p>
+        <p className={`form-message ${message ? (isError ? "error" : "success") : ""}`}>{message}</p>
       </form>
     </>
   );
@@ -471,7 +514,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile })
 
 /* Helpers */
 function isStandardSport(sport) {
-  return ["Running","Fitness","Football","Basket","Tennis","Cyclisme","Randonnée","Natation","Musculation"].includes(
+  return ["Running", "Fitness", "Football", "Basket", "Tennis", "Cyclisme", "Randonnée", "Natation", "Musculation"].includes(
     (sport || "").trim()
   );
 }
