@@ -1,8 +1,9 @@
+// sportmeet-complet/src/components/AuthModal.jsx
 import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 export function AuthModal({ onClose }) {
-  const [mode, setMode] = useState("signin"); // signin | signup
+  const [mode, setMode] = useState("signin"); // "signin" | "signup"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -22,11 +23,14 @@ export function AuthModal({ onClose }) {
     setIsError(false);
 
     try {
-      if (!email || !password) {
+      const cleanEmail = (email || "").trim().toLowerCase();
+
+      if (!cleanEmail || !password) {
         setIsError(true);
         setMsg("Email et mot de passe requis.");
         return;
       }
+
       if (password.length < 6) {
         setIsError(true);
         setMsg("Mot de passe : 6 caractères minimum.");
@@ -34,14 +38,22 @@ export function AuthModal({ onClose }) {
       }
 
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
           password
         });
         if (error) throw error;
 
-        setIsError(false);
-        setMsg("Compte créé ✅ Tu peux maintenant te connecter.");
+        // ✅ Si la confirmation email est activée, Supabase renvoie souvent user mais pas de session
+        if (data?.user && !data?.session) {
+          setIsError(false);
+          setMsg("Compte créé ✅ Vérifie ton email pour confirmer, puis connecte-toi.");
+        } else {
+          setIsError(false);
+          setMsg("Compte créé ✅ Tu es connecté.");
+          setTimeout(() => onClose?.(), 450);
+        }
+
         setMode("signin");
         setPassword("");
         return;
@@ -49,19 +61,26 @@ export function AuthModal({ onClose }) {
 
       // signin
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: cleanEmail,
         password
       });
       if (error) throw error;
 
       setIsError(false);
       setMsg("Connecté ✅");
-      // petite fermeture auto
       setTimeout(() => onClose?.(), 350);
     } catch (err) {
-      console.error(err);
+      console.error("AUTH ERROR:", err);
+
+      // ✅ message Supabase le plus explicite possible
+      const full =
+        err?.message ||
+        err?.error_description ||
+        err?.details ||
+        (typeof err === "string" ? err : null);
+
       setIsError(true);
-      setMsg(err?.message || "Erreur d’authentification.");
+      setMsg(full || "Erreur d’authentification.");
     } finally {
       setLoading(false);
     }
@@ -77,9 +96,15 @@ export function AuthModal({ onClose }) {
       setMsg("Déconnecté ✅");
       setTimeout(() => onClose?.(), 350);
     } catch (err) {
-      console.error(err);
+      console.error("SIGNOUT ERROR:", err);
+      const full =
+        err?.message ||
+        err?.error_description ||
+        err?.details ||
+        (typeof err === "string" ? err : null);
+
       setIsError(true);
-      setMsg(err?.message || "Erreur de déconnexion.");
+      setMsg(full || "Erreur de déconnexion.");
     } finally {
       setLoading(false);
     }
@@ -89,7 +114,7 @@ export function AuthModal({ onClose }) {
     <div className="modal-backdrop" onClick={() => onClose?.()}>
       <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>{mode === "signup" ? "Créer un compte" : "Se connecter"}</h3>
+          <h3>{mode === "signup" ? "Créer un compte" : "Connexion"}</h3>
           <button className="btn-ghost" onClick={() => onClose?.()}>
             Fermer
           </button>
@@ -122,11 +147,7 @@ export function AuthModal({ onClose }) {
             </div>
 
             <button className="btn-primary btn-block" type="submit" disabled={loading}>
-              {loading
-                ? "..."
-                : mode === "signup"
-                ? "Créer mon compte"
-                : "Se connecter"}
+              {loading ? "..." : mode === "signup" ? "Créer mon compte" : "Se connecter"}
             </button>
 
             <button
@@ -136,9 +157,7 @@ export function AuthModal({ onClose }) {
               disabled={loading}
               style={{ marginTop: 8 }}
             >
-              {mode === "signup"
-                ? "J’ai déjà un compte"
-                : "Créer un compte"}
+              {mode === "signup" ? "J’ai déjà un compte" : "Créer un compte"}
             </button>
 
             <button
