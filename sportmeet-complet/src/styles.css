@@ -336,7 +336,7 @@ input:focus, select:focus, textarea:focus{
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
 }
 
-/* ✅ POUR LES PHOTOS : assure que le background cover soit propre */
+/* ✅ base pour media (photos ou fallback) */
 .swipeMedia{
   position: relative;
   background-repeat: no-repeat;
@@ -344,20 +344,63 @@ input:focus, select:focus, textarea:focus{
   background-position: center;
 }
 
-/* ✅ voile sombre pour lisibilité du texte sur photo */
-.swipeMedia::before{
+/* ✅ Carousel photos */
+.photo-track{
+  display: flex;
+  height: 100%;
+  width: 100%;
+  transition: transform .35s ease;
+}
+.photo-slide{
+  min-width: 100%;
+  height: 100%;
+}
+.photo-slide img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ✅ Dots */
+.photo-dots{
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+.dot{
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.45);
+}
+.dot.active{
+  background: #fff;
+}
+
+/* ✅ voile sombre UNIQUEMENT quand il y a une photo
+   (corrige l'encart sur profils sans photo) */
+.swipeMedia.has-photo::before{
   content:"";
   position:absolute;
   inset:0;
-  background: linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.55));
+  background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.6));
   pointer-events:none;
+  z-index: 1;
+}
+.swipeMedia.no-photo::before{
+  content: none;
 }
 
-/* remet l’overlay & avatar au-dessus du voile */
+/* Overlay + avatar au-dessus */
 .cardOverlay,
 .swipeAvatar{
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .cardOverlay{
@@ -614,64 +657,4 @@ input:focus, select:focus, textarea:focus{
   .form .btn-primary.btn-block{
     position: static;
   }
-  /* ---------- Swipe photos carousel ---------- */
-
-.photo-track{
-  display: flex;
-  height: 100%;
-  width: 100%;
-  transition: transform .35s ease;
-}
-
-.photo-slide{
-  min-width: 100%;
-  height: 100%;
-}
-
-.photo-slide img{
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* dots */
-.photo-dots{
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 6px;
-  z-index: 2;
-}
-
-.dot{
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.45);
-}
-
-.dot.active{
-  background: white;
-}
-
-/* overlay reste au-dessus */
-.cardOverlay,
-.swipeAvatar{
-  position: relative;
-  z-index: 2;
-}
-
-/* voile sombre sur photos */
-.swipeMedia::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.6));
-  pointer-events:none;
-  z-index: 1;
-}
-
 }
