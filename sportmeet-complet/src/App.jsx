@@ -1,3 +1,4 @@
+// sportmeet-complet/src/App.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
@@ -80,6 +81,7 @@ export default function App() {
       level: p.level,
       availability: p.availability || "",
       bio: p.bio || "",
+      // ✅ text[] en DB => array en JS normalement (on garde robuste quand même)
       photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
       isCustom: true,
       createdAt: p.created_at
@@ -130,6 +132,7 @@ export default function App() {
   const handleCreateProfile = async (data) => {
     const photos = Array.isArray(data.photos) ? data.photos : [];
 
+    // validations (utilisées aussi côté ProfileForm)
     if (photos.length < 1) throw new Error("PHOTO_REQUIRED");
     if (photos.length > 5) throw new Error("MAX_5_PHOTOS");
 
@@ -144,7 +147,7 @@ export default function App() {
       level: data.level,
       availability: data.availability || "",
       bio: data.bio || "",
-      photo_urls: [],
+      photo_urls: [], // on mettra les urls après
       isCustom: true,
       createdAt: new Date().toISOString()
     };
@@ -180,22 +183,40 @@ export default function App() {
       // 2) Upload photos
       const urls = await uploadProfilePhotos(profileId, photos);
 
-      // 3) Update profil avec photo_urls
-      const { error: updateError } = await supabase
+      // ✅ Debug utile si un jour ça recasse
+      console.log("Uploaded photo URLs:", urls);
+
+      if (!urls.length) {
+        throw new Error("UPLOAD_RETURNED_EMPTY_URLS");
+      }
+
+      // 3) Update profil avec photo_urls (et on lit la valeur stockée)
+      const { data: updated, error: updateError } = await supabase
         .from("profiles")
         .update({ photo_urls: urls })
-        .eq("id", profileId);
+        .eq("id", profileId)
+        .select("photo_urls")
+        .single();
 
       if (updateError) {
         console.error("Supabase update photo_urls error:", updateError);
         throw updateError;
       }
+
+      console.log("DB photo_urls after update:", updated?.photo_urls);
+
+      // ✅ Optionnel : mettre à jour l'optimistic profile tout de suite (sans attendre fetchProfiles)
+      setProfiles((prev) =>
+        prev.map((p) => (p.id === optimisticId ? { ...p, photo_urls: urls } : p))
+      );
     } catch (err) {
+      // rollback (on supprime le profil créé si photos KO)
       await supabase.from("profiles").delete().eq("id", profileId);
       setProfiles((prev) => prev.filter((p) => p.id !== optimisticId));
       throw err;
     }
 
+    // 4) Refresh liste (source de vérité)
     await fetchProfiles();
   };
 
@@ -266,11 +287,7 @@ export default function App() {
             {loadingProfiles ? (
               <p className="form-message">Chargement des profils…</p>
             ) : (
-              <SwipeDeck
-                profiles={filteredProfiles}
-                onLikeProfile={handleMatch}
-                highlightId={highlightNewProfile}
-              />
+              <SwipeDeck profiles={filteredProfiles} onLikeProfile={handleMatch} />
             )}
 
             {matches.length > 0 && (
@@ -291,13 +308,21 @@ export default function App() {
 
       {/* ---------- MODALS ---------- */}
 
-      {/* ✅ MODAL PROFIL : plein écran mobile + scroll interne */}
       {isProfileModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
-          <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-backdrop"
+          onClick={() => setIsProfileModalOpen(false)}
+        >
+          <div
+            className="modal-card modal-card--sheet"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h3>Mon profil sportif</h3>
-              <button className="btn-ghost" onClick={() => setIsProfileModalOpen(false)}>
+              <button
+                className="btn-ghost"
+                onClick={() => setIsProfileModalOpen(false)}
+              >
                 Fermer
               </button>
             </div>
