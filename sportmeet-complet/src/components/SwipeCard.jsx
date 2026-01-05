@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 function hashToHue(str = "") {
   let h = 0;
@@ -12,6 +12,11 @@ export function SwipeCard({ profile }) {
 
   const [index, setIndex] = useState(0);
   const startX = useRef(null);
+
+  // ✅ reset photo index quand on change de profil
+  useEffect(() => {
+    setIndex(0);
+  }, [profile?.id]);
 
   const initial = profile.name?.[0]?.toUpperCase() ?? "M";
   const hue = hashToHue(`${profile.name}-${profile.city}-${profile.sport}`);
@@ -33,12 +38,8 @@ export function SwipeCard({ profile }) {
     const dx = e.changedTouches[0].clientX - startX.current;
 
     if (Math.abs(dx) > 50) {
-      if (dx < 0 && index < photos.length - 1) {
-        setIndex((i) => i + 1);
-      }
-      if (dx > 0 && index > 0) {
-        setIndex((i) => i - 1);
-      }
+      if (dx < 0 && index < photos.length - 1) setIndex((i) => i + 1);
+      if (dx > 0 && index > 0) setIndex((i) => i - 1);
     }
     startX.current = null;
   };
@@ -46,19 +47,20 @@ export function SwipeCard({ profile }) {
   return (
     <article className="card swipeCard">
       <div
-        className="cardMedia swipeMedia"
+        className={`cardMedia swipeMedia ${hasPhotos ? "has-photo" : "no-photo"}`}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         style={!hasPhotos ? bgFallback : undefined}
       >
+        {/* Photos (si dispo) */}
         {hasPhotos && (
           <div
             className="photo-track"
             style={{ transform: `translateX(-${index * 100}%)` }}
           >
             {photos.map((src, i) => (
-              <div key={src} className="photo-slide">
-                <img src={src} alt={`photo-${i + 1}`} />
+              <div key={src || i} className="photo-slide">
+                <img src={src} alt={`photo-${i + 1}`} draggable="false" />
               </div>
             ))}
           </div>
@@ -66,13 +68,11 @@ export function SwipeCard({ profile }) {
 
         <div className="swipeAvatar">{initial}</div>
 
+        {/* Dots (si plusieurs photos) */}
         {photos.length > 1 && (
-          <div className="photo-dots">
+          <div className="photo-dots" aria-label="Photos du profil">
             {photos.map((_, i) => (
-              <span
-                key={i}
-                className={`dot ${i === index ? "active" : ""}`}
-              />
+              <span key={i} className={`dot ${i === index ? "active" : ""}`} />
             ))}
           </div>
         )}
@@ -89,22 +89,20 @@ export function SwipeCard({ profile }) {
           <div className="chips">
             <span className="chip chip-accent">{profile.sport}</span>
             <span className="chip">{profile.level}</span>
-            {profile.availability && (
+            {profile.availability ? (
               <span className="chip chip-soft">📅 {profile.availability}</span>
-            )}
+            ) : null}
           </div>
 
-          {profile.bio && (
+          {profile.bio ? (
             <div className="swipeBio">
-              {profile.bio.length > 220
-                ? `${profile.bio.slice(0, 220)}…`
-                : profile.bio}
+              {profile.bio.length > 220 ? `${profile.bio.slice(0, 220)}…` : profile.bio}
             </div>
-          )}
+          ) : null}
 
           <div className="swipeFooter">
             <span className="profile-meta-tag">
-              {profile.isCustom ? "Profil réel" : "Démo"}
+              {profile.isCustom ? "Profil réel (créé ici)" : "Profil de démonstration"}
             </span>
           </div>
         </div>
