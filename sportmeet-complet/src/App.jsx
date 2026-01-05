@@ -1,3 +1,4 @@
+// sportmeet-complet/src/App.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
@@ -204,10 +205,12 @@ export default function App() {
   /* -------------------------------
      SAVE profil : INSERT si pas existant, UPDATE sinon
      ✅ lié à user_id
-     ✅ photos optionnelles en édition : si pas de nouvelles photos -> on garde l’existant
+     ✅ photos en édition : garder / supprimer / ajouter (sans obligation de remplacer)
   -------------------------------- */
   const handleSaveProfile = async (data) => {
     const photos = Array.isArray(data.photos) ? data.photos : [];
+    const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
+
     const hasNewPhotos = photos.length > 0;
 
     // Auth required
@@ -225,11 +228,14 @@ export default function App() {
     }
 
     // ⚠️ si création (pas de profil existant), on exige au moins 1 photo
+    // (pas de keptPhotoUrls possible en création)
     if (!myProfile && !hasNewPhotos) {
       throw new Error("PHOTO_REQUIRED");
     }
 
-    if (hasNewPhotos && photos.length > 5) throw new Error("MAX_5_PHOTOS");
+    // ✅ max 5 au total (kept + new)
+    const totalPhotosCount = (myProfile ? keptPhotoUrls.length : 0) + photos.length;
+    if (totalPhotosCount > 5) throw new Error("MAX_5_PHOTOS");
 
     // 1) INSERT ou UPDATE du profil (sans photo_urls pour le moment)
     let profileId = myProfile?.id ?? null;
@@ -278,13 +284,36 @@ export default function App() {
       }
     }
 
-    // 2) Photos : seulement si l’utilisateur a sélectionné des nouvelles
-    if (hasNewPhotos) {
-      const urls = await uploadProfilePhotos(profileId, photos);
+    // 2) Photos :
+    // - en création : on met juste les nouvelles
+    // - en édition : on conserve keptPhotoUrls + on ajoute les nouvelles uploadées
+    if (!myProfile) {
+      // création : obligé d'avoir >= 1 nouvelle photo (déjà validé)
+      const uploaded = await uploadProfilePhotos(profileId, photos);
 
       const { error: updatePhotosErr } = await supabase
         .from("profiles")
-        .update({ photo_urls: urls })
+        .update({ photo_urls: uploaded })
+        .eq("id", profileId);
+
+      if (updatePhotosErr) {
+        console.error("update photo_urls error:", updatePhotosErr);
+        throw updatePhotosErr;
+      }
+    } else {
+      // édition : garder / supprimer / ajouter
+      let nextUrls = keptPhotoUrls;
+
+      if (hasNewPhotos) {
+        const uploaded = await uploadProfilePhotos(profileId, photos);
+        nextUrls = [...keptPhotoUrls, ...uploaded];
+      }
+
+      // ✅ on update photo_urls même si aucune nouvelle photo :
+      // ça permet d'enregistrer les suppressions (keptPhotoUrls plus court)
+      const { error: updatePhotosErr } = await supabase
+        .from("profiles")
+        .update({ photo_urls: nextUrls })
         .eq("id", profileId);
 
       if (updatePhotosErr) {
