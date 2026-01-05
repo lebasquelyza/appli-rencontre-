@@ -28,7 +28,8 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
     <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
-          <SwipeCard profile={currentProfile} />
+          {/* ✅ IMPORTANT: key = reset complet entre profils */}
+          <SwipeCard key={currentProfile.id} profile={currentProfile} />
 
           <div className="actions">
             <button
@@ -77,4 +78,3 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
     </div>
   );
 }
-
