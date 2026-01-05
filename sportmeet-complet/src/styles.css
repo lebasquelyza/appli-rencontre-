@@ -614,4 +614,64 @@ input:focus, select:focus, textarea:focus{
   .form .btn-primary.btn-block{
     position: static;
   }
+  /* ---------- Swipe photos carousel ---------- */
+
+.photo-track{
+  display: flex;
+  height: 100%;
+  width: 100%;
+  transition: transform .35s ease;
+}
+
+.photo-slide{
+  min-width: 100%;
+  height: 100%;
+}
+
+.photo-slide img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* dots */
+.photo-dots{
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.dot{
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.45);
+}
+
+.dot.active{
+  background: white;
+}
+
+/* overlay reste au-dessus */
+.cardOverlay,
+.swipeAvatar{
+  position: relative;
+  z-index: 2;
+}
+
+/* voile sombre sur photos */
+.swipeMedia::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.6));
+  pointer-events:none;
+  z-index: 1;
+}
+
 }
