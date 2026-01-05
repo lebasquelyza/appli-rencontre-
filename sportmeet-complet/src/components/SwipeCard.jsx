@@ -1,5 +1,4 @@
-// sportmeet-complet/src/components/SwipeCard.jsx
-import React from "react";
+import React, { useRef, useState } from "react";
 
 function hashToHue(str = "") {
   let h = 0;
@@ -8,31 +7,75 @@ function hashToHue(str = "") {
 }
 
 export function SwipeCard({ profile }) {
+  const photos = Array.isArray(profile.photo_urls) ? profile.photo_urls : [];
+  const hasPhotos = photos.length > 0;
+
+  const [index, setIndex] = useState(0);
+  const startX = useRef(null);
+
   const initial = profile.name?.[0]?.toUpperCase() ?? "M";
   const hue = hashToHue(`${profile.name}-${profile.city}-${profile.sport}`);
 
-  // ✅ Photo principale (upload Supabase)
-  const mainPhoto = Array.isArray(profile.photo_urls) ? profile.photo_urls[0] : null;
+  const bgFallback = {
+    background: `
+      radial-gradient(900px 450px at 20% 20%, hsla(${hue}, 90%, 60%, .28), transparent 55%),
+      radial-gradient(900px 450px at 80% 30%, hsla(${(hue + 40) % 360}, 90%, 60%, .20), transparent 60%),
+      linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.25))
+    `
+  };
 
-  // ✅ Fond: photo si dispo, sinon ton gradient
-  const bg = mainPhoto
-    ? {
-        backgroundImage: `url(${mainPhoto})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center"
+  const onTouchStart = (e) => {
+    startX.current = e.touches[0].clientX;
+  };
+
+  const onTouchEnd = (e) => {
+    if (startX.current === null) return;
+    const dx = e.changedTouches[0].clientX - startX.current;
+
+    if (Math.abs(dx) > 50) {
+      if (dx < 0 && index < photos.length - 1) {
+        setIndex((i) => i + 1);
       }
-    : {
-        background: `
-          radial-gradient(900px 450px at 20% 20%, hsla(${hue}, 90%, 60%, .28), transparent 55%),
-          radial-gradient(900px 450px at 80% 30%, hsla(${(hue + 40) % 360}, 90%, 60%, .20), transparent 60%),
-          linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.25))
-        `
-      };
+      if (dx > 0 && index > 0) {
+        setIndex((i) => i - 1);
+      }
+    }
+    startX.current = null;
+  };
 
   return (
     <article className="card swipeCard">
-      <div className="cardMedia swipeMedia" style={bg}>
+      <div
+        className="cardMedia swipeMedia"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        style={!hasPhotos ? bgFallback : undefined}
+      >
+        {hasPhotos && (
+          <div
+            className="photo-track"
+            style={{ transform: `translateX(-${index * 100}%)` }}
+          >
+            {photos.map((src, i) => (
+              <div key={src} className="photo-slide">
+                <img src={src} alt={`photo-${i + 1}`} />
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="swipeAvatar">{initial}</div>
+
+        {photos.length > 1 && (
+          <div className="photo-dots">
+            {photos.map((_, i) => (
+              <span
+                key={i}
+                className={`dot ${i === index ? "active" : ""}`}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="cardOverlay">
           <div className="titleRow">
@@ -46,20 +89,22 @@ export function SwipeCard({ profile }) {
           <div className="chips">
             <span className="chip chip-accent">{profile.sport}</span>
             <span className="chip">{profile.level}</span>
-            {profile.availability ? (
+            {profile.availability && (
               <span className="chip chip-soft">📅 {profile.availability}</span>
-            ) : null}
+            )}
           </div>
 
-          {profile.bio ? (
+          {profile.bio && (
             <div className="swipeBio">
-              {profile.bio.length > 220 ? `${profile.bio.slice(0, 220)}…` : profile.bio}
+              {profile.bio.length > 220
+                ? `${profile.bio.slice(0, 220)}…`
+                : profile.bio}
             </div>
-          ) : null}
+          )}
 
           <div className="swipeFooter">
             <span className="profile-meta-tag">
-              {profile.isCustom ? "Profil réel (créé ici)" : "Profil de démonstration"}
+              {profile.isCustom ? "Profil réel" : "Démo"}
             </span>
           </div>
         </div>
