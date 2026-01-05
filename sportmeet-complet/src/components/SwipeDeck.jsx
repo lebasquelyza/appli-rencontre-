@@ -3,8 +3,8 @@ import { SwipeCard } from "./SwipeCard";
 
 export function SwipeDeck({ profiles, onLikeProfile }) {
   const [index, setIndex] = useState(0);
+  const [busy, setBusy] = useState(false);
 
-  // Si la liste change (filtres, nouveau profil…), on repart du début
   useEffect(() => {
     setIndex(0);
   }, [profiles]);
@@ -15,20 +15,28 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
 
   const next = () => setIndex((i) => i + 1);
 
-  const handleLike = () => {
-    if (!currentProfile) return;
-    onLikeProfile(currentProfile);
+  const handleLike = async () => {
+    if (!currentProfile || busy) return;
+    setBusy(true);
+    try {
+      await onLikeProfile?.(currentProfile);
+      next();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSkip = () => {
+    if (busy) return;
     next();
   };
 
-  const handleSkip = () => next();
   const handleReset = () => setIndex(0);
 
   return (
     <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
-          {/* ✅ IMPORTANT: key = reset complet entre profils */}
           <SwipeCard key={currentProfile.id} profile={currentProfile} />
 
           <div className="actions">
@@ -36,6 +44,7 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
               type="button"
               className="swBtn swBtnBad"
               onClick={handleSkip}
+              disabled={busy}
               aria-label="Passer"
               title="Passer"
             >
@@ -46,6 +55,7 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
               type="button"
               className="swBtn swBtnPrimary"
               onClick={handleLike}
+              disabled={busy}
               aria-label="Liker"
               title="Liker"
             >
@@ -56,6 +66,7 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
               type="button"
               className="swBtn swBtnGood"
               onClick={handleLike}
+              disabled={busy}
               aria-label="Super like (like)"
               title="Super like (like)"
             >
