@@ -48,9 +48,33 @@ function storagePathFromPublicUrl(publicUrl) {
   }
 }
 
+// ✅ distance km
+function haversineKm(a, b) {
+  const R = 6371;
+  const toRad = (x) => (x * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 export default function App() {
   const [profiles, setProfiles] = useState([]);
-  const [filters, setFilters] = useState({ sport: "", level: "", city: "" });
+
+  // ✅ Ajout radiusKm + myLocation
+  const [filters, setFilters] = useState({
+    sport: "",
+    level: "",
+    city: "",
+    radiusKm: 0,
+    myLocation: null // {lat, lon}
+  });
 
   const [highlightNewProfile, setHighlightNewProfile] = useState(null);
 
@@ -65,6 +89,42 @@ export default function App() {
   // ✅ Mon profil (lié au compte)
   const [myProfile, setMyProfile] = useState(null); // row from DB mapped
   const [loadingMyProfile, setLoadingMyProfile] = useState(false);
+
+  // ✅ liste filtrée (pour filtre distance async)
+  const [filteredProfiles, setFilteredProfiles] = useState([]);
+
+  // ✅ cache géocodage ville -> coords
+  const [geoCache] = useState(() => new Map());
+
+  async function geocodeCity(cityText) {
+    const city = (cityText || "").trim().toLowerCase();
+    if (!city) return null;
+
+    if (geoCache.has(city)) return geoCache.get(city);
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=fr&q=${encodeURIComponent(
+      city
+    )}`;
+
+    try {
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) {
+        geoCache.set(city, null);
+        return null;
+      }
+
+      const data = await res.json();
+      const first = data?.[0];
+      const coords = first ? { lat: Number(first.lat), lon: Number(first.lon) } : null;
+
+      geoCache.set(city, coords);
+      return coords;
+    } catch (e) {
+      console.error("geocodeCity error:", e);
+      geoCache.set(city, null);
+      return null;
+    }
+  }
 
   /* -------------------------------
      Auth session
@@ -363,25 +423,69 @@ export default function App() {
      Filtres
   -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
-  const handleResetFilters = () => setFilters({ sport: "", level: "", city: "" });
+  const handleResetFilters = () =>
+    setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
 
-  const filteredProfiles = useMemo(() => {
-    return profiles.filter((p) => {
-      // ne pas montrer mon propre profil
-      if (user && p.user_id === user.id) return false;
+  // ✅ Filtrage (inclut km autour de moi)
+  useEffect(() => {
+    let cancelled = false;
 
-      if (filters.sport) {
-        if (filters.sport === "Autre") {
-          if (STANDARD_SPORTS.includes(p.sport)) return false;
-        } else if (p.sport !== filters.sport) return false;
+    const run = async () => {
+      const cityQuery = (filters.city || "").toLowerCase().trim();
+      const radiusKm = Number(filters.radiusKm || 0);
+      const myLoc = filters.myLocation;
+
+      const base = profiles.filter((p) => {
+        // ne pas montrer mon propre profil
+        if (user && p.user_id === user.id) return false;
+
+        if (filters.sport) {
+          if (filters.sport === "Autre") {
+            if (STANDARD_SPORTS.includes(p.sport)) return false;
+          } else if (p.sport !== filters.sport) return false;
+        }
+        if (filters.level && p.level !== filters.level) return false;
+
+        // ville texte
+        if (cityQuery && !p.city.toLowerCase().includes(cityQuery)) return false;
+
+        return true;
+      });
+
+      // Pas de filtre km
+      if (!radiusKm || radiusKm <= 0) {
+        if (!cancelled) setFilteredProfiles(base);
+        return;
       }
-      if (filters.level && p.level !== filters.level) return false;
-      if (filters.city && !p.city.toLowerCase().includes(filters.city.toLowerCase().trim())) {
-        return false;
+
+      // pas de localisation dispo -> on garde base
+      if (!myLoc) {
+        if (!cancelled) setFilteredProfiles(base);
+        return;
       }
-      return true;
-    });
-  }, [profiles, filters, user]);
+
+      // Filtre distance (géocode chaque ville de profil)
+      const kept = [];
+      for (const p of base) {
+        const coords = await geocodeCity(p.city);
+        if (!coords) continue;
+
+        const d = haversineKm(
+          { lat: myLoc.lat, lon: myLoc.lon },
+          { lat: coords.lat, lon: coords.lon }
+        );
+
+        if (d <= radiusKm) kept.push(p);
+      }
+
+      if (!cancelled) setFilteredProfiles(kept);
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* -------------------------------
      Like (MVP local)
