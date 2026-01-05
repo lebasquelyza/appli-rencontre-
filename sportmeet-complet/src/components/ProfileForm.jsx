@@ -1,7 +1,6 @@
-// sportmeet-complet/src/components/ProfileForm.jsx
 import React, { useEffect, useRef, useState } from "react";
 
-const defaultForm = {
+const emptyForm = {
   name: "",
   age: "",
   city: "",
@@ -37,15 +36,17 @@ function loadGooglePlaces(apiKey) {
   });
 }
 
-export function ProfileForm({ onCreateProfile }) {
-  const [form, setForm] = useState(defaultForm);
+export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile }) {
+  const isEdit = !!existingProfile?.id;
+
+  const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState(null);
   const [isError, setIsError] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
 
-  // Photos
+  // Photos (nouveaux fichiers uniquement)
   const [photos, setPhotos] = useState([]); // File[]
   const [photoPreviews, setPhotoPreviews] = useState([]); // string[]
   const fileInputRef = useRef(null);
@@ -53,16 +54,38 @@ export function ProfileForm({ onCreateProfile }) {
   const cityInputRef = useRef(null);
   const autocompleteRef = useRef(null);
 
-  // Preview URLs (avec cleanup propre)
+  // ✅ Pré-remplissage depuis le profil existant
   useEffect(() => {
-    // crée les previews
+    if (!existingProfile) {
+      setForm(emptyForm);
+      return;
+    }
+
+    setForm({
+      name: existingProfile.name || "",
+      age: existingProfile.age ?? "",
+      city: existingProfile.city || "",
+      sport: STANDARDIZE_SPORT(existingProfile.sport || ""),
+      otherSport: isStandardSport(existingProfile.sport) ? "" : (existingProfile.sport || ""),
+      level: existingProfile.level || "",
+      availability: existingProfile.availability || "",
+      bio: existingProfile.bio || ""
+    });
+    // reset photos locales
+    setPhotos([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingProfile?.id]);
+
+  // Preview URLs
+  useEffect(() => {
+    photoPreviews.forEach((url) => URL.revokeObjectURL(url));
     const next = photos.map((f) => URL.createObjectURL(f));
     setPhotoPreviews(next);
 
-    // cleanup des URLs créées pour éviter les fuites mémoire
     return () => {
       next.forEach((url) => URL.revokeObjectURL(url));
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos]);
 
   const handleChange = (e) => {
@@ -95,7 +118,7 @@ export function ProfileForm({ onCreateProfile }) {
 
         autocompleteRef.current = ac;
       } catch {
-        // ignore (fallback manuel + bouton 📍)
+        // ignore
       }
     };
 
@@ -159,18 +182,14 @@ export function ProfileForm({ onCreateProfile }) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const imagesOnly = files.filter((f) => (f.type || "").startsWith("image/"));
+    const imagesOnly = files.filter((f) => f.type.startsWith("image/"));
     const next = [...photos, ...imagesOnly].slice(0, 5);
-
     setPhotos(next);
 
-    // reset input to allow re-select same file later
     e.target.value = "";
   };
 
-  const removePhotoAt = (idx) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== idx));
-  };
+  const removePhotoAt = (idx) => setPhotos((prev) => prev.filter((_, i) => i !== idx));
 
   const isOtherSport = form.sport === "Autre";
 
@@ -181,70 +200,45 @@ export function ProfileForm({ onCreateProfile }) {
 
     if (!form.name || !form.city || !finalSport || !form.level) {
       setIsError(true);
-      setMessage(
-        "Merci de remplir au minimum le prénom, la localisation, le sport (ou autre sport) et le niveau."
-      );
+      setMessage("Merci de remplir au minimum le prénom, la localisation, le sport et le niveau.");
       return;
     }
 
-    if (isOtherSport && !finalSport) {
-      setIsError(true);
-      setMessage("Merci de préciser ton autre sport.");
-      return;
-    }
-
-    if (photos.length < 1) {
-      setIsError(true);
-      setMessage("Merci d’ajouter au moins 1 photo.");
-      return;
-    }
-
-    if (photos.length > 5) {
-      setIsError(true);
-      setMessage("Maximum 5 photos.");
-      return;
-    }
+    // ✅ en édition : photos facultatives (si tu veux changer -> tu en ajoutes)
+    // ✅ en création : App.jsx exigera 1 photo si profil n'existe pas
 
     try {
       setLoading(true);
       setIsError(false);
       setMessage(null);
 
-      await onCreateProfile?.({
+      await onSaveProfile?.({
         ...form,
         sport: finalSport,
         age: form.age ? Number(form.age) : null,
-        photos // 👈 File[]
+        photos // peut être vide en édition
       });
 
-      setForm(defaultForm);
-      setPhotos([]);
       setIsError(false);
-      setMessage("Profil créé ! Tu apparais maintenant dans MatchFit.");
+      setMessage(isEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
+      setPhotos([]);
     } catch (err) {
       console.error(err);
-
-      // Erreurs “propres” (mêmes codes que App.jsx)
-      if (err?.message === "PHOTO_REQUIRED") {
-        setIsError(true);
-        setMessage("Merci d’ajouter au moins 1 photo.");
-        return;
-      }
-      if (err?.message === "MAX_5_PHOTOS") {
-        setIsError(true);
-        setMessage("Maximum 5 photos.");
-        return;
-      }
-
-      // Supabase / réseau : afficher un vrai message
-      const supaMsg =
-        err?.message ||
-        err?.error_description ||
-        err?.details ||
-        (typeof err === "string" ? err : null);
-
       setIsError(true);
-      setMessage(`Erreur : ${supaMsg || "impossible d’enregistrer le profil pour le moment."}`);
+
+      const msg = String(err?.message || "");
+
+      if (msg.includes("AUTH_REQUIRED")) {
+        setMessage("Connecte-toi pour enregistrer ton profil.");
+      } else if (msg.includes("PHOTO_REQUIRED")) {
+        setMessage("Ajoute au moins 1 photo pour créer ton profil.");
+      } else if (msg.includes("MAX_5_PHOTOS")) {
+        setMessage("Maximum 5 photos.");
+      } else if (msg.includes("MISSING_FIELDS")) {
+        setMessage("Merci de remplir les champs obligatoires.");
+      } else {
+        setMessage("Erreur : impossible d’enregistrer le profil pour le moment.");
+      }
     } finally {
       setLoading(false);
     }
@@ -252,8 +246,15 @@ export function ProfileForm({ onCreateProfile }) {
 
   return (
     <>
-      <h2 className="modalTitle">Créer ton profil</h2>
-      <p className="card-subtitle">Ajoute au moins 1 photo (max 5) pour apparaître dans les profils.</p>
+      <h2 className="modalTitle">{isEdit ? "Modifier mon profil" : "Créer ton profil"}</h2>
+
+      <p className="card-subtitle">
+        {loadingExisting
+          ? "Chargement de ton profil…"
+          : isEdit
+          ? "Tes infos sont sauvegardées. Modifie et enregistre."
+          : "Ajoute au moins 1 photo (max 5) pour apparaître dans les profils."}
+      </p>
 
       <form className="form" onSubmit={handleSubmit}>
         <div className="form-group">
@@ -265,6 +266,7 @@ export function ProfileForm({ onCreateProfile }) {
             value={form.name}
             onChange={handleChange}
             placeholder="Ex : Alex"
+            disabled={loadingExisting}
           />
         </div>
 
@@ -280,6 +282,7 @@ export function ProfileForm({ onCreateProfile }) {
               value={form.age}
               onChange={handleChange}
               placeholder="Ex : 28"
+              disabled={loadingExisting}
             />
           </div>
 
@@ -294,12 +297,13 @@ export function ProfileForm({ onCreateProfile }) {
                 onChange={handleChange}
                 placeholder="Ex : Lyon"
                 ref={cityInputRef}
+                disabled={loadingExisting}
               />
               <button
                 type="button"
                 className="btn-ghost btn-sm"
                 onClick={handleUseMyLocation}
-                disabled={loadingLocation}
+                disabled={loadingLocation || loadingExisting}
                 title="Utiliser ma position"
                 aria-label="Utiliser ma position"
               >
@@ -311,16 +315,22 @@ export function ProfileForm({ onCreateProfile }) {
 
         {/* Photos */}
         <div className="form-group">
-          <label>Photos *</label>
+          <label>Photos {isEdit ? "(optionnel)" : "*"}</label>
+
+          {isEdit && Array.isArray(existingProfile?.photo_urls) && existingProfile.photo_urls.length > 0 && (
+            <small style={{ display: "block", opacity: 0.75, marginBottom: 8 }}>
+              Photos actuelles : {existingProfile.photo_urls.length} (ajoute des nouvelles pour remplacer)
+            </small>
+          )}
 
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <button
               type="button"
               className="btn-ghost btn-sm"
               onClick={() => fileInputRef.current?.click()}
-              disabled={photos.length >= 5 || loading}
+              disabled={photos.length >= 5 || loadingExisting}
             >
-              Ajouter une photo ({photos.length}/5)
+              {isEdit ? `Remplacer les photos (${photos.length}/5)` : `Ajouter une photo (${photos.length}/5)`}
             </button>
 
             <input
@@ -333,8 +343,10 @@ export function ProfileForm({ onCreateProfile }) {
             />
           </div>
 
-          {photos.length === 0 && (
-            <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>1 photo minimum.</small>
+          {!isEdit && photos.length === 0 && (
+            <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>
+              1 photo minimum.
+            </small>
           )}
 
           {photoPreviews.length > 0 && (
@@ -353,7 +365,6 @@ export function ProfileForm({ onCreateProfile }) {
                     style={{ position: "absolute", top: -8, right: -8, borderRadius: 999 }}
                     aria-label="Supprimer"
                     title="Supprimer"
-                    disabled={loading}
                   >
                     ✕
                   </button>
@@ -366,7 +377,13 @@ export function ProfileForm({ onCreateProfile }) {
         <div className="form-row-inline">
           <div className="form-group">
             <label htmlFor="sport">Sport principal *</label>
-            <select id="sport" name="sport" value={form.sport} onChange={handleChange}>
+            <select
+              id="sport"
+              name="sport"
+              value={form.sport}
+              onChange={handleChange}
+              disabled={loadingExisting}
+            >
               <option value="">Choisis un sport</option>
               <option value="Running">Running</option>
               <option value="Fitness">Fitness</option>
@@ -383,7 +400,13 @@ export function ProfileForm({ onCreateProfile }) {
 
           <div className="form-group">
             <label htmlFor="level">Niveau *</label>
-            <select id="level" name="level" value={form.level} onChange={handleChange}>
+            <select
+              id="level"
+              name="level"
+              value={form.level}
+              onChange={handleChange}
+              disabled={loadingExisting}
+            >
               <option value="">Choisis un niveau</option>
               <option value="Débutant">Débutant</option>
               <option value="Intermédiaire">Intermédiaire</option>
@@ -403,6 +426,7 @@ export function ProfileForm({ onCreateProfile }) {
               value={form.otherSport}
               onChange={handleChange}
               placeholder="Ex : Escalade, boxe, paddle…"
+              disabled={loadingExisting}
             />
           </div>
         )}
@@ -416,6 +440,7 @@ export function ProfileForm({ onCreateProfile }) {
             value={form.availability}
             onChange={handleChange}
             placeholder="Ex : Soir en semaine, samedi matin…"
+            disabled={loadingExisting}
           />
         </div>
 
@@ -428,15 +453,31 @@ export function ProfileForm({ onCreateProfile }) {
             value={form.bio}
             onChange={handleChange}
             placeholder="Ex : Je cherche un partenaire de running 2x/semaine."
+            disabled={loadingExisting}
           />
         </div>
 
-        <button type="submit" className="btn-primary btn-block" disabled={loading}>
-          {loading ? "Enregistrement..." : "Enregistrer mon profil"}
+        <button type="submit" className="btn-primary btn-block" disabled={loading || loadingExisting}>
+          {loading ? "Enregistrement..." : isEdit ? "Mettre à jour mon profil" : "Enregistrer mon profil"}
         </button>
 
-        <p className={`form-message ${message ? (isError ? "error" : "success") : ""}`}>{message}</p>
+        <p className={`form-message ${message ? (isError ? "error" : "success") : ""}`}>
+          {message}
+        </p>
       </form>
     </>
   );
+}
+
+/* Helpers */
+function isStandardSport(sport) {
+  return ["Running","Fitness","Football","Basket","Tennis","Cyclisme","Randonnée","Natation","Musculation"].includes(
+    (sport || "").trim()
+  );
+}
+
+function STANDARDIZE_SPORT(sport) {
+  const s = (sport || "").trim();
+  if (!s) return "";
+  return isStandardSport(s) ? s : "Autre";
 }
