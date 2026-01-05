@@ -35,6 +35,19 @@ function randomId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+// ✅ Convertit une publicUrl Supabase en "path" storage (bucket relatif)
+function storagePathFromPublicUrl(publicUrl) {
+  try {
+    const u = new URL(publicUrl);
+    const marker = `/storage/v1/object/public/${BUCKET}/`;
+    const idx = u.pathname.indexOf(marker);
+    if (idx === -1) return null;
+    return decodeURIComponent(u.pathname.slice(idx + marker.length));
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   const [profiles, setProfiles] = useState([]);
   const [filters, setFilters] = useState({ sport: "", level: "", city: "" });
@@ -203,6 +216,23 @@ export default function App() {
   };
 
   /* -------------------------------
+     Delete photos from Supabase Storage (best-effort)
+  -------------------------------- */
+  const deleteProfilePhotosFromStorage = async (publicUrls) => {
+    const paths = (publicUrls || [])
+      .map(storagePathFromPublicUrl)
+      .filter(Boolean);
+
+    if (paths.length === 0) return;
+
+    const { error } = await supabase.storage.from(BUCKET).remove(paths);
+    if (error) {
+      console.error("Supabase remove error:", error);
+      // best-effort: on ne bloque pas l’update profil si la suppression échoue
+    }
+  };
+
+  /* -------------------------------
      SAVE profil : INSERT si pas existant, UPDATE sinon
      ✅ lié à user_id
      ✅ photos en édition : garder / supprimer / ajouter (sans obligation de remplacer)
@@ -210,7 +240,6 @@ export default function App() {
   const handleSaveProfile = async (data) => {
     const photos = Array.isArray(data.photos) ? data.photos : [];
     const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
-
     const hasNewPhotos = photos.length > 0;
 
     // Auth required
@@ -227,8 +256,7 @@ export default function App() {
       throw new Error("MISSING_FIELDS");
     }
 
-    // ⚠️ si création (pas de profil existant), on exige au moins 1 photo
-    // (pas de keptPhotoUrls possible en création)
+    // ⚠️ création : on exige au moins 1 photo
     if (!myProfile && !hasNewPhotos) {
       throw new Error("PHOTO_REQUIRED");
     }
@@ -284,11 +312,9 @@ export default function App() {
       }
     }
 
-    // 2) Photos :
-    // - en création : on met juste les nouvelles
-    // - en édition : on conserve keptPhotoUrls + on ajoute les nouvelles uploadées
+    // 2) Photos
     if (!myProfile) {
-      // création : obligé d'avoir >= 1 nouvelle photo (déjà validé)
+      // création
       const uploaded = await uploadProfilePhotos(profileId, photos);
 
       const { error: updatePhotosErr } = await supabase
@@ -301,7 +327,11 @@ export default function App() {
         throw updatePhotosErr;
       }
     } else {
-      // édition : garder / supprimer / ajouter
+      // édition : déterminer les URLs supprimées (storage best-effort)
+      const previousUrls = Array.isArray(myProfile?.photo_urls) ? myProfile.photo_urls : [];
+      const removedUrls = previousUrls.filter((u) => !keptPhotoUrls.includes(u));
+
+      // nextUrls = kept + (new uploaded si présent)
       let nextUrls = keptPhotoUrls;
 
       if (hasNewPhotos) {
@@ -309,8 +339,7 @@ export default function App() {
         nextUrls = [...keptPhotoUrls, ...uploaded];
       }
 
-      // ✅ on update photo_urls même si aucune nouvelle photo :
-      // ça permet d'enregistrer les suppressions (keptPhotoUrls plus court)
+      // ✅ update même sans nouvelles photos (pour enregistrer les suppressions)
       const { error: updatePhotosErr } = await supabase
         .from("profiles")
         .update({ photo_urls: nextUrls })
@@ -320,6 +349,9 @@ export default function App() {
         console.error("update photo_urls error:", updatePhotosErr);
         throw updatePhotosErr;
       }
+
+      // ✅ suppression physique dans le storage (best-effort)
+      await deleteProfilePhotosFromStorage(removedUrls);
     }
 
     // 3) refresh
@@ -375,7 +407,11 @@ export default function App() {
       <main className="page">
         <div className="shell">
           <section className="card card-results">
-            <FiltersBar filters={filters} onChange={handleFiltersChange} onReset={handleResetFilters} />
+            <FiltersBar
+              filters={filters}
+              onChange={handleFiltersChange}
+              onReset={handleResetFilters}
+            />
 
             {!user && (
               <p className="form-message" style={{ marginTop: 8 }}>
