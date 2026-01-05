@@ -4,13 +4,21 @@ export function FiltersBar({ filters, onChange, onReset }) {
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef(null);
 
+  // ✅ état local pour géoloc
+  const [locLoading, setLocLoading] = useState(false);
+  const [locError, setLocError] = useState(null);
+
+  const radiusKm = Number(filters.radiusKm || 0);
+  const hasRadius = radiusKm > 0;
+
   const activeCount = useMemo(() => {
     let n = 0;
     if (filters.sport) n += 1;
     if (filters.level) n += 1;
     if (filters.city && filters.city.trim()) n += 1;
+    if (hasRadius) n += 1; // ✅ km autour de moi
     return n;
-  }, [filters]);
+  }, [filters, hasRadius]);
 
   const toggle = () => setIsOpen((v) => !v);
 
@@ -22,6 +30,30 @@ export function FiltersBar({ filters, onChange, onReset }) {
       maxHeight: isOpen ? `${h}px` : "0px"
     };
   }, [isOpen, filters]); // filters pour recalculer si contenu change
+
+  const requestLocation = () => {
+    setLocError(null);
+
+    if (!navigator.geolocation) {
+      setLocError("La géolocalisation n’est pas supportée par ton navigateur.");
+      return;
+    }
+
+    setLocLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocLoading(false);
+        onChange?.({
+          myLocation: { lat: pos.coords.latitude, lon: pos.coords.longitude }
+        });
+      },
+      () => {
+        setLocLoading(false);
+        setLocError("Permission refusée ou position indisponible.");
+      },
+      { enableHighAccuracy: false, timeout: 10000 }
+    );
+  };
 
   return (
     <div className="filters">
@@ -57,6 +89,9 @@ export function FiltersBar({ filters, onChange, onReset }) {
           {filters.level ? <span className="chip chip-soft">🎚️ {filters.level}</span> : null}
           {filters.city && filters.city.trim() ? (
             <span className="chip chip-soft">📍 {filters.city.trim()}</span>
+          ) : null}
+          {hasRadius ? (
+            <span className="chip chip-soft">📏 {radiusKm} km</span>
           ) : null}
         </div>
       )}
@@ -114,6 +149,47 @@ export function FiltersBar({ filters, onChange, onReset }) {
                 onChange={(e) => onChange({ city: e.target.value })}
                 placeholder="Ex : Paris"
               />
+            </div>
+
+            {/* ✅ Nouveau : Rayon KM autour de moi */}
+            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+              <label htmlFor="filter-radius">
+                Autour de moi : {radiusKm} km
+              </label>
+
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <input
+                  id="filter-radius"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={radiusKm}
+                  onChange={(e) => onChange({ radiusKm: Number(e.target.value) })}
+                  style={{ width: "100%" }}
+                />
+
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={requestLocation}
+                  disabled={locLoading}
+                  title="Utiliser ma position"
+                  aria-label="Utiliser ma position"
+                >
+                  {locLoading ? "..." : "📍"}
+                </button>
+              </div>
+
+              <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>
+                Mets à 0 km pour désactiver le filtre.
+              </small>
+
+              {locError ? (
+                <small style={{ display: "block", marginTop: 6 }} className="form-message error">
+                  {locError}
+                </small>
+              ) : null}
             </div>
           </div>
 
