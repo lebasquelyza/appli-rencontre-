@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-export function AccountSettings({ user, myProfile }) {
+export function AccountSettings({ user }) {
   const navigate = useNavigate();
 
   const [action, setAction] = useState(""); // "suspend" | "delete"
@@ -25,32 +25,30 @@ export function AccountSettings({ user, myProfile }) {
     []
   );
 
-  const requireAuthOrBack = () => {
+  const requireAuth = () => {
     if (!user) {
-      navigate("/settings");
+      setMsg("Connecte-toi pour configurer ton compte.");
       return false;
     }
     return true;
   };
 
   const handleSuspend = async () => {
-    if (!requireAuthOrBack()) return;
-
-    if (!reason) {
-      setMsg("Choisis une raison.");
-      return;
-    }
+    if (!requireAuth()) return;
+    if (!reason) return setMsg("Choisis une raison.");
 
     setLoading(true);
     setMsg("");
 
     try {
+      const fullReason = [reason, detail].filter(Boolean).join(" — ");
+
       const { error } = await supabase
         .from("profiles")
         .update({
           status: "suspended",
           suspended_at: new Date().toISOString(),
-          suspension_reason: [reason, detail].filter(Boolean).join(" — ")
+          suspension_reason: fullReason
         })
         .eq("user_id", user.id);
 
@@ -67,12 +65,8 @@ export function AccountSettings({ user, myProfile }) {
   };
 
   const handleDeleteRequest = async () => {
-    if (!requireAuthOrBack()) return;
-
-    if (!reason) {
-      setMsg("Choisis une raison.");
-      return;
-    }
+    if (!requireAuth()) return;
+    if (!reason) return setMsg("Choisis une raison.");
 
     setLoading(true);
     setMsg("");
@@ -80,22 +74,13 @@ export function AccountSettings({ user, myProfile }) {
     try {
       const fullReason = [reason, detail].filter(Boolean).join(" — ");
 
+      // Demande suppression (car supprimer l'user auth depuis le front n'est pas possible proprement)
       const { error } = await supabase.from("account_deletion_requests").insert({
         user_id: user.id,
         reason: fullReason
       });
 
       if (error) throw error;
-
-      // Optionnel : on peut aussi “suspendre” immédiatement le profil
-      await supabase
-        .from("profiles")
-        .update({
-          status: "suspended",
-          suspended_at: new Date().toISOString(),
-          suspension_reason: `Demande suppression — ${fullReason}`
-        })
-        .eq("user_id", user.id);
 
       await supabase.auth.signOut();
       navigate("/", { replace: true });
@@ -107,11 +92,11 @@ export function AccountSettings({ user, myProfile }) {
     }
   };
 
-  const onConfirm = async () => {
+  const onConfirm = () => {
     setMsg("");
     if (action === "suspend") return handleSuspend();
     if (action === "delete") return handleDeleteRequest();
-    setMsg("Choisis une action.");
+    setMsg("Choisis une action (suspendre ou supprimer).");
   };
 
   return (
@@ -125,29 +110,17 @@ export function AccountSettings({ user, myProfile }) {
             <h1 style={{ margin: 0 }}>Configurer mon compte</h1>
           </div>
 
-          {!user && (
-            <p className="form-message" style={{ marginTop: 12 }}>
-              Connecte-toi pour accéder à la configuration du compte.
-            </p>
-          )}
-
-          {user && myProfile?.status === "suspended" && (
-            <p className="form-message error" style={{ marginTop: 12 }}>
-              Ton compte est actuellement suspendu.
-            </p>
-          )}
-
           <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Suspendre mon compte</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
                 Ton profil ne sera plus accessible. Tu seras déconnecté.
               </p>
+
               <button
                 className={action === "suspend" ? "btn-primary" : "btn-ghost"}
                 type="button"
                 onClick={() => setAction("suspend")}
-                disabled={!user}
               >
                 Choisir
               </button>
@@ -158,11 +131,11 @@ export function AccountSettings({ user, myProfile }) {
               <p style={{ opacity: 0.85, marginTop: 6 }}>
                 On enregistre une demande de suppression. Tu seras déconnecté.
               </p>
+
               <button
                 className={action === "delete" ? "btn-primary" : "btn-ghost"}
                 type="button"
                 onClick={() => setAction("delete")}
-                disabled={!user}
               >
                 Choisir
               </button>
@@ -195,16 +168,9 @@ export function AccountSettings({ user, myProfile }) {
               {msg && <div style={{ marginTop: 10, color: "tomato" }}>{msg}</div>}
 
               <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-                <button
-                  className="btn-primary"
-                  type="button"
-                  onClick={onConfirm}
-                  disabled={!user || loading}
-                  title={!user ? "Connecte-toi" : ""}
-                >
+                <button className="btn-primary" type="button" onClick={onConfirm} disabled={loading}>
                   Confirmer
                 </button>
-
                 <button
                   className="btn-ghost"
                   type="button"
