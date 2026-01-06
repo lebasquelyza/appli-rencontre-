@@ -488,9 +488,17 @@ export default function App() {
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* -------------------------------
-     Like (MVP local)
+     Like/Swipe : bloqué si pas connecté
   -------------------------------- */
-  const handleLike = () => {};
+  const handleLike = async (profile) => {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    // MVP local : pas de stockage pour le moment
+    // Ici tu peux enregistrer un like en DB plus tard
+    return;
+  };
 
   const openProfileModal = () => {
     if (!user) {
@@ -502,6 +510,7 @@ export default function App() {
 
   return (
     <div className="app-root">
+      {/* ✅ user passé au Header pour afficher le statut connecté */}
       <Header
         onOpenProfile={openProfileModal}
         onOpenAuth={() => setIsAuthModalOpen(true)}
@@ -519,7 +528,7 @@ export default function App() {
 
             {!user && (
               <p className="form-message" style={{ marginTop: 8 }}>
-                Connecte-toi pour créer/éditer ton profil.
+                Connecte-toi pour créer/éditer ton profil et swiper.
               </p>
             )}
 
@@ -532,7 +541,12 @@ export default function App() {
             {loadingProfiles ? (
               <p className="form-message">Chargement des profils…</p>
             ) : (
-              <SwipeDeck profiles={filteredProfiles} onLikeProfile={handleLike} />
+              <SwipeDeck
+                profiles={filteredProfiles}
+                onLikeProfile={handleLike}
+                isAuthenticated={!!user}
+                onRequireAuth={() => setIsAuthModalOpen(true)}
+              />
             )}
           </section>
         </div>
