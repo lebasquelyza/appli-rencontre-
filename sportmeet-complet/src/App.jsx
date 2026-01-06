@@ -16,6 +16,9 @@ import { supabase } from "./lib/supabase";
 import { Terms } from "./pages/Terms";
 import { Cookies } from "./pages/Cookies";
 
+// ✅ Page Réglages
+import { Settings } from "./pages/Settings";
+
 const BUCKET = "profile-photos";
 
 const STANDARD_SPORTS = [
@@ -665,6 +668,9 @@ export default function App() {
         {/* ✅ Pages légales */}
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
+
+        {/* ✅ Réglages */}
+        <Route path="/settings" element={<Settings user={user} onOpenProfile={openProfileModal} />} />
       </Routes>
 
       <Footer />
