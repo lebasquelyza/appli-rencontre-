@@ -1,5 +1,5 @@
 // sportmeet-complet/src/App.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { ProfileForm } from "./components/ProfileForm";
@@ -67,7 +67,7 @@ function haversineKm(a, b) {
 export default function App() {
   const [profiles, setProfiles] = useState([]);
 
-  // ✅ Ajout radiusKm + myLocation
+  // ✅ filtres (ville + km autour de moi)
   const [filters, setFilters] = useState({
     sport: "",
     level: "",
@@ -76,10 +76,11 @@ export default function App() {
     myLocation: null // {lat, lon}
   });
 
-  const [highlightNewProfile, setHighlightNewProfile] = useState(null);
-
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // ✅ Auth modal + mode initial (signin/signup)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState("signin");
 
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [profilesError, setProfilesError] = useState(null);
@@ -87,14 +88,24 @@ export default function App() {
   const [user, setUser] = useState(null);
 
   // ✅ Mon profil (lié au compte)
-  const [myProfile, setMyProfile] = useState(null); // row from DB mapped
+  const [myProfile, setMyProfile] = useState(null);
   const [loadingMyProfile, setLoadingMyProfile] = useState(false);
 
-  // ✅ liste filtrée (pour filtre distance async)
+  // ✅ liste filtrée (filtre distance async)
   const [filteredProfiles, setFilteredProfiles] = useState([]);
 
   // ✅ cache géocodage ville -> coords
   const [geoCache] = useState(() => new Map());
+
+  const openAuth = (mode = "signin") => {
+    setAuthInitialMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    // user se met à jour via onAuthStateChange
+  };
 
   async function geocodeCity(cityText) {
     const city = (cityText || "").trim().toLowerCase();
@@ -151,7 +162,7 @@ export default function App() {
   }, []);
 
   /* -------------------------------
-     Fetch mon profil (lié à user_id)
+     Fetch mon profil
   -------------------------------- */
   const fetchMyProfile = async () => {
     if (!user) {
@@ -288,14 +299,12 @@ export default function App() {
     const { error } = await supabase.storage.from(BUCKET).remove(paths);
     if (error) {
       console.error("Supabase remove error:", error);
-      // best-effort: on ne bloque pas l’update profil si la suppression échoue
+      // best-effort
     }
   };
 
   /* -------------------------------
-     SAVE profil : INSERT si pas existant, UPDATE sinon
-     ✅ lié à user_id
-     ✅ photos en édition : garder / supprimer / ajouter (sans obligation de remplacer)
+     SAVE profil : INSERT ou UPDATE
   -------------------------------- */
   const handleSaveProfile = async (data) => {
     const photos = Array.isArray(data.photos) ? data.photos : [];
@@ -307,7 +316,7 @@ export default function App() {
     const currentUser = authData?.user ?? null;
 
     if (!currentUser) {
-      setIsAuthModalOpen(true);
+      openAuth("signin");
       throw new Error("AUTH_REQUIRED");
     }
 
@@ -316,20 +325,18 @@ export default function App() {
       throw new Error("MISSING_FIELDS");
     }
 
-    // ⚠️ création : on exige au moins 1 photo
+    // création : exige 1 photo
     if (!myProfile && !hasNewPhotos) {
       throw new Error("PHOTO_REQUIRED");
     }
 
-    // ✅ max 5 au total (kept + new)
+    // max 5 au total
     const totalPhotosCount = (myProfile ? keptPhotoUrls.length : 0) + photos.length;
     if (totalPhotosCount > 5) throw new Error("MAX_5_PHOTOS");
 
-    // 1) INSERT ou UPDATE du profil (sans photo_urls pour le moment)
     let profileId = myProfile?.id ?? null;
 
     if (!profileId) {
-      // INSERT
       const { data: inserted, error: insertError } = await supabase
         .from("profiles")
         .insert({
@@ -352,7 +359,6 @@ export default function App() {
 
       profileId = inserted.id;
     } else {
-      // UPDATE
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
@@ -372,9 +378,8 @@ export default function App() {
       }
     }
 
-    // 2) Photos
+    // photos
     if (!myProfile) {
-      // création
       const uploaded = await uploadProfilePhotos(profileId, photos);
 
       const { error: updatePhotosErr } = await supabase
@@ -387,11 +392,9 @@ export default function App() {
         throw updatePhotosErr;
       }
     } else {
-      // édition : déterminer les URLs supprimées (storage best-effort)
       const previousUrls = Array.isArray(myProfile?.photo_urls) ? myProfile.photo_urls : [];
       const removedUrls = previousUrls.filter((u) => !keptPhotoUrls.includes(u));
 
-      // nextUrls = kept + (new uploaded si présent)
       let nextUrls = keptPhotoUrls;
 
       if (hasNewPhotos) {
@@ -399,7 +402,6 @@ export default function App() {
         nextUrls = [...keptPhotoUrls, ...uploaded];
       }
 
-      // ✅ update même sans nouvelles photos (pour enregistrer les suppressions)
       const { error: updatePhotosErr } = await supabase
         .from("profiles")
         .update({ photo_urls: nextUrls })
@@ -410,11 +412,9 @@ export default function App() {
         throw updatePhotosErr;
       }
 
-      // ✅ suppression physique dans le storage (best-effort)
       await deleteProfilePhotosFromStorage(removedUrls);
     }
 
-    // 3) refresh
     await fetchMyProfile();
     await fetchProfiles();
   };
@@ -426,7 +426,6 @@ export default function App() {
   const handleResetFilters = () =>
     setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
 
-  // ✅ Filtrage (inclut km autour de moi)
   useEffect(() => {
     let cancelled = false;
 
@@ -436,7 +435,6 @@ export default function App() {
       const myLoc = filters.myLocation;
 
       const base = profiles.filter((p) => {
-        // ne pas montrer mon propre profil
         if (user && p.user_id === user.id) return false;
 
         if (filters.sport) {
@@ -446,25 +444,21 @@ export default function App() {
         }
         if (filters.level && p.level !== filters.level) return false;
 
-        // ville texte
         if (cityQuery && !p.city.toLowerCase().includes(cityQuery)) return false;
 
         return true;
       });
 
-      // Pas de filtre km
       if (!radiusKm || radiusKm <= 0) {
         if (!cancelled) setFilteredProfiles(base);
         return;
       }
 
-      // pas de localisation dispo -> on garde base
       if (!myLoc) {
         if (!cancelled) setFilteredProfiles(base);
         return;
       }
 
-      // Filtre distance (géocode chaque ville de profil)
       const kept = [];
       for (const p of base) {
         const coords = await geocodeCity(p.city);
@@ -492,17 +486,16 @@ export default function App() {
   -------------------------------- */
   const handleLike = async (profile) => {
     if (!user) {
-      setIsAuthModalOpen(true);
+      openAuth("signin");
       return;
     }
-    // MVP local : pas de stockage pour le moment
-    // Ici tu peux enregistrer un like en DB plus tard
+    // MVP : pas de persistance encore
     return;
   };
 
   const openProfileModal = () => {
     if (!user) {
-      setIsAuthModalOpen(true);
+      openAuth("signin");
       return;
     }
     setIsProfileModalOpen(true);
@@ -510,21 +503,17 @@ export default function App() {
 
   return (
     <div className="app-root">
-      {/* ✅ user passé au Header pour afficher le statut connecté */}
       <Header
-        onOpenProfile={openProfileModal}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
         user={user}
+        onOpenProfile={openProfileModal}
+        onOpenAuth={openAuth} // ✅ prend "signin" ou "signup"
+        onLogout={handleLogout}
       />
 
       <main className="page">
         <div className="shell">
           <section className="card card-results">
-            <FiltersBar
-              filters={filters}
-              onChange={handleFiltersChange}
-              onReset={handleResetFilters}
-            />
+            <FiltersBar filters={filters} onChange={handleFiltersChange} onReset={handleResetFilters} />
 
             {!user && (
               <p className="form-message" style={{ marginTop: 8 }}>
@@ -545,7 +534,7 @@ export default function App() {
                 profiles={filteredProfiles}
                 onLikeProfile={handleLike}
                 isAuthenticated={!!user}
-                onRequireAuth={() => setIsAuthModalOpen(true)}
+                onRequireAuth={() => openAuth("signin")}
               />
             )}
           </section>
@@ -574,7 +563,12 @@ export default function App() {
         </div>
       )}
 
-      {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} />}
+      {isAuthModalOpen && (
+        <AuthModal
+          initialMode={authInitialMode}
+          onClose={() => setIsAuthModalOpen(false)}
+        />
+      )}
 
       <Footer />
     </div>
