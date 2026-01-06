@@ -6,6 +6,7 @@ import { ProfileForm } from "./components/ProfileForm";
 import { FiltersBar } from "./components/FiltersBar";
 import { SwipeDeck } from "./components/SwipeDeck";
 import { AuthModal } from "./components/AuthModal";
+import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 
@@ -90,18 +91,40 @@ export default function App() {
 
   const [geoCache] = useState(() => new Map());
 
+  // ✅ Vue “page”
+  const [view, setView] = useState("home"); // "home" | "crushes"
+
+  // ✅ Crushs (MVP) : stockés localement
+  const [crushes, setCrushes] = useState(() => {
+    try {
+      const raw = localStorage.getItem("matchfit_crushes");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const persistCrushes = (next) => {
+    setCrushes(next);
+    try {
+      localStorage.setItem("matchfit_crushes", JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
   const openAuth = (mode = "signin") => {
     setAuthInitialMode(mode);
     setIsAuthModalOpen(true);
   };
 
-  // ✅ Ouvre automatiquement la modale en mode "reset" si on arrive via lien email
+  // ✅ Ouvre automatiquement la modale en mode reset si lien recovery
   useEffect(() => {
     const h = window.location.hash || "";
-    const isRecovery = h.includes("type=recovery") || (h.includes("access_token=") && h.includes("refresh_token="));
-    if (isRecovery) {
-      openAuth("reset");
-    }
+    const isRecovery =
+      h.includes("type=recovery") || (h.includes("access_token=") && h.includes("refresh_token="));
+    if (isRecovery) openAuth("reset");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -139,6 +162,9 @@ export default function App() {
     }
   }
 
+  /* -------------------------------
+     Auth session
+  -------------------------------- */
   useEffect(() => {
     let mounted = true;
 
@@ -160,6 +186,9 @@ export default function App() {
     };
   }, []);
 
+  /* -------------------------------
+     Fetch mon profil
+  -------------------------------- */
   const fetchMyProfile = async () => {
     if (!user) {
       setMyProfile(null);
@@ -211,6 +240,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  /* -------------------------------
+     Fetch tous les profils
+  -------------------------------- */
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
     setProfilesError(null);
@@ -252,6 +284,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* -------------------------------
+     Storage helpers (photos)
+  -------------------------------- */
   const uploadProfilePhotos = async (profileId, files) => {
     const urls = [];
 
@@ -284,6 +319,9 @@ export default function App() {
     if (error) console.error("Supabase remove error:", error);
   };
 
+  /* -------------------------------
+     Save profil
+  -------------------------------- */
   const handleSaveProfile = async (data) => {
     const photos = Array.isArray(data.photos) ? data.photos : [];
     const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
@@ -392,6 +430,9 @@ export default function App() {
     await fetchProfiles();
   };
 
+  /* -------------------------------
+     Filtres
+  -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
   const handleResetFilters = () =>
     setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
@@ -451,12 +492,26 @@ export default function App() {
     };
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleLike = async () => {
+  /* -------------------------------
+     Like (MVP local) + ajout aux crushs
+  -------------------------------- */
+  const handleLike = async (profile) => {
     if (!user) {
       openAuth("signin");
       return;
     }
-    return;
+
+    if (!profile) return;
+
+    const photo = Array.isArray(profile.photo_urls) && profile.photo_urls.length ? profile.photo_urls[0] : null;
+
+    // ✅ ajoute au début, sans doublon
+    const next = [
+      { id: profile.id, name: profile.name, photo },
+      ...crushes.filter((c) => c.id !== profile.id)
+    ];
+
+    persistCrushes(next);
   };
 
   const openProfileModal = () => {
@@ -467,41 +522,60 @@ export default function App() {
     setIsProfileModalOpen(true);
   };
 
+  const openCrushes = () => {
+    if (!user) {
+      openAuth("signin");
+      return;
+    }
+    setView("crushes");
+  };
+
   return (
     <div className="app-root">
-      <Header user={user} onOpenProfile={openProfileModal} onOpenAuth={openAuth} onLogout={handleLogout} />
+      <Header
+        user={user}
+        onOpenProfile={openProfileModal}
+        onOpenCrushes={openCrushes}
+        onOpenAuth={openAuth}
+        onLogout={handleLogout}
+      />
 
       <main className="page">
         <div className="shell">
-          <section className="card card-results">
-            <FiltersBar filters={filters} onChange={handleFiltersChange} onReset={handleResetFilters} />
+          {view === "crushes" ? (
+            <CrushesPage crushes={crushes} onBack={() => setView("home")} />
+          ) : (
+            <section className="card card-results">
+              <FiltersBar filters={filters} onChange={handleFiltersChange} onReset={handleResetFilters} />
 
-            {!user && (
-              <p className="form-message" style={{ marginTop: 8 }}>
-                Connecte-toi pour créer/éditer ton profil et swiper.
-              </p>
-            )}
+              {!user && (
+                <p className="form-message" style={{ marginTop: 8 }}>
+                  Connecte-toi pour créer/éditer ton profil et swiper.
+                </p>
+              )}
 
-            {profilesError && (
-              <p className="form-message error" style={{ marginTop: 8 }}>
-                {profilesError}
-              </p>
-            )}
+              {profilesError && (
+                <p className="form-message error" style={{ marginTop: 8 }}>
+                  {profilesError}
+                </p>
+              )}
 
-            {loadingProfiles ? (
-              <p className="form-message">Chargement des profils…</p>
-            ) : (
-              <SwipeDeck
-                profiles={filteredProfiles}
-                onLikeProfile={handleLike}
-                isAuthenticated={!!user}
-                onRequireAuth={() => openAuth("signin")}
-              />
-            )}
-          </section>
+              {loadingProfiles ? (
+                <p className="form-message">Chargement des profils…</p>
+              ) : (
+                <SwipeDeck
+                  profiles={filteredProfiles}
+                  onLikeProfile={handleLike}
+                  isAuthenticated={!!user}
+                  onRequireAuth={() => openAuth("signin")}
+                />
+              )}
+            </section>
+          )}
         </div>
       </main>
 
+      {/* ---------- MODALS ---------- */}
       {isProfileModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
           <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
@@ -513,7 +587,11 @@ export default function App() {
             </div>
 
             <div className="modal-body modal-body--scroll">
-              <ProfileForm loadingExisting={loadingMyProfile} existingProfile={myProfile} onSaveProfile={handleSaveProfile} />
+              <ProfileForm
+                loadingExisting={loadingMyProfile}
+                existingProfile={myProfile}
+                onSaveProfile={handleSaveProfile}
+              />
             </div>
           </div>
         </div>
