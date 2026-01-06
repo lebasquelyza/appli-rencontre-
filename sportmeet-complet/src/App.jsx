@@ -95,6 +95,16 @@ export default function App() {
     setIsAuthModalOpen(true);
   };
 
+  // ✅ Ouvre automatiquement la modale en mode "reset" si on arrive via lien email
+  useEffect(() => {
+    const h = window.location.hash || "";
+    const isRecovery = h.includes("type=recovery") || (h.includes("access_token=") && h.includes("refresh_token="));
+    if (isRecovery) {
+      openAuth("reset");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
