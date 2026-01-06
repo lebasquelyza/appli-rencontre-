@@ -1,14 +1,22 @@
 // sportmeet-complet/src/pages/Cookies.jsx
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 export function Cookies() {
+  const navigate = useNavigate();
+
   return (
     <main className="page">
       <div className="shell">
         <section className="card" style={{ padding: 16 }}>
-          <h1 style={{ marginTop: 0 }}>Politique de cookies</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button className="btn-ghost" onClick={() => navigate("/settings")}>
+              ← Retour
+            </button>
+            <h1 style={{ margin: 0 }}>Politique de cookies</h1>
+          </div>
 
-          <p>
+          <p style={{ marginTop: 12 }}>
             Cette page explique comment SportMeet utilise des cookies et technologies similaires
             (stockage local, tokens, etc.) pour faire fonctionner l’Application.
           </p>
@@ -66,3 +74,4 @@ export function Cookies() {
     </main>
   );
 }
+
