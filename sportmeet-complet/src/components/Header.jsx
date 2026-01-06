@@ -59,11 +59,45 @@ export function Header({
     await onLogout?.();
   };
 
-  // ✅ style menu : cohérent avec le header (ghost buttons)
-  const menuItemStyle = {
+  // ✅ Style dark pour le dropdown (fond foncé + texte clair)
+  const menuStyle = {
+    position: "absolute",
+    right: 0,
+    top: "calc(100% + 8px)",
+    zIndex: 50,
+    minWidth: 210,
+    borderRadius: 14,
+    padding: 8,
+    background: "#111",
+    color: "#fff",
+    boxShadow: "0 10px 30px rgba(0,0,0,.25)"
+  };
+
+  const itemStyle = {
     width: "100%",
     justifyContent: "flex-start",
-    borderRadius: 10
+    borderRadius: 10,
+    padding: "10px 10px",
+    color: "#fff",
+    background: "transparent",
+    border: "1px solid rgba(255,255,255,.10)",
+    cursor: "pointer"
+  };
+
+  const itemHoverIn = (e) => {
+    e.currentTarget.style.background = "rgba(255,255,255,.10)";
+    e.currentTarget.style.borderColor = "rgba(255,255,255,.20)";
+  };
+
+  const itemHoverOut = (e) => {
+    e.currentTarget.style.background = "transparent";
+    e.currentTarget.style.borderColor = "rgba(255,255,255,.10)";
+  };
+
+  const dividerStyle = {
+    height: 1,
+    margin: "8px 4px",
+    background: "rgba(255,255,255,.12)"
   };
 
   return (
@@ -99,36 +133,26 @@ export function Header({
             </button>
 
             {menuOpen && (
-              <div
-                role="menu"
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  top: "calc(100% + 8px)",
-                  zIndex: 50,
-                  minWidth: 210,
-                  borderRadius: 12,
-                  padding: 8,
-                  background: "var(--card, #fff)",
-                  boxShadow: "0 10px 30px rgba(0,0,0,.12)"
-                }}
-              >
+              <div role="menu" style={menuStyle}>
                 {!isAuthenticated ? (
                   <>
                     <button
                       type="button"
-                      className="btn-ghost btn-sm"
                       onClick={handleSignin}
-                      style={menuItemStyle}
+                      onMouseEnter={itemHoverIn}
+                      onMouseLeave={itemHoverOut}
+                      style={itemStyle}
                       role="menuitem"
                     >
                       Se connecter
                     </button>
+
                     <button
                       type="button"
-                      className="btn-ghost btn-sm"
                       onClick={handleSignup}
-                      style={menuItemStyle}
+                      onMouseEnter={itemHoverIn}
+                      onMouseLeave={itemHoverOut}
+                      style={{ ...itemStyle, marginTop: 8 }}
                       role="menuitem"
                     >
                       Créer un compte
@@ -138,9 +162,10 @@ export function Header({
                   <>
                     <button
                       type="button"
-                      className="btn-ghost btn-sm"
                       onClick={handleProfile}
-                      style={menuItemStyle}
+                      onMouseEnter={itemHoverIn}
+                      onMouseLeave={itemHoverOut}
+                      style={itemStyle}
                       role="menuitem"
                     >
                       Mon profil
@@ -148,21 +173,23 @@ export function Header({
 
                     <button
                       type="button"
-                      className="btn-ghost btn-sm"
                       onClick={handleSettings}
-                      style={menuItemStyle}
+                      onMouseEnter={itemHoverIn}
+                      onMouseLeave={itemHoverOut}
+                      style={{ ...itemStyle, marginTop: 8 }}
                       role="menuitem"
                     >
                       Réglages
                     </button>
 
-                    <div style={{ height: 1, opacity: 0.12, margin: "6px 4px", background: "#000" }} />
+                    <div style={dividerStyle} />
 
                     <button
                       type="button"
-                      className="btn-ghost btn-sm"
                       onClick={handleLogout}
-                      style={menuItemStyle}
+                      onMouseEnter={itemHoverIn}
+                      onMouseLeave={itemHoverOut}
+                      style={itemStyle}
                       role="menuitem"
                     >
                       Se déconnecter
@@ -177,4 +204,3 @@ export function Header({
     </header>
   );
 }
-
