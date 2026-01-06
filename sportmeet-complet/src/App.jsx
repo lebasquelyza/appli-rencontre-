@@ -91,8 +91,8 @@ export default function App() {
 
   const [geoCache] = useState(() => new Map());
 
-  // ✅ Vue “page”
-  const [view, setView] = useState("home"); // "home" | "crushes"
+  // ✅ "Pages" simples (sans router)
+  const [view, setView] = useState("home"); // "home" | "crushes" | "settings"
 
   // ✅ Crushs (MVP) : stockés localement
   const [crushes, setCrushes] = useState(() => {
@@ -500,12 +500,11 @@ export default function App() {
       openAuth("signin");
       return;
     }
-
     if (!profile) return;
 
-    const photo = Array.isArray(profile.photo_urls) && profile.photo_urls.length ? profile.photo_urls[0] : null;
+    const photo =
+      Array.isArray(profile.photo_urls) && profile.photo_urls.length ? profile.photo_urls[0] : null;
 
-    // ✅ ajoute au début, sans doublon
     const next = [
       { id: profile.id, name: profile.name, photo },
       ...crushes.filter((c) => c.id !== profile.id)
@@ -530,12 +529,21 @@ export default function App() {
     setView("crushes");
   };
 
+  const openSettings = () => {
+    if (!user) {
+      openAuth("signin");
+      return;
+    }
+    setView("settings");
+  };
+
   return (
     <div className="app-root">
       <Header
         user={user}
         onOpenProfile={openProfileModal}
         onOpenCrushes={openCrushes}
+        onOpenSettings={openSettings}
         onOpenAuth={openAuth}
         onLogout={handleLogout}
       />
@@ -544,6 +552,25 @@ export default function App() {
         <div className="shell">
           {view === "crushes" ? (
             <CrushesPage crushes={crushes} onBack={() => setView("home")} />
+          ) : view === "settings" ? (
+            <div className="card" style={{ padding: 16 }}>
+              <div
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}
+              >
+                <div>
+                  <h2 style={{ margin: 0 }}>Réglages</h2>
+                  <div style={{ opacity: 0.8, marginTop: 4 }}>Bientôt disponible.</div>
+                </div>
+
+                <button type="button" className="btn-ghost btn-sm" onClick={() => setView("home")}>
+                  Retour
+                </button>
+              </div>
+
+              <div className="card" style={{ marginTop: 14, padding: 14, borderRadius: 14, opacity: 0.9 }}>
+                Ici tu pourras gérer tes préférences (notifications, confidentialité, etc.).
+              </div>
+            </div>
           ) : (
             <section className="card card-results">
               <FiltersBar filters={filters} onChange={handleFiltersChange} onReset={handleResetFilters} />
