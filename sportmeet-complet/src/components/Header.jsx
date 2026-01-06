@@ -1,6 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 
-export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, user }) {
+export function Header({
+  onOpenProfile,
+  onOpenAuth,
+  onLogout,
+  onOpenCrushes,
+  onOpenSettings,
+  user
+}) {
   const isAuthenticated = !!user;
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -41,9 +48,22 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
     onOpenProfile?.();
   };
 
+  const handleSettings = () => {
+    closeMenu();
+    if (onOpenSettings) onOpenSettings();
+    else alert("Réglages bientôt 🙂");
+  };
+
   const handleLogout = async () => {
     closeMenu();
     await onLogout?.();
+  };
+
+  // ✅ style menu : cohérent avec le header (ghost buttons)
+  const menuItemStyle = {
+    width: "100%",
+    justifyContent: "flex-start",
+    borderRadius: 10
   };
 
   return (
@@ -65,7 +85,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
             Mes crush
           </button>
 
-          {/* ✅ Bouton Compte (avec "Mon profil" dedans) */}
+          {/* ✅ Compte */}
           <div ref={menuRef} style={{ position: "relative" }}>
             <button
               type="button"
@@ -86,7 +106,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
                   right: 0,
                   top: "calc(100% + 8px)",
                   zIndex: 50,
-                  minWidth: 190,
+                  minWidth: 210,
                   borderRadius: 12,
                   padding: 8,
                   background: "var(--card, #fff)",
@@ -99,7 +119,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
                       type="button"
                       className="btn-ghost btn-sm"
                       onClick={handleSignin}
-                      style={{ width: "100%", justifyContent: "flex-start" }}
+                      style={menuItemStyle}
                       role="menuitem"
                     >
                       Se connecter
@@ -108,7 +128,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
                       type="button"
                       className="btn-ghost btn-sm"
                       onClick={handleSignup}
-                      style={{ width: "100%", justifyContent: "flex-start" }}
+                      style={menuItemStyle}
                       role="menuitem"
                     >
                       Créer un compte
@@ -120,7 +140,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
                       type="button"
                       className="btn-ghost btn-sm"
                       onClick={handleProfile}
-                      style={{ width: "100%", justifyContent: "flex-start" }}
+                      style={menuItemStyle}
                       role="menuitem"
                     >
                       Mon profil
@@ -129,8 +149,20 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
                     <button
                       type="button"
                       className="btn-ghost btn-sm"
+                      onClick={handleSettings}
+                      style={menuItemStyle}
+                      role="menuitem"
+                    >
+                      Réglages
+                    </button>
+
+                    <div style={{ height: 1, opacity: 0.12, margin: "6px 4px", background: "#000" }} />
+
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
                       onClick={handleLogout}
-                      style={{ width: "100%", justifyContent: "flex-start" }}
+                      style={menuItemStyle}
                       role="menuitem"
                     >
                       Se déconnecter
