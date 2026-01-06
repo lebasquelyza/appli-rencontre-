@@ -151,6 +151,16 @@ export default function App() {
   }, []);
 
   /* -------------------------------
+     ✅ LOGOUT (ajout minimal)
+  -------------------------------- */
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setMyProfile(null);
+    setIsProfileModalOpen(false);
+  };
+
+  /* -------------------------------
      Fetch mon profil (lié à user_id)
   -------------------------------- */
   const fetchMyProfile = async () => {
@@ -514,6 +524,7 @@ export default function App() {
       <Header
         onOpenProfile={openProfileModal}
         onOpenAuth={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}   {/* ✅ ajout minimal */}
         user={user}
       />
 
