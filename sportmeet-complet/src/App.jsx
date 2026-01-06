@@ -151,7 +151,7 @@ export default function App() {
   }, []);
 
   /* -------------------------------
-     ✅ LOGOUT (ajout minimal)
+     LOGOUT (ajout minimal)
   -------------------------------- */
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -520,11 +520,10 @@ export default function App() {
 
   return (
     <div className="app-root">
-      {/* ✅ user passé au Header pour afficher le statut connecté */}
       <Header
         onOpenProfile={openProfileModal}
         onOpenAuth={() => setIsAuthModalOpen(true)}
-        onLogout={handleLogout}   {/* ✅ ajout minimal */}
+        onLogout={handleLogout}
         user={user}
       />
 
