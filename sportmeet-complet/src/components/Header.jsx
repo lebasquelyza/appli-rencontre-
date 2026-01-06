@@ -1,8 +1,14 @@
 import React from "react";
 
-export function Header({ onOpenProfile, onOpenAuth }) {
+export function Header({ onOpenProfile, onOpenAuth, user }) {
+  const isAuthenticated = !!user;
+
   const handleProfileClick = () => {
-    if (onOpenProfile) onOpenProfile();
+    if (!isAuthenticated) {
+      onOpenAuth?.();
+      return;
+    }
+    onOpenProfile?.();
   };
 
   const handleAuthClick = () => {
@@ -29,13 +35,26 @@ export function Header({ onOpenProfile, onOpenAuth }) {
         <div className="topbarRight">
           <span className="badge">MVP · Front</span>
 
+          {/* ✅ Statut connexion */}
+          {isAuthenticated ? (
+            <span className="chip chip-soft" title={user?.email || "Connecté"}>
+              ✅ Connecté
+            </span>
+          ) : (
+            <span className="chip chip-soft">🔒 Non connecté</span>
+          )}
+
+          {/* ✅ Profil : accessible seulement si connecté */}
           <button type="button" className="btn-ghost btn-sm" onClick={handleProfileClick}>
-            Profil
+            {isAuthenticated ? "Mon profil" : "Profil"}
           </button>
 
-          <button type="button" className="btn-primary btn-sm" onClick={handleAuthClick}>
-            Connexion
-          </button>
+          {/* ✅ Bouton Connexion seulement si pas connecté */}
+          {!isAuthenticated && (
+            <button type="button" className="btn-primary btn-sm" onClick={handleAuthClick}>
+              Connexion
+            </button>
+          )}
         </div>
       </div>
     </header>
