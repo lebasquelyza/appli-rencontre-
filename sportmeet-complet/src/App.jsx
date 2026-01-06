@@ -12,6 +12,10 @@ import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 
+// ✅ Pages légales
+import { Terms } from "./pages/Terms";
+import { Cookies } from "./pages/Cookies";
+
 const BUCKET = "profile-photos";
 
 const STANDARD_SPORTS = [
@@ -657,6 +661,10 @@ export default function App() {
           path="/crushes"
           element={<CrushesFullPage user={user} onRequireAuth={() => setIsAuthModalOpen(true)} />}
         />
+
+        {/* ✅ Pages légales */}
+        <Route path="/conditions" element={<Terms />} />
+        <Route path="/cookies" element={<Cookies />} />
       </Routes>
 
       <Footer />
