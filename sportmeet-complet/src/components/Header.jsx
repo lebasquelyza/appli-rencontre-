@@ -8,14 +8,13 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
 
   const handleProfileClick = () => {
     if (!isAuthenticated) {
-      onOpenAuth?.();
+      onOpenAuth?.("signin");
       return;
     }
     onOpenProfile?.();
   };
 
   const toggleMenu = () => setMenuOpen((v) => !v);
-
   const closeMenu = () => setMenuOpen(false);
 
   useEffect(() => {
@@ -27,9 +26,14 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  const handleOpenAuth = () => {
+  const handleSignin = () => {
     closeMenu();
-    onOpenAuth?.();
+    onOpenAuth?.("signin");
+  };
+
+  const handleSignup = () => {
+    closeMenu();
+    onOpenAuth?.("signup");
   };
 
   const handleLogout = async () => {
@@ -41,7 +45,9 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
     <header className="topbar">
       <div className="topbar-inner">
         <div className="brand">
+          {/* Vrai logo */}
           <img className="brandLogo" src="/logo.png" alt="MatchFit" />
+
           <div className="brandText">
             <div className="brandName">MatchFit</div>
             <div className="brandTag">Trouve ton partenaire d’entraînement, dans ta ville</div>
@@ -50,15 +56,6 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
 
         <div className="topbarRight">
           <span className="badge">MVP · Front</span>
-
-          {/* ✅ Statut */}
-          {isAuthenticated ? (
-            <span className="chip chip-soft" title={user?.email || "Connecté"}>
-              ✅ Connecté
-            </span>
-          ) : (
-            <span className="chip chip-soft">🔒 Non connecté</span>
-          )}
 
           <button type="button" className="btn-ghost btn-sm" onClick={handleProfileClick}>
             {isAuthenticated ? "Mon profil" : "Profil"}
@@ -74,10 +71,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
               aria-haspopup="menu"
               title="Compte"
             >
-              Compte{" "}
-              <span style={{ marginLeft: 6, opacity: 0.9 }}>
-                {menuOpen ? "▴" : "▾"}
-              </span>
+              Compte <span style={{ marginLeft: 6, opacity: 0.9 }}>{menuOpen ? "▴" : "▾"}</span>
             </button>
 
             {menuOpen && (
@@ -88,7 +82,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
                   right: 0,
                   top: "calc(100% + 8px)",
                   zIndex: 50,
-                  minWidth: 180,
+                  minWidth: 190,
                   borderRadius: 12,
                   padding: 8,
                   background: "var(--card, #fff)",
@@ -100,7 +94,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
                     <button
                       type="button"
                       className="btn-ghost btn-sm"
-                      onClick={handleOpenAuth}
+                      onClick={handleSignin}
                       style={{ width: "100%", justifyContent: "flex-start" }}
                       role="menuitem"
                     >
@@ -109,7 +103,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
                     <button
                       type="button"
                       className="btn-ghost btn-sm"
-                      onClick={handleOpenAuth}
+                      onClick={handleSignup}
                       style={{ width: "100%", justifyContent: "flex-start" }}
                       role="menuitem"
                     >
@@ -117,17 +111,15 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
                     </button>
                   </>
                 ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm"
-                      onClick={handleLogout}
-                      style={{ width: "100%", justifyContent: "flex-start" }}
-                      role="menuitem"
-                    >
-                      Se déconnecter
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    onClick={handleLogout}
+                    style={{ width: "100%", justifyContent: "flex-start" }}
+                    role="menuitem"
+                  >
+                    Se déconnecter
+                  </button>
                 )}
               </div>
             )}
