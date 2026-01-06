@@ -1,4 +1,3 @@
-// sportmeet-complet/src/components/Header.jsx
 import React, { useEffect, useRef, useState } from "react";
 
 export function Header({
@@ -60,6 +59,7 @@ export function Header({
     await onLogout?.();
   };
 
+  // ✅ Style dark pour le dropdown (fond foncé + texte clair)
   const menuStyle = {
     position: "absolute",
     right: 0,
@@ -105,11 +105,10 @@ export function Header({
       <div className="topbar-inner">
         <div className="brand">
           <img className="brandLogo" src="/logo.png" alt="MatchFit" />
+
           <div className="brandText">
             <div className="brandName">MatchFit</div>
-            <div className="brandTag">
-              Trouve ton partenaire d’entraînement, dans ta ville
-            </div>
+            <div className="brandTag">Trouve ton partenaire d’entraînement, dans ta ville</div>
           </div>
         </div>
 
@@ -120,6 +119,7 @@ export function Header({
             Mes crush
           </button>
 
+          {/* ✅ Compte */}
           <div ref={menuRef} style={{ position: "relative" }}>
             <button
               type="button"
