@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 const emptyForm = {
   name: "",
   age: "",
+  gender: "",
   city: "",
   sport: "",
   otherSport: "",
@@ -57,6 +58,7 @@ export function ProfileForm({
     const initial = {
       name: existingProfile.name || "",
       age: existingProfile.age ?? "",
+      gender: existingProfile.gender ?? "",
       city: existingProfile.city || "",
       sport: existingProfile.sport || "",
       level: existingProfile.level || "",
@@ -89,6 +91,7 @@ export function ProfileForm({
     const current = JSON.stringify({
       name: form.name,
       age: form.age,
+      gender: form.gender,
       city: form.city,
       sport: form.sport,
       level: form.level,
@@ -177,6 +180,7 @@ export function ProfileForm({
     await onSaveProfile({
       ...form,
       age: form.age ? Number(form.age) : null,
+      gender: form.gender || null,
 
       // ✅ position exacte
       latitude: coords.lat,
@@ -206,6 +210,16 @@ export function ProfileForm({
           onChange={handleChange}
         />
         {ageError && <div style={{ marginTop: 8, color: "tomato" }}>{ageError}</div>}
+      </div>
+
+      <div className="form-group">
+        <label>Genre *</label>
+        <select name="gender" value={form.gender} onChange={handleChange}>
+          <option value="">Sélectionner…</option>
+          <option value="female">Femme</option>
+          <option value="male">Homme</option>
+          <option value="other">Autre</option>
+        </select>
       </div>
 
       <div className="form-group">
