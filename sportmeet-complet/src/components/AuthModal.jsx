@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-export function AuthModal({ onClose }) {
-  const [mode, setMode] = useState("signin"); // "signin" | "signup"
+export function AuthModal({ onClose, initialMode = "signin" }) {
+  const [mode, setMode] = useState(initialMode); // "signin" | "signup"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -11,10 +11,40 @@ export function AuthModal({ onClose }) {
   const [msg, setMsg] = useState(null);
   const [isError, setIsError] = useState(false);
 
+  // ✅ savoir si connecté (pour afficher "Se déconnecter" seulement si besoin)
+  const [isAuthed, setIsAuthed] = useState(false);
+
+  // ✅ appliquer initialMode à l'ouverture (si on ouvre directement en signup)
+  useEffect(() => {
+    setMode(initialMode || "signin");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMode]);
+
   useEffect(() => {
     setMsg(null);
     setIsError(false);
   }, [mode]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setIsAuthed(!!data?.session?.user);
+    };
+
+    init();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthed(!!session?.user);
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -160,15 +190,18 @@ export function AuthModal({ onClose }) {
               {mode === "signup" ? "J’ai déjà un compte" : "Créer un compte"}
             </button>
 
-            <button
-              type="button"
-              className="btn-ghost btn-block"
-              onClick={handleSignOut}
-              disabled={loading}
-              style={{ marginTop: 8 }}
-            >
-              Se déconnecter
-            </button>
+            {/* ✅ Afficher "Se déconnecter" seulement si connecté */}
+            {isAuthed && (
+              <button
+                type="button"
+                className="btn-ghost btn-block"
+                onClick={handleSignOut}
+                disabled={loading}
+                style={{ marginTop: 8 }}
+              >
+                Se déconnecter
+              </button>
+            )}
 
             <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>
               {msg}
