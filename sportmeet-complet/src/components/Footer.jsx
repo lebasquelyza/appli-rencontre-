@@ -6,9 +6,9 @@ export function Footer() {
   return (
     <footer className="footer">
       <div className="footer-inner">
-        <span className="footerLeft">SportMeet © {year}</span>
+        <span className="footerLeft">MatchFit © {year}</span>
         <span className="footer-note">
-          Prototype démo — à connecter à une vraie API (auth, chat, géoloc) plus tard.
+          
         </span>
       </div>
     </footer>
