@@ -10,7 +10,7 @@ export function Settings({ user, onOpenProfile }) {
       <div className="shell">
         <section className="card" style={{ padding: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button className="btn-ghost" onClick={() => navigate(-1)}>
+            <button className="btn-ghost" onClick={() => navigate("/")}>
               ← Retour
             </button>
             <h1 style={{ margin: 0 }}>Réglages</h1>
@@ -75,3 +75,4 @@ export function Settings({ user, onOpenProfile }) {
     </main>
   );
 }
+
