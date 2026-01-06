@@ -1,7 +1,8 @@
+// sportmeet-complet/src/components/SwipeDeck.jsx
 import React, { useEffect, useState } from "react";
 import { SwipeCard } from "./SwipeCard";
 
-export function SwipeDeck({ profiles, onLikeProfile }) {
+export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireAuth }) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
@@ -16,7 +17,12 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
   const next = () => setIndex((i) => i + 1);
 
   const handleLike = async () => {
+    if (!isAuthenticated) {
+      onRequireAuth?.();
+      return;
+    }
     if (!currentProfile || busy) return;
+
     setBusy(true);
     try {
       await onLikeProfile?.(currentProfile);
@@ -27,6 +33,10 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
   };
 
   const handleSkip = () => {
+    if (!isAuthenticated) {
+      onRequireAuth?.();
+      return;
+    }
     if (busy) return;
     next();
   };
@@ -39,40 +49,52 @@ export function SwipeDeck({ profiles, onLikeProfile }) {
         <>
           <SwipeCard key={currentProfile.id} profile={currentProfile} />
 
-          <div className="actions">
-            <button
-              type="button"
-              className="swBtn swBtnBad"
-              onClick={handleSkip}
-              disabled={busy}
-              aria-label="Passer"
-              title="Passer"
-            >
-              ✕
-            </button>
+          {/* ✅ Si pas connecté : message + bouton connexion */}
+          {!isAuthenticated ? (
+            <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
+              <p className="form-message" style={{ margin: 0 }}>
+                Connecte-toi pour liker ou passer des profils.
+              </p>
+              <button type="button" className="btn-primary btn-sm" onClick={() => onRequireAuth?.()}>
+                Se connecter
+              </button>
+            </div>
+          ) : (
+            <div className="actions">
+              <button
+                type="button"
+                className="swBtn swBtnBad"
+                onClick={handleSkip}
+                disabled={busy}
+                aria-label="Passer"
+                title="Passer"
+              >
+                ✕
+              </button>
 
-            <button
-              type="button"
-              className="swBtn swBtnPrimary"
-              onClick={handleLike}
-              disabled={busy}
-              aria-label="Liker"
-              title="Liker"
-            >
-              ❤
-            </button>
+              <button
+                type="button"
+                className="swBtn swBtnPrimary"
+                onClick={handleLike}
+                disabled={busy}
+                aria-label="Liker"
+                title="Liker"
+              >
+                ❤
+              </button>
 
-            <button
-              type="button"
-              className="swBtn swBtnGood"
-              onClick={handleLike}
-              disabled={busy}
-              aria-label="Super like (like)"
-              title="Super like (like)"
-            >
-              ★
-            </button>
-          </div>
+              <button
+                type="button"
+                className="swBtn swBtnGood"
+                onClick={handleLike}
+                disabled={busy}
+                aria-label="Super like (like)"
+                title="Super like (like)"
+              >
+                ★
+              </button>
+            </div>
+          )}
 
           <div className="hint">
             {remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}
