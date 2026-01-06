@@ -35,7 +35,6 @@ function randomId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-// ✅ Convertit une publicUrl Supabase en "path" storage (bucket relatif)
 function storagePathFromPublicUrl(publicUrl) {
   try {
     const u = new URL(publicUrl);
@@ -48,7 +47,6 @@ function storagePathFromPublicUrl(publicUrl) {
   }
 }
 
-// ✅ distance km
 function haversineKm(a, b) {
   const R = 6371;
   const toRad = (x) => (x * Math.PI) / 180;
@@ -67,18 +65,16 @@ function haversineKm(a, b) {
 export default function App() {
   const [profiles, setProfiles] = useState([]);
 
-  // ✅ filtres (ville + km autour de moi)
   const [filters, setFilters] = useState({
     sport: "",
     level: "",
     city: "",
     radiusKm: 0,
-    myLocation: null // {lat, lon}
+    myLocation: null
   });
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-  // ✅ Auth modal + mode initial (signin/signup)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState("signin");
 
@@ -87,14 +83,11 @@ export default function App() {
 
   const [user, setUser] = useState(null);
 
-  // ✅ Mon profil (lié au compte)
   const [myProfile, setMyProfile] = useState(null);
   const [loadingMyProfile, setLoadingMyProfile] = useState(false);
 
-  // ✅ liste filtrée (filtre distance async)
   const [filteredProfiles, setFilteredProfiles] = useState([]);
 
-  // ✅ cache géocodage ville -> coords
   const [geoCache] = useState(() => new Map());
 
   const openAuth = (mode = "signin") => {
@@ -104,7 +97,6 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    // user se met à jour via onAuthStateChange
   };
 
   async function geocodeCity(cityText) {
@@ -137,9 +129,6 @@ export default function App() {
     }
   }
 
-  /* -------------------------------
-     Auth session
-  -------------------------------- */
   useEffect(() => {
     let mounted = true;
 
@@ -161,9 +150,6 @@ export default function App() {
     };
   }, []);
 
-  /* -------------------------------
-     Fetch mon profil
-  -------------------------------- */
   const fetchMyProfile = async () => {
     if (!user) {
       setMyProfile(null);
@@ -215,9 +201,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  /* -------------------------------
-     Fetch tous les profils
-  -------------------------------- */
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
     setProfilesError(null);
@@ -259,9 +242,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* -------------------------------
-     Upload photos -> URLs publiques
-  -------------------------------- */
   const uploadProfilePhotos = async (profileId, files) => {
     const urls = [];
 
@@ -286,32 +266,19 @@ export default function App() {
     return urls;
   };
 
-  /* -------------------------------
-     Delete photos from Supabase Storage (best-effort)
-  -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
-    const paths = (publicUrls || [])
-      .map(storagePathFromPublicUrl)
-      .filter(Boolean);
-
+    const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
     if (paths.length === 0) return;
 
     const { error } = await supabase.storage.from(BUCKET).remove(paths);
-    if (error) {
-      console.error("Supabase remove error:", error);
-      // best-effort
-    }
+    if (error) console.error("Supabase remove error:", error);
   };
 
-  /* -------------------------------
-     SAVE profil : INSERT ou UPDATE
-  -------------------------------- */
   const handleSaveProfile = async (data) => {
     const photos = Array.isArray(data.photos) ? data.photos : [];
     const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
     const hasNewPhotos = photos.length > 0;
 
-    // Auth required
     const { data: authData } = await supabase.auth.getUser();
     const currentUser = authData?.user ?? null;
 
@@ -320,17 +287,14 @@ export default function App() {
       throw new Error("AUTH_REQUIRED");
     }
 
-    // validations
     if (!data.name || !data.city || !data.sport || !data.level) {
       throw new Error("MISSING_FIELDS");
     }
 
-    // création : exige 1 photo
     if (!myProfile && !hasNewPhotos) {
       throw new Error("PHOTO_REQUIRED");
     }
 
-    // max 5 au total
     const totalPhotosCount = (myProfile ? keptPhotoUrls.length : 0) + photos.length;
     if (totalPhotosCount > 5) throw new Error("MAX_5_PHOTOS");
 
@@ -378,7 +342,6 @@ export default function App() {
       }
     }
 
-    // photos
     if (!myProfile) {
       const uploaded = await uploadProfilePhotos(profileId, photos);
 
@@ -419,9 +382,6 @@ export default function App() {
     await fetchProfiles();
   };
 
-  /* -------------------------------
-     Filtres
-  -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
   const handleResetFilters = () =>
     setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
@@ -481,15 +441,11 @@ export default function App() {
     };
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* -------------------------------
-     Like/Swipe : bloqué si pas connecté
-  -------------------------------- */
-  const handleLike = async (profile) => {
+  const handleLike = async () => {
     if (!user) {
       openAuth("signin");
       return;
     }
-    // MVP : pas de persistance encore
     return;
   };
 
@@ -503,12 +459,7 @@ export default function App() {
 
   return (
     <div className="app-root">
-      <Header
-        user={user}
-        onOpenProfile={openProfileModal}
-        onOpenAuth={openAuth} // ✅ prend "signin" ou "signup"
-        onLogout={handleLogout}
-      />
+      <Header user={user} onOpenProfile={openProfileModal} onOpenAuth={openAuth} onLogout={handleLogout} />
 
       <main className="page">
         <div className="shell">
@@ -541,7 +492,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* ---------- MODALS ---------- */}
       {isProfileModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
           <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
@@ -553,21 +503,14 @@ export default function App() {
             </div>
 
             <div className="modal-body modal-body--scroll">
-              <ProfileForm
-                loadingExisting={loadingMyProfile}
-                existingProfile={myProfile}
-                onSaveProfile={handleSaveProfile}
-              />
+              <ProfileForm loadingExisting={loadingMyProfile} existingProfile={myProfile} onSaveProfile={handleSaveProfile} />
             </div>
           </div>
         </div>
       )}
 
       {isAuthModalOpen && (
-        <AuthModal
-          initialMode={authInitialMode}
-          onClose={() => setIsAuthModalOpen(false)}
-        />
+        <AuthModal initialMode={authInitialMode} onClose={() => setIsAuthModalOpen(false)} />
       )}
 
       <Footer />
