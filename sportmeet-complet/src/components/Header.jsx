@@ -6,14 +6,6 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
-  const handleProfileClick = () => {
-    if (!isAuthenticated) {
-      onOpenAuth?.("signin");
-      return;
-    }
-    onOpenProfile?.();
-  };
-
   const handleCrushesClick = () => {
     if (!isAuthenticated) {
       onOpenAuth?.("signin");
@@ -44,6 +36,11 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
     onOpenAuth?.("signup");
   };
 
+  const handleProfile = () => {
+    closeMenu();
+    onOpenProfile?.();
+  };
+
   const handleLogout = async () => {
     closeMenu();
     await onLogout?.();
@@ -68,11 +65,7 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
             Mes crush
           </button>
 
-          <button type="button" className="btn-ghost btn-sm" onClick={handleProfileClick}>
-            {isAuthenticated ? "Mon profil" : "Profil"}
-          </button>
-
-          {/* ✅ Bouton multi-actions */}
+          {/* ✅ Bouton Compte (avec "Mon profil" dedans) */}
           <div ref={menuRef} style={{ position: "relative" }}>
             <button
               type="button"
@@ -122,15 +115,27 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, use
                     </button>
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn-ghost btn-sm"
-                    onClick={handleLogout}
-                    style={{ width: "100%", justifyContent: "flex-start" }}
-                    role="menuitem"
-                  >
-                    Se déconnecter
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      onClick={handleProfile}
+                      style={{ width: "100%", justifyContent: "flex-start" }}
+                      role="menuitem"
+                    >
+                      Mon profil
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      onClick={handleLogout}
+                      style={{ width: "100%", justifyContent: "flex-start" }}
+                      role="menuitem"
+                    >
+                      Se déconnecter
+                    </button>
+                  </>
                 )}
               </div>
             )}
