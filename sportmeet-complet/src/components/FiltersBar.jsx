@@ -4,7 +4,6 @@ export function FiltersBar({ filters, onChange, onReset }) {
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef(null);
 
-  // ✅ état local pour géoloc
   const [locLoading, setLocLoading] = useState(false);
   const [locError, setLocError] = useState(null);
 
@@ -16,22 +15,18 @@ export function FiltersBar({ filters, onChange, onReset }) {
     if (filters.sport) n += 1;
     if (filters.level) n += 1;
     if (filters.city && filters.city.trim()) n += 1;
-    if (hasRadius) n += 1; // ✅ périmètre
+    if (hasRadius) n += 1;
     return n;
   }, [filters, hasRadius]);
 
   const toggle = () => setIsOpen((v) => !v);
 
-  // hauteur dynamique pour un slide propre (sans “jump”)
   const panelStyle = useMemo(() => {
     const el = panelRef.current;
     const h = el ? el.scrollHeight : 0;
-    return {
-      maxHeight: isOpen ? `${h}px` : "0px"
-    };
-  }, [isOpen, filters]); // filters pour recalculer si contenu change
+    return { maxHeight: isOpen ? `${h}px` : "0px" };
+  }, [isOpen, filters]);
 
-  // ✅ Reverse geocoding (lat/lon -> ville)
   const reverseGeocodeCity = async (lat, lon) => {
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(
       lat
@@ -48,7 +43,7 @@ export function FiltersBar({ filters, onChange, onReset }) {
     return city ? (country ? `${city}, ${country}` : city) : "";
   };
 
-  // ✅ Le bouton 📍 met la ville (et la position), mais NE modifie PAS le slider
+  // 📍 met la position + remplit "Ville", sans forcer le périmètre
   const handleAroundMeClick = () => {
     setLocError(null);
 
@@ -64,10 +59,8 @@ export function FiltersBar({ filters, onChange, onReset }) {
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
 
-          // position pour le filtre km
           onChange?.({ myLocation: { lat, lon } });
 
-          // ville remplie automatiquement
           const cityText = await reverseGeocodeCity(lat, lon);
           if (cityText) onChange?.({ city: cityText });
         } catch (e) {
@@ -124,7 +117,6 @@ export function FiltersBar({ filters, onChange, onReset }) {
         </div>
       )}
 
-      {/* Wrapper animé */}
       <div
         className={`filters-panelWrap ${isOpen ? "open" : ""}`}
         style={panelStyle}
@@ -179,37 +171,40 @@ export function FiltersBar({ filters, onChange, onReset }) {
               />
             </div>
 
-            {/* ✅ Rayon KM autour de moi + bouton 📍 */}
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label htmlFor="filter-radius">Autour de moi : {radiusKm} km</label>
+            {/* ✅ Sélecteur KM + bouton 📍 (visuellement fiable) */}
+            <div className="form-group">
+              <label htmlFor="filter-radius">Autour de moi</label>
 
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <input
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <select
                   id="filter-radius"
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={5}
                   value={radiusKm}
                   onChange={(e) => onChange({ radiusKm: Number(e.target.value) })}
-                  style={{ width: "100%" }}
-                />
+                  style={{ flex: 1 }}
+                >
+                  <option value={0}>Désactivé</option>
+                  <option value={5}>5 km</option>
+                  <option value={10}>10 km</option>
+                  <option value={15}>15 km</option>
+                  <option value={20}>20 km</option>
+                  <option value={30}>30 km</option>
+                  <option value={40}>40 km</option>
+                  <option value={50}>50 km</option>
+                  <option value={75}>75 km</option>
+                  <option value={100}>100 km</option>
+                </select>
 
                 <button
                   type="button"
                   className="btn-ghost btn-sm"
                   onClick={handleAroundMeClick}
                   disabled={locLoading}
-                  title="Autour de moi"
+                  title="Autour de moi (détecter ma ville)"
                   aria-label="Autour de moi"
                 >
                   {locLoading ? "..." : "📍"}
                 </button>
               </div>
-
-              <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>
-                Choisis ton périmètre avec le slider (0 km = désactivé).
-              </small>
 
               {locError ? (
                 <small style={{ display: "block", marginTop: 6 }} className="form-message error">
