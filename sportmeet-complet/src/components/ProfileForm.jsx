@@ -12,7 +12,7 @@ const emptyForm = {
   bio: ""
 };
 
-// Helpers: accepte ["url1", "url2"] ou [{id,url}, ...]
+// Helpers: accepte ["url1"] OU [{id,url}, ...]
 function photoToUrl(p) {
   if (!p) return "";
   if (typeof p === "string") return p;
@@ -34,40 +34,33 @@ export function ProfileForm({
 
   const [form, setForm] = useState(emptyForm);
 
-  // Photos existantes (du profil) + nouvelles photos (Files)
-  const [existingPhotos, setExistingPhotos] = useState([]); // array of string|object
-  const [newPhotos, setNewPhotos] = useState([]); // array of File
-  const [removedExistingKeys, setRemovedExistingKeys] = useState([]); // array of key (id/url)
+  // ✅ on garde ta logique: `photos` = seulement les nouvelles photos (File)
+  const [photos, setPhotos] = useState([]);
+
+  // ✅ AJOUT: gestion photos existantes + suppressions
+  const [existingPhotos, setExistingPhotos] = useState([]); // string|object
+  const [removedExistingKeys, setRemovedExistingKeys] = useState([]); // key (id/url)
   const [photoError, setPhotoError] = useState("");
 
   const fileInputRef = useRef(null);
 
-  // 🔐 référence état initial
+  // 🔐 référence état initial (inchangée)
   const initialRef = useRef(null);
-  const initialPhotosRef = useRef(null); // pour dirty detection sur photos existantes
-
-  const keptExistingPhotos = useMemo(() => {
-    const removed = new Set(removedExistingKeys);
-    return existingPhotos.filter((p) => !removed.has(photoToKey(p)));
-  }, [existingPhotos, removedExistingKeys]);
-
-  const totalPhotosCount = keptExistingPhotos.length + newPhotos.length;
-  const canAddMore = totalPhotosCount < 5;
-  const canSubmitPhotos = totalPhotosCount >= 1;
 
   /* -------------------------------
-     Pré-remplissage
+     Pré-remplissage (inchangé sur le form)
   -------------------------------- */
   useEffect(() => {
     if (!existingProfile) {
       setForm(emptyForm);
+      setPhotos([]);
+
+      // ✅ AJOUT: photos existantes reset
       setExistingPhotos([]);
-      setNewPhotos([]);
       setRemovedExistingKeys([]);
       setPhotoError("");
 
       initialRef.current = JSON.stringify(emptyForm);
-      initialPhotosRef.current = JSON.stringify([]);
       return;
     }
 
@@ -81,25 +74,29 @@ export function ProfileForm({
       bio: existingProfile.bio || ""
     };
 
-    // Photos existantes : on prend existingProfile.photos si présent, sinon tableau vide
-    const initialExistingPhotos = Array.isArray(existingProfile.photos)
-      ? existingProfile.photos
-      : [];
-
     setForm(initial);
-    setExistingPhotos(initialExistingPhotos);
-    setNewPhotos([]);
+
+    // ✅ comme avant: on remet à zéro les nouvelles photos
+    setPhotos([]);
+
+    // ✅ AJOUT: on charge les photos existantes (si dispo)
+    setExistingPhotos(Array.isArray(existingProfile.photos) ? existingProfile.photos : []);
     setRemovedExistingKeys([]);
     setPhotoError("");
 
     initialRef.current = JSON.stringify(initial);
-    initialPhotosRef.current = JSON.stringify(
-      initialExistingPhotos.map(photoToKey)
-    );
   }, [existingProfile?.id]);
 
+  const keptExistingPhotos = useMemo(() => {
+    const removed = new Set(removedExistingKeys);
+    return existingPhotos.filter((p) => !removed.has(photoToKey(p)));
+  }, [existingPhotos, removedExistingKeys]);
+
+  const totalPhotosCount = keptExistingPhotos.length + photos.length;
+  const canAddMore = totalPhotosCount < 5;
+
   /* -------------------------------
-     Dirty detection
+     Dirty detection (logique conservée + suppression existantes)
   -------------------------------- */
   useEffect(() => {
     if (!initialRef.current) return;
@@ -114,29 +111,15 @@ export function ProfileForm({
       bio: form.bio
     });
 
-    const initialPhotosKeys = initialPhotosRef.current || "[]";
-    const currentKeptExistingKeys = JSON.stringify(
-      keptExistingPhotos.map(photoToKey)
-    );
-
+    // ✅ on garde ton idée: dirty si form diff OU nouvelles photos
+    // ✅ + on ajoute: suppression d'une photo existante
     const dirty =
       current !== initialRef.current ||
-      newPhotos.length > 0 ||
-      currentKeptExistingKeys !== initialPhotosKeys;
+      photos.length > 0 ||
+      removedExistingKeys.length > 0;
 
     onDirtyChange?.(dirty);
-  }, [form, newPhotos, keptExistingPhotos, onDirtyChange]);
-
-  useEffect(() => {
-    // Message d’erreur min/max, mais sans spammer
-    if (totalPhotosCount === 0) {
-      setPhotoError("Ajoute au moins 1 photo pour enregistrer.");
-    } else if (totalPhotosCount > 5) {
-      setPhotoError("Maximum 5 photos.");
-    } else {
-      setPhotoError("");
-    }
-  }, [totalPhotosCount]);
+  }, [form, photos, removedExistingKeys, onDirtyChange]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -152,18 +135,20 @@ export function ProfileForm({
 
     if (toAdd.length < files.length) {
       setPhotoError("Maximum 5 photos : certaines images n'ont pas été ajoutées.");
+    } else {
+      setPhotoError("");
     }
 
-    setNewPhotos((p) => [...p, ...toAdd]);
+    setPhotos((p) => [...p, ...toAdd]); // ✅ conserve ton state `photos`
     e.target.value = "";
   };
 
-  const removeExistingPhoto = (photo) => {
+  const removeExistingPhoto = (p) => {
     if (totalPhotosCount <= 1) {
       setPhotoError("Tu dois garder au moins 1 photo.");
       return;
     }
-    const key = photoToKey(photo);
+    const key = photoToKey(p);
     setRemovedExistingKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
   };
 
@@ -172,13 +157,14 @@ export function ProfileForm({
       setPhotoError("Tu dois garder au moins 1 photo.");
       return;
     }
-    setNewPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const submit = async (e) => {
     e.preventDefault();
 
-    if (!canSubmitPhotos) {
+    // ✅ min 1 / max 5
+    if (totalPhotosCount < 1) {
       setPhotoError("Ajoute au moins 1 photo pour enregistrer.");
       return;
     }
@@ -191,30 +177,27 @@ export function ProfileForm({
       ...form,
       age: form.age ? Number(form.age) : null,
 
-      // Nouveaux fichiers à uploader
-      photosToAdd: newPhotos,
+      // ✅ garde ton champ `photos` pour les nouveaux fichiers
+      photos,
 
-      // Photos existantes conservées (utile si ton backend remplace la liste)
-      keptExistingPhotos,
+      // ✅ AJOUT: le serveur saura quoi supprimer
+      photosToRemove: removedExistingKeys,
 
-      // Identifiants/urls des photos existantes supprimées
-      photosToRemove: removedExistingKeys
+      // ✅ optionnel: si ton backend remplace toute la liste
+      keptExistingPhotos
     });
 
     onDirtyChange?.(false);
-    setNewPhotos([]);
+    setPhotos([]);
     setRemovedExistingKeys([]);
+    setPhotoError("");
   };
 
-  // Préviews pour les nouvelles photos
+  // previews des nouvelles photos
   const newPreviews = useMemo(() => {
-    return newPhotos.map((f) => ({
-      name: f.name,
-      url: URL.createObjectURL(f)
-    }));
-  }, [newPhotos]);
+    return photos.map((f) => ({ name: f.name, url: URL.createObjectURL(f) }));
+  }, [photos]);
 
-  // Cleanup des object URLs
   useEffect(() => {
     return () => {
       newPreviews.forEach((p) => URL.revokeObjectURL(p.url));
@@ -262,9 +245,7 @@ export function ProfileForm({
             Ajouter une photo
           </button>
 
-          <div style={{ fontSize: 12, opacity: 0.8 }}>
-            {totalPhotosCount}/5
-          </div>
+          <div style={{ fontSize: 12, opacity: 0.8 }}>{totalPhotosCount}/5</div>
         </div>
 
         <input
@@ -277,7 +258,6 @@ export function ProfileForm({
           onChange={handlePhotosSelected}
         />
 
-        {/* Grille photos existantes conservées */}
         {(keptExistingPhotos.length > 0 || newPreviews.length > 0) && (
           <div
             style={{
@@ -294,12 +274,7 @@ export function ProfileForm({
                   <img
                     src={url}
                     alt="Photo"
-                    style={{
-                      width: "100%",
-                      height: 90,
-                      objectFit: "cover",
-                      borderRadius: 10
-                    }}
+                    style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 10 }}
                   />
                   <button
                     type="button"
@@ -323,18 +298,12 @@ export function ProfileForm({
               );
             })}
 
-            {/* Grille nouvelles photos */}
             {newPreviews.map((p, idx) => (
               <div key={`${p.name}-${idx}`} style={{ position: "relative" }}>
                 <img
                   src={p.url}
                   alt="Nouvelle photo"
-                  style={{
-                    width: "100%",
-                    height: 90,
-                    objectFit: "cover",
-                    borderRadius: 10
-                  }}
+                  style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 10 }}
                 />
                 <button
                   type="button"
@@ -366,7 +335,7 @@ export function ProfileForm({
         )}
       </div>
 
-      <button className="btn-primary btn-block" type="submit" disabled={!canSubmitPhotos}>
+      <button className="btn-primary btn-block" type="submit" disabled={totalPhotosCount < 1}>
         Enregistrer
       </button>
     </form>
