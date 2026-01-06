@@ -19,6 +19,9 @@ import { Cookies } from "./pages/Cookies";
 // ✅ Page Réglages
 import { Settings } from "./pages/Settings";
 
+// ✅ Page Configurer compte
+import { AccountSettings } from "./pages/AccountSettings";
+
 const BUCKET = "profile-photos";
 
 const STANDARD_SPORTS = [
@@ -311,6 +314,7 @@ export default function App() {
       name: data.name,
       age: data.age ?? null,
       gender: data.gender ?? null,
+      status: data.status ?? "active",
       city: data.city,
       sport: data.sport,
       level: data.level,
@@ -355,6 +359,7 @@ export default function App() {
       name: p.name,
       age: p.age ?? null,
       gender: p.gender ?? null,
+      status: p.status ?? "active",
       city: p.city,
       sport: p.sport,
       level: p.level,
@@ -470,6 +475,7 @@ export default function App() {
           name: data.name,
           age: ageNum,
           gender: genderValue,
+          status: "active",
           city: data.city,
           sport: data.sport,
           level: data.level,
@@ -681,6 +687,9 @@ export default function App() {
 
         {/* ✅ Réglages */}
         <Route path="/settings" element={<Settings user={user} onOpenProfile={openProfileModal} />} />
+
+        {/* ✅ Configurer compte */}
+        <Route path="/account" element={<AccountSettings user={user} />} />
       </Routes>
 
       <Footer />
