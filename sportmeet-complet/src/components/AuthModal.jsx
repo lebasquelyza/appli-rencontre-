@@ -11,10 +11,8 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
   const [msg, setMsg] = useState(null);
   const [isError, setIsError] = useState(false);
 
-  // ✅ savoir si connecté (pour afficher "Se déconnecter" seulement si besoin)
   const [isAuthed, setIsAuthed] = useState(false);
 
-  // ✅ appliquer initialMode à l'ouverture (si on ouvre directement en signup)
   useEffect(() => {
     setMode(initialMode || "signin");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -46,6 +44,36 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     };
   }, []);
 
+  const handleForgotPassword = async () => {
+    const cleanEmail = (email || "").trim().toLowerCase();
+    if (!cleanEmail) {
+      setIsError(true);
+      setMsg("Entre ton email pour réinitialiser le mot de passe.");
+      return;
+    }
+
+    setLoading(true);
+    setMsg(null);
+    setIsError(false);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: window.location.origin
+      });
+
+      if (error) throw error;
+
+      setIsError(false);
+      setMsg("Email de réinitialisation envoyé 📩 Vérifie ta boîte mail.");
+    } catch (err) {
+      console.error("RESET PASSWORD ERROR:", err);
+      setIsError(true);
+      setMsg(err?.message || "Erreur lors de l’envoi de l’email.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -74,7 +102,6 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
         });
         if (error) throw error;
 
-        // ✅ Si la confirmation email est activée, Supabase renvoie souvent user mais pas de session
         if (data?.user && !data?.session) {
           setIsError(false);
           setMsg("Compte créé ✅ Vérifie ton email pour confirmer, puis connecte-toi.");
@@ -89,7 +116,6 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
         return;
       }
 
-      // signin
       const { error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password
@@ -102,7 +128,6 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     } catch (err) {
       console.error("AUTH ERROR:", err);
 
-      // ✅ message Supabase le plus explicite possible
       const full =
         err?.message ||
         err?.error_description ||
@@ -174,6 +199,31 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 placeholder="6 caractères minimum"
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
               />
+
+              {/* ✅ lien discret */}
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                  style={{
+                    marginTop: 8,
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    opacity: 0.75,
+                    textDecoration: "underline",
+                    textAlign: "right",
+                    width: "100%"
+                  }}
+                  aria-label="Mot de passe oublié"
+                  title="Mot de passe oublié"
+                >
+                  Mot de passe oublié ?
+                </button>
+              )}
             </div>
 
             <button className="btn-primary btn-block" type="submit" disabled={loading}>
@@ -190,7 +240,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
               {mode === "signup" ? "J’ai déjà un compte" : "Créer un compte"}
             </button>
 
-            {/* ✅ Afficher "Se déconnecter" seulement si connecté */}
+            {/* ✅ uniquement si connecté */}
             {isAuthed && (
               <button
                 type="button"
