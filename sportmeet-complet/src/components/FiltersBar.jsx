@@ -31,6 +31,23 @@ export function FiltersBar({ filters, onChange, onReset }) {
     };
   }, [isOpen, filters]); // filters pour recalculer si contenu change
 
+  // ✅ Reverse geocoding (lat/lon -> ville)
+  const reverseGeocodeCity = async (lat, lon) => {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(
+      lat
+    )}&lon=${encodeURIComponent(lon)}&format=json&accept-language=fr`;
+
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) return "";
+
+    const data = await res.json();
+    const addr = data?.address || {};
+    const city =
+      addr.city || addr.town || addr.village || addr.municipality || addr.county || "";
+    const country = addr.country || "";
+    return city ? (country ? `${city}, ${country}` : city) : "";
+  };
+
   const requestLocation = () => {
     setLocError(null);
 
@@ -41,11 +58,25 @@ export function FiltersBar({ filters, onChange, onReset }) {
 
     setLocLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocLoading(false);
-        onChange?.({
-          myLocation: { lat: pos.coords.latitude, lon: pos.coords.longitude }
-        });
+      async (pos) => {
+        try {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+
+          // ✅ stocke la position pour le filtre km
+          onChange?.({ myLocation: { lat, lon } });
+
+          // ✅ récupère la ville et la met dans le champ "Ville"
+          const cityText = await reverseGeocodeCity(lat, lon);
+          if (cityText) {
+            onChange?.({ city: cityText });
+          }
+        } catch (e) {
+          console.error(e);
+          setLocError("Impossible de déterminer ta ville automatiquement.");
+        } finally {
+          setLocLoading(false);
+        }
       },
       () => {
         setLocLoading(false);
@@ -90,9 +121,7 @@ export function FiltersBar({ filters, onChange, onReset }) {
           {filters.city && filters.city.trim() ? (
             <span className="chip chip-soft">📍 {filters.city.trim()}</span>
           ) : null}
-          {hasRadius ? (
-            <span className="chip chip-soft">📏 {radiusKm} km</span>
-          ) : null}
+          {hasRadius ? <span className="chip chip-soft">📏 {radiusKm} km</span> : null}
         </div>
       )}
 
@@ -151,11 +180,9 @@ export function FiltersBar({ filters, onChange, onReset }) {
               />
             </div>
 
-            {/* ✅ Nouveau : Rayon KM autour de moi */}
+            {/* ✅ Rayon KM autour de moi + bouton 📍 */}
             <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-              <label htmlFor="filter-radius">
-                Autour de moi : {radiusKm} km
-              </label>
+              <label htmlFor="filter-radius">Autour de moi : {radiusKm} km</label>
 
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <input
