@@ -26,6 +26,9 @@ export function ProfileForm({
   const [photos, setPhotos] = useState([]);
   const [photoError, setPhotoError] = useState("");
 
+  // ✅ Age: blocage si < 16
+  const [ageError, setAgeError] = useState("");
+
   // ✅ Position exacte
   const [coords, setCoords] = useState({ lat: null, lng: null });
   const [geoStatus, setGeoStatus] = useState("");
@@ -101,6 +104,7 @@ export function ProfileForm({
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === "age") setAgeError("");
     setForm((p) => ({ ...p, [name]: value }));
   };
 
@@ -146,6 +150,18 @@ export function ProfileForm({
   const submit = async (e) => {
     e.preventDefault();
 
+    const ageNum = form.age === "" ? NaN : Number(form.age);
+
+    // ✅ Age obligatoire + blocage <16
+    if (!Number.isFinite(ageNum)) {
+      setAgeError("Merci d’indiquer ton âge.");
+      return;
+    }
+    if (ageNum < 16) {
+      setAgeError("Accès refusé : vous devez avoir 16 ans ou plus.");
+      return;
+    }
+
     // ✅ 1 photo obligatoire
     if (!photos || photos.length < 1) {
       setPhotoError("Au moins 1 photo est obligatoire.");
@@ -177,6 +193,19 @@ export function ProfileForm({
       <div className="form-group">
         <label>Prénom *</label>
         <input name="name" value={form.name} onChange={handleChange} />
+      </div>
+
+      <div className="form-group">
+        <label>Âge *</label>
+        <input
+          name="age"
+          type="number"
+          min="0"
+          inputMode="numeric"
+          value={form.age}
+          onChange={handleChange}
+        />
+        {ageError && <div style={{ marginTop: 8, color: "tomato" }}>{ageError}</div>}
       </div>
 
       <div className="form-group">
