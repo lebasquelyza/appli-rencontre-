@@ -310,6 +310,7 @@ export default function App() {
       user_id: data.user_id,
       name: data.name,
       age: data.age ?? null,
+      gender: data.gender ?? null,
       city: data.city,
       sport: data.sport,
       level: data.level,
@@ -353,6 +354,7 @@ export default function App() {
       user_id: p.user_id ?? null,
       name: p.name,
       age: p.age ?? null,
+      gender: p.gender ?? null,
       city: p.city,
       sport: p.sport,
       level: p.level,
@@ -445,6 +447,12 @@ export default function App() {
       throw new Error("UNDER_16_BLOCKED");
     }
 
+    // ✅ Genre (normalisé)
+    const genderValue =
+      data.gender === "female" || data.gender === "male" || data.gender === "other"
+        ? data.gender
+        : null;
+
     if (!myProfile && !hasNewPhotos) {
       throw new Error("PHOTO_REQUIRED");
     }
@@ -461,6 +469,7 @@ export default function App() {
           user_id: currentUser.id,
           name: data.name,
           age: ageNum,
+          gender: genderValue,
           city: data.city,
           sport: data.sport,
           level: data.level,
@@ -482,6 +491,7 @@ export default function App() {
         .update({
           name: data.name,
           age: ageNum,
+          gender: genderValue,
           city: data.city,
           sport: data.sport,
           level: data.level,
