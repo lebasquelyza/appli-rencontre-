@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
-export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
+export function Header({ onOpenProfile, onOpenAuth, onLogout, onOpenCrushes, user }) {
   const isAuthenticated = !!user;
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -12,6 +12,14 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
       return;
     }
     onOpenProfile?.();
+  };
+
+  const handleCrushesClick = () => {
+    if (!isAuthenticated) {
+      onOpenAuth?.("signin");
+      return;
+    }
+    onOpenCrushes?.();
   };
 
   const toggleMenu = () => setMenuOpen((v) => !v);
@@ -45,7 +53,6 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
     <header className="topbar">
       <div className="topbar-inner">
         <div className="brand">
-          {/* Vrai logo */}
           <img className="brandLogo" src="/logo.png" alt="MatchFit" />
 
           <div className="brandText">
@@ -56,6 +63,10 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
 
         <div className="topbarRight">
           <span className="badge">MVP · Front</span>
+
+          <button type="button" className="btn-ghost btn-sm" onClick={handleCrushesClick}>
+            Mes crush
+          </button>
 
           <button type="button" className="btn-ghost btn-sm" onClick={handleProfileClick}>
             {isAuthenticated ? "Mon profil" : "Profil"}
@@ -129,3 +140,4 @@ export function Header({ onOpenProfile, onOpenAuth, onLogout, user }) {
     </header>
   );
 }
+
