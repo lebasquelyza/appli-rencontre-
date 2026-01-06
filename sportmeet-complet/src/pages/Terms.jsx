@@ -1,14 +1,22 @@
 // sportmeet-complet/src/pages/Terms.jsx
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 export function Terms() {
+  const navigate = useNavigate();
+
   return (
     <main className="page">
       <div className="shell">
         <section className="card" style={{ padding: 16 }}>
-          <h1 style={{ marginTop: 0 }}>Conditions d’utilisation</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button className="btn-ghost" onClick={() => navigate("/settings")}>
+              ← Retour
+            </button>
+            <h1 style={{ margin: 0 }}>Conditions d’utilisation</h1>
+          </div>
 
-          <p>
+          <p style={{ marginTop: 12 }}>
             Les présentes conditions d’utilisation (« Conditions ») régissent l’accès et
             l’utilisation de l’application SportMeet (l’« Application »).
           </p>
