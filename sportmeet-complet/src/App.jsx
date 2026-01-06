@@ -6,6 +6,7 @@ import { ProfileForm } from "./components/ProfileForm";
 import { FiltersBar } from "./components/FiltersBar";
 import { SwipeDeck } from "./components/SwipeDeck";
 import { AuthModal } from "./components/AuthModal";
+import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 
@@ -80,6 +81,9 @@ export default function App() {
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // ✅ Crushes modal
+  const [isCrushesOpen, setIsCrushesOpen] = useState(false);
 
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [profilesError, setProfilesError] = useState(null);
@@ -158,6 +162,7 @@ export default function App() {
     setUser(null);
     setMyProfile(null);
     setIsProfileModalOpen(false);
+    setIsCrushesOpen(false);
   };
 
   /* -------------------------------
@@ -289,9 +294,7 @@ export default function App() {
      Delete photos from Supabase Storage (best-effort)
   -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
-    const paths = (publicUrls || [])
-      .map(storagePathFromPublicUrl)
-      .filter(Boolean);
+    const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
 
     if (paths.length === 0) return;
 
@@ -518,12 +521,15 @@ export default function App() {
     setIsProfileModalOpen(true);
   };
 
+  const openCrushesPage = () => setIsCrushesOpen(true);
+
   return (
     <div className="app-root">
       <Header
         onOpenProfile={openProfileModal}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
+        onOpenCrushes={openCrushesPage}
         user={user}
       />
 
@@ -579,6 +585,23 @@ export default function App() {
                 existingProfile={myProfile}
                 onSaveProfile={handleSaveProfile}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCrushesOpen && (
+        <div className="modal-backdrop" onClick={() => setIsCrushesOpen(false)}>
+          <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Mes crush</h3>
+              <button className="btn-ghost" onClick={() => setIsCrushesOpen(false)}>
+                Fermer
+              </button>
+            </div>
+
+            <div className="modal-body modal-body--scroll">
+              <CrushesPage crushes={[]} onBack={() => setIsCrushesOpen(false)} />
             </div>
           </div>
         </div>
