@@ -1,11 +1,17 @@
 // sportmeet-complet/src/components/AuthModal.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 export function AuthModal({ onClose, initialMode = "signin" }) {
-  const [mode, setMode] = useState(initialMode); // "signin" | "signup"
+  // modes: signin | signup | reset
+  const [mode, setMode] = useState(initialMode);
+
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(""); // utilisé pour signin/signup
+
+  // reset password
+  const [newPassword, setNewPassword] = useState("");
+  const [newPassword2, setNewPassword2] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -13,10 +19,24 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
 
   const [isAuthed, setIsAuthed] = useState(false);
 
+  const isResetMode = mode === "reset";
+
+  // Détecte si on arrive via un lien "recovery" (reset password)
+  const isRecoveryUrl = useMemo(() => {
+    const h = window.location.hash || "";
+    // Supabase met souvent access_token/refresh_token dans le hash
+    return h.includes("type=recovery") || (h.includes("access_token=") && h.includes("refresh_token="));
+  }, []);
+
   useEffect(() => {
-    setMode(initialMode || "signin");
+    // si on arrive via lien recovery -> forcer mode reset
+    if (isRecoveryUrl) {
+      setMode("reset");
+    } else {
+      setMode(initialMode || "signin");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialMode]);
+  }, [initialMode, isRecoveryUrl]);
 
   useEffect(() => {
     setMsg(null);
@@ -57,10 +77,10 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     setIsError(false);
 
     try {
+      // ⚠️ mieux: envoyer vers / (on détecte ensuite recovery via hash)
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: window.location.origin
       });
-
       if (error) throw error;
 
       setIsError(false);
@@ -74,7 +94,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     }
   };
 
-  const submit = async (e) => {
+  const submitSigninSignup = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMsg(null);
@@ -116,6 +136,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
         return;
       }
 
+      // signin
       const { error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password
@@ -141,6 +162,49 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     }
   };
 
+  const submitUpdatePassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMsg(null);
+    setIsError(false);
+
+    try {
+      if (!newPassword || newPassword.length < 6) {
+        setIsError(true);
+        setMsg("Nouveau mot de passe : 6 caractères minimum.");
+        return;
+      }
+
+      if (newPassword !== newPassword2) {
+        setIsError(true);
+        setMsg("Les mots de passe ne correspondent pas.");
+        return;
+      }
+
+      // ✅ Met à jour le mot de passe du user en session (recovery)
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+
+      setIsError(false);
+      setMsg("Mot de passe mis à jour ✅");
+
+      // Nettoie l’URL (enlève le hash avec tokens)
+      try {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      } catch {
+        // ignore
+      }
+
+      setTimeout(() => onClose?.(), 450);
+    } catch (err) {
+      console.error("UPDATE PASSWORD ERROR:", err);
+      setIsError(true);
+      setMsg(err?.message || "Erreur lors de la mise à jour du mot de passe.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSignOut = async () => {
     setLoading(true);
     setMsg(null);
@@ -152,14 +216,8 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
       setTimeout(() => onClose?.(), 350);
     } catch (err) {
       console.error("SIGNOUT ERROR:", err);
-      const full =
-        err?.message ||
-        err?.error_description ||
-        err?.details ||
-        (typeof err === "string" ? err : null);
-
       setIsError(true);
-      setMsg(full || "Erreur de déconnexion.");
+      setMsg(err?.message || "Erreur de déconnexion.");
     } finally {
       setLoading(false);
     }
@@ -169,94 +227,137 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     <div className="modal-backdrop" onClick={() => onClose?.()}>
       <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>{mode === "signup" ? "Créer un compte" : "Connexion"}</h3>
+          <h3>
+            {mode === "signup"
+              ? "Créer un compte"
+              : mode === "reset"
+              ? "Nouveau mot de passe"
+              : "Connexion"}
+          </h3>
           <button className="btn-ghost" onClick={() => onClose?.()}>
             Fermer
           </button>
         </div>
 
         <div className="modal-body modal-body--scroll">
-          <form className="form" onSubmit={submit}>
-            <div className="form-group">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="ex: toi@gmail.com"
-                autoComplete="email"
-              />
-            </div>
+          {/* ✅ RESET PASSWORD */}
+          {isResetMode ? (
+            <form className="form" onSubmit={submitUpdatePassword}>
+              <div className="form-group">
+                <label htmlFor="newpass">Nouveau mot de passe</label>
+                <input
+                  id="newpass"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="6 caractères minimum"
+                  autoComplete="new-password"
+                />
+              </div>
 
-            <div className="form-group">
-              <label htmlFor="password">Mot de passe</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="6 caractères minimum"
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              />
+              <div className="form-group">
+                <label htmlFor="newpass2">Confirmer</label>
+                <input
+                  id="newpass2"
+                  type="password"
+                  value={newPassword2}
+                  onChange={(e) => setNewPassword2(e.target.value)}
+                  placeholder="Répète le mot de passe"
+                  autoComplete="new-password"
+                />
+              </div>
 
-              {/* ✅ lien discret */}
-              {mode === "signin" && (
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  disabled={loading}
-                  style={{
-                    marginTop: 8,
-                    padding: 0,
-                    border: 0,
-                    background: "transparent",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    opacity: 0.75,
-                    textDecoration: "underline",
-                    textAlign: "right",
-                    width: "100%"
-                  }}
-                  aria-label="Mot de passe oublié"
-                  title="Mot de passe oublié"
-                >
-                  Mot de passe oublié ?
-                </button>
-              )}
-            </div>
+              <button className="btn-primary btn-block" type="submit" disabled={loading}>
+                {loading ? "..." : "Mettre à jour le mot de passe"}
+              </button>
 
-            <button className="btn-primary btn-block" type="submit" disabled={loading}>
-              {loading ? "..." : mode === "signup" ? "Créer mon compte" : "Se connecter"}
-            </button>
+              <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>
+                {msg}
+              </p>
+            </form>
+          ) : (
+            /* ✅ SIGNIN / SIGNUP */
+            <form className="form" onSubmit={submitSigninSignup}>
+              <div className="form-group">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ex: toi@gmail.com"
+                  autoComplete="email"
+                />
+              </div>
 
-            <button
-              type="button"
-              className="btn-ghost btn-block"
-              onClick={() => setMode((m) => (m === "signup" ? "signin" : "signup"))}
-              disabled={loading}
-              style={{ marginTop: 8 }}
-            >
-              {mode === "signup" ? "J’ai déjà un compte" : "Créer un compte"}
-            </button>
+              <div className="form-group">
+                <label htmlFor="password">Mot de passe</label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="6 caractères minimum"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                />
 
-            {/* ✅ uniquement si connecté */}
-            {isAuthed && (
+                {/* ✅ lien discret "Mot de passe oublié ?" */}
+                {mode === "signin" && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={loading}
+                    style={{
+                      marginTop: 8,
+                      padding: 0,
+                      border: 0,
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      opacity: 0.75,
+                      textDecoration: "underline",
+                      textAlign: "right",
+                      width: "100%"
+                    }}
+                    aria-label="Mot de passe oublié"
+                    title="Mot de passe oublié"
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                )}
+              </div>
+
+              <button className="btn-primary btn-block" type="submit" disabled={loading}>
+                {loading ? "..." : mode === "signup" ? "Créer mon compte" : "Se connecter"}
+              </button>
+
               <button
                 type="button"
                 className="btn-ghost btn-block"
-                onClick={handleSignOut}
+                onClick={() => setMode((m) => (m === "signup" ? "signin" : "signup"))}
                 disabled={loading}
                 style={{ marginTop: 8 }}
               >
-                Se déconnecter
+                {mode === "signup" ? "J’ai déjà un compte" : "Créer un compte"}
               </button>
-            )}
 
-            <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>
-              {msg}
-            </p>
-          </form>
+              {isAuthed && (
+                <button
+                  type="button"
+                  className="btn-ghost btn-block"
+                  onClick={handleSignOut}
+                  disabled={loading}
+                  style={{ marginTop: 8 }}
+                >
+                  Se déconnecter
+                </button>
+              )}
+
+              <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>
+                {msg}
+              </p>
+            </form>
+          )}
         </div>
       </div>
     </div>
