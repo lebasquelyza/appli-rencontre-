@@ -64,7 +64,7 @@ export function AccountSettings({ user }) {
     }
   };
 
-  const handleDeleteRequest = async () => {
+  const handleDeleteAccount = async () => {
     if (!requireAuth()) return;
     if (!reason) return setMsg("Choisis une raison.");
 
@@ -74,19 +74,20 @@ export function AccountSettings({ user }) {
     try {
       const fullReason = [reason, detail].filter(Boolean).join(" — ");
 
-      // Demande suppression (car supprimer l'user auth depuis le front n'est pas possible proprement)
-      const { error } = await supabase.from("account_deletion_requests").insert({
-        user_id: user.id,
-        reason: fullReason
+      // ✅ Option B : suppression complète via Edge Function (Auth + profil + photos)
+      const { error } = await supabase.functions.invoke("delete-account", {
+        body: { reason: fullReason }
       });
 
       if (error) throw error;
 
+      // Best-effort: si la session existe encore côté client
       await supabase.auth.signOut();
+
       navigate("/", { replace: true });
     } catch (e) {
       console.error(e);
-      setMsg("Impossible d’envoyer la demande de suppression pour le moment.");
+      setMsg("Impossible de supprimer le compte pour le moment.");
     } finally {
       setLoading(false);
     }
@@ -95,7 +96,7 @@ export function AccountSettings({ user }) {
   const onConfirm = () => {
     setMsg("");
     if (action === "suspend") return handleSuspend();
-    if (action === "delete") return handleDeleteRequest();
+    if (action === "delete") return handleDeleteAccount();
     setMsg("Choisis une action (suspendre ou supprimer).");
   };
 
@@ -121,6 +122,7 @@ export function AccountSettings({ user }) {
                 className={action === "suspend" ? "btn-primary" : "btn-ghost"}
                 type="button"
                 onClick={() => setAction("suspend")}
+                disabled={loading}
               >
                 Choisir
               </button>
@@ -129,13 +131,14 @@ export function AccountSettings({ user }) {
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Supprimer mon compte</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
-                On enregistre une demande de suppression. Tu seras déconnecté.
+                Suppression complète (compte + profil + photos). Tu devras recréer un compte.
               </p>
 
               <button
                 className={action === "delete" ? "btn-primary" : "btn-ghost"}
                 type="button"
                 onClick={() => setAction("delete")}
+                disabled={loading}
               >
                 Choisir
               </button>
@@ -146,7 +149,7 @@ export function AccountSettings({ user }) {
 
               <div className="form-group" style={{ marginBottom: 10 }}>
                 <label>Raison</label>
-                <select value={reason} onChange={(e) => setReason(e.target.value)}>
+                <select value={reason} onChange={(e) => setReason(e.target.value)} disabled={loading}>
                   <option value="">Sélectionner…</option>
                   {reasons.map((r) => (
                     <option key={r} value={r}>
@@ -162,6 +165,7 @@ export function AccountSettings({ user }) {
                   value={detail}
                   onChange={(e) => setDetail(e.target.value)}
                   placeholder="Tu peux préciser ici…"
+                  disabled={loading}
                 />
               </div>
 
