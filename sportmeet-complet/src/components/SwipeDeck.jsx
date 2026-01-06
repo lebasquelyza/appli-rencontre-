@@ -49,7 +49,6 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
         <>
           <SwipeCard key={currentProfile.id} profile={currentProfile} />
 
-          {/* ✅ Si pas connecté : message + bouton connexion */}
           {!isAuthenticated ? (
             <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
               <p className="form-message" style={{ margin: 0 }}>
@@ -96,9 +95,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
             </div>
           )}
 
-          <div className="hint">
-            {remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}
-          </div>
+          <div className="hint">{remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}</div>
         </>
       ) : (
         <div className="swipe-empty">
