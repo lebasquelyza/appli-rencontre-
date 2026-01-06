@@ -1,3 +1,4 @@
+//sportmeet-complet/src/components/ProfileForm.jsx
 import React, { useEffect, useRef, useState } from "react";
 
 const emptyForm = {
@@ -20,7 +21,15 @@ export function ProfileForm({
   const isEdit = !!existingProfile?.id;
 
   const [form, setForm] = useState(emptyForm);
+
+  // ✅ Photos: 1 obligatoire, max 5
   const [photos, setPhotos] = useState([]);
+  const [photoError, setPhotoError] = useState("");
+
+  // ✅ Position exacte
+  const [coords, setCoords] = useState({ lat: null, lng: null });
+  const [geoStatus, setGeoStatus] = useState("");
+
   const fileInputRef = useRef(null);
 
   // 🔐 référence état initial
@@ -32,7 +41,13 @@ export function ProfileForm({
   useEffect(() => {
     if (!existingProfile) {
       setForm(emptyForm);
-      initialRef.current = JSON.stringify(emptyForm);
+      setPhotos([]);
+      setCoords({ lat: null, lng: null });
+      initialRef.current = JSON.stringify({
+        ...emptyForm,
+        latitude: null,
+        longitude: null
+      });
       return;
     }
 
@@ -48,7 +63,18 @@ export function ProfileForm({
 
     setForm(initial);
     setPhotos([]);
-    initialRef.current = JSON.stringify(initial);
+
+    // ✅ si ton backend a déjà lat/lng, on les récupère, sinon null
+    setCoords({
+      lat: existingProfile.latitude ?? null,
+      lng: existingProfile.longitude ?? null
+    });
+
+    initialRef.current = JSON.stringify({
+      ...initial,
+      latitude: existingProfile.latitude ?? null,
+      longitude: existingProfile.longitude ?? null
+    });
   }, [existingProfile?.id]);
 
   /* -------------------------------
@@ -64,32 +90,85 @@ export function ProfileForm({
       sport: form.sport,
       level: form.level,
       availability: form.availability,
-      bio: form.bio
+      bio: form.bio,
+      latitude: coords.lat,
+      longitude: coords.lng
     });
 
     const dirty = current !== initialRef.current || photos.length > 0;
     onDirtyChange?.(dirty);
-  }, [form, photos, onDirtyChange]);
+  }, [form, photos, coords, onDirtyChange]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((p) => ({ ...p, [name]: value }));
   };
 
+  // ✅ bouton 📍 : récupère position exacte
+  const detectLocation = () => {
+    setGeoStatus("");
+
+    if (!navigator.geolocation) {
+      setGeoStatus("Géolocalisation non supportée.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setCoords({ lat, lng });
+        setGeoStatus(`Position détectée ✅ (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
+      },
+      (err) => {
+        if (err.code === 1) setGeoStatus("Autorisation refusée.");
+        else setGeoStatus("Impossible de récupérer la position.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // ✅ Photos: max 5, et 1 obligatoire (contrôle à l’ajout + contrôle au submit)
   const handlePhotosSelected = (e) => {
+    setPhotoError("");
+
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    setPhotos((p) => [...p, ...files].slice(0, 5));
+
+    setPhotos((p) => {
+      const next = [...p, ...files].slice(0, 5);
+      return next;
+    });
+
     e.target.value = "";
   };
 
   const submit = async (e) => {
     e.preventDefault();
+
+    // ✅ 1 photo obligatoire
+    if (!photos || photos.length < 1) {
+      setPhotoError("Au moins 1 photo est obligatoire.");
+      return;
+    }
+
+    // ✅ max 5 sécurité
+    if (photos.length > 5) {
+      setPhotoError("Maximum 5 photos.");
+      return;
+    }
+
     await onSaveProfile({
       ...form,
       age: form.age ? Number(form.age) : null,
+
+      // ✅ position exacte
+      latitude: coords.lat,
+      longitude: coords.lng,
+
       photos
     });
+
     onDirtyChange?.(false);
   };
 
@@ -102,7 +181,28 @@ export function ProfileForm({
 
       <div className="form-group">
         <label>Ville *</label>
-        <input name="city" value={form.city} onChange={handleChange} />
+
+        {/* ✅ Ville + icône 📍 à droite */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input name="city" value={form.city} onChange={handleChange} style={{ flex: 1 }} />
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={detectLocation}
+            title="Détecter ma position"
+            aria-label="Détecter ma position"
+            style={{ paddingInline: 10 }}
+          >
+            📍
+          </button>
+        </div>
+
+        {(geoStatus || (coords.lat != null && coords.lng != null)) && (
+          <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
+            {geoStatus ||
+              `Position enregistrée ✅ (${Number(coords.lat).toFixed(5)}, ${Number(coords.lng).toFixed(5)})`}
+          </small>
+        )}
       </div>
 
       <div className="form-group">
@@ -121,10 +221,11 @@ export function ProfileForm({
       </div>
 
       <div className="form-group">
-        <label>Photos</label>
+        <label>Photos *</label>
         <button type="button" className="btn-ghost" onClick={() => fileInputRef.current.click()}>
-          Ajouter une photo
+          Ajouter une photo ({photos.length}/5)
         </button>
+
         <input
           ref={fileInputRef}
           type="file"
@@ -133,9 +234,18 @@ export function ProfileForm({
           hidden
           onChange={handlePhotosSelected}
         />
+
+        {/* ✅ message obligatoire / erreurs */}
+        {photoError ? (
+          <div style={{ marginTop: 8, color: "tomato" }}>{photoError}</div>
+        ) : (
+          <small style={{ display: "block", marginTop: 8, opacity: 0.85 }}>
+            1 photo minimum, 5 maximum.
+          </small>
+        )}
       </div>
 
-      <button className="btn-primary btn-block" type="submit">
+      <button className="btn-primary btn-block" type="submit" disabled={loadingExisting}>
         Enregistrer
       </button>
     </form>
