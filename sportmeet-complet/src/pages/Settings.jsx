@@ -33,11 +33,11 @@ export function Settings({ user, onOpenProfile }) {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
                 <button
                   className="btn-primary"
-                  onClick={() => onOpenProfile?.()}
+                  onClick={() => navigate("/account")}
                   disabled={!user}
-                  title={!user ? "Connecte-toi pour modifier ton profil" : ""}
+                  title={!user ? "Connecte-toi pour configurer ton compte" : ""}
                 >
-                  Modifier mon profil
+                  Configurer
                 </button>
               </div>
             </div>
