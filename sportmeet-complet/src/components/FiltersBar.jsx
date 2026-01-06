@@ -16,7 +16,7 @@ export function FiltersBar({ filters, onChange, onReset }) {
     if (filters.sport) n += 1;
     if (filters.level) n += 1;
     if (filters.city && filters.city.trim()) n += 1;
-    if (hasRadius) n += 1; // ✅ km autour de moi
+    if (hasRadius) n += 1; // ✅ périmètre
     return n;
   }, [filters, hasRadius]);
 
@@ -48,7 +48,8 @@ export function FiltersBar({ filters, onChange, onReset }) {
     return city ? (country ? `${city}, ${country}` : city) : "";
   };
 
-  const requestLocation = () => {
+  // ✅ Le bouton 📍 met la ville (et la position), mais NE modifie PAS le slider
+  const handleAroundMeClick = () => {
     setLocError(null);
 
     if (!navigator.geolocation) {
@@ -63,14 +64,12 @@ export function FiltersBar({ filters, onChange, onReset }) {
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
 
-          // ✅ stocke la position pour le filtre km
+          // position pour le filtre km
           onChange?.({ myLocation: { lat, lon } });
 
-          // ✅ récupère la ville et la met dans le champ "Ville"
+          // ville remplie automatiquement
           const cityText = await reverseGeocodeCity(lat, lon);
-          if (cityText) {
-            onChange?.({ city: cityText });
-          }
+          if (cityText) onChange?.({ city: cityText });
         } catch (e) {
           console.error(e);
           setLocError("Impossible de déterminer ta ville automatiquement.");
@@ -199,17 +198,17 @@ export function FiltersBar({ filters, onChange, onReset }) {
                 <button
                   type="button"
                   className="btn-ghost btn-sm"
-                  onClick={requestLocation}
+                  onClick={handleAroundMeClick}
                   disabled={locLoading}
-                  title="Utiliser ma position"
-                  aria-label="Utiliser ma position"
+                  title="Autour de moi"
+                  aria-label="Autour de moi"
                 >
                   {locLoading ? "..." : "📍"}
                 </button>
               </div>
 
               <small style={{ display: "block", marginTop: 6, opacity: 0.8 }}>
-                Mets à 0 km pour désactiver le filtre.
+                Choisis ton périmètre avec le slider (0 km = désactivé).
               </small>
 
               {locError ? (
