@@ -162,10 +162,7 @@ function CrushesFullPage({ user, onRequireAuth }) {
   return (
     <main className="page">
       <div className="shell">
-        <CrushesPage
-          crushes={[]}
-          onBack={() => navigate("/")}
-        />
+        <CrushesPage crushes={[]} onBack={() => navigate("/")} />
       </div>
     </main>
   );
@@ -432,6 +429,15 @@ export default function App() {
       throw new Error("MISSING_FIELDS");
     }
 
+    // ✅ Age obligatoire + blocage < 16 (sécurité côté save)
+    const ageNum = Number(data.age);
+    if (!Number.isFinite(ageNum)) {
+      throw new Error("AGE_REQUIRED");
+    }
+    if (ageNum < 16) {
+      throw new Error("UNDER_16_BLOCKED");
+    }
+
     if (!myProfile && !hasNewPhotos) {
       throw new Error("PHOTO_REQUIRED");
     }
@@ -447,7 +453,7 @@ export default function App() {
         .insert({
           user_id: currentUser.id,
           name: data.name,
-          age: data.age ?? null,
+          age: ageNum,
           city: data.city,
           sport: data.sport,
           level: data.level,
@@ -468,7 +474,7 @@ export default function App() {
         .from("profiles")
         .update({
           name: data.name,
-          age: data.age ?? null,
+          age: ageNum,
           city: data.city,
           sport: data.sport,
           level: data.level,
