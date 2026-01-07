@@ -324,23 +324,23 @@ input:focus, select:focus, textarea:focus{
 }
 
 /* Swipe deck */
+/* ✅ MODIF MINIMALE : le deck prend la place dispo et évite le scroll page */
 .swipe-container{
   margin-top: 10px;
   display:flex;
   flex-direction:column;
   gap: 10px;
+
+  flex: 1;
+  min-height: 0;
+  overscroll-behavior: contain;
 }
 
-/* ✅ MODIF MINIMALE : on verrouille la hauteur avec svh quand possible */
+/* ✅ MODIF MINIMALE : la carte prend l'espace restant (au lieu d'un vh instable) */
 .cardMedia{
-  height: 62vh; /* fallback */
+  flex: 1;
   min-height: 430px;
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
-}
-@supports (height: 1svh){
-  .cardMedia{
-    height: 62svh; /* ✅ stable même quand la barre d’adresse bouge */
-  }
 }
 
 /* ✅ base pour media (photos ou fallback) */
