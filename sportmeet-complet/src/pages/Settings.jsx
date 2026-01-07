@@ -3,14 +3,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-export function Settings({ user, onOpenProfile }) {
+export function Settings({ user }) {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [isError, setIsError] = useState(false);
 
-  // ✅ Accordéons
+  // ✅ Accordéons (même style que les autres blocs)
   const [openInfos, setOpenInfos] = useState(false);
   const [openPassword, setOpenPassword] = useState(false);
 
@@ -96,7 +96,6 @@ export function Settings({ user, onOpenProfile }) {
       const nextName = (name || "").trim();
       const ageNum = age === "" ? null : Number(age);
 
-      // validations minimales
       if (ageNum !== null && !Number.isFinite(ageNum)) {
         setBanner("Âge invalide.", true);
         return;
@@ -131,12 +130,8 @@ export function Settings({ user, onOpenProfile }) {
             return;
           }
         } else {
-          // pas de profil => on ne crée rien automatiquement
           if (nextName || ageNum != null) {
-            setBanner(
-              "Crée ton profil (Mon profil sportif) pour enregistrer ton nom/âge.",
-              true
-            );
+            setBanner("Crée ton profil (Mon profil sportif) pour enregistrer ton nom/âge.", true);
             return;
           }
         }
@@ -199,32 +194,27 @@ export function Settings({ user, onOpenProfile }) {
           ) : null}
 
           <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-            {/* ✅ Bloc Mes infos (cliquable) */}
+            {/* ✅ Bloc Mes infos (même style que "Configuration") */}
             <div className="card" style={{ padding: 14 }}>
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => setOpenInfos((v) => !v)}
-                disabled={!user}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: 0
-                }}
-                title={!user ? "Connecte-toi" : ""}
-              >
-                <h3 style={{ margin: 0 }}>Mes infos</h3>
-                <span style={{ opacity: 0.7 }}>{openInfos ? "▲" : "▼"}</span>
-              </button>
-
+              <h3 style={{ marginTop: 0 }}>Mes infos</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
                 Email, nom et âge. Enregistrement automatique.
               </p>
 
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                <button
+                  className={openInfos ? "btn-primary" : "btn-ghost"}
+                  type="button"
+                  onClick={() => setOpenInfos((v) => !v)}
+                  disabled={!user}
+                  title={!user ? "Connecte-toi" : ""}
+                >
+                  {openInfos ? "Fermer" : "Ouvrir"}
+                </button>
+              </div>
+
               {openInfos && (
-                <div className="form" style={{ marginTop: 10 }}>
+                <div className="form" style={{ marginTop: 12 }}>
                   <div className="form-group">
                     <label>Email de connexion</label>
                     <input
@@ -276,32 +266,27 @@ export function Settings({ user, onOpenProfile }) {
               )}
             </div>
 
-            {/* ✅ Bloc Mot de passe (dépliable) */}
+            {/* ✅ Bloc Mot de passe (même style que "Configuration") */}
             <div className="card" style={{ padding: 14 }}>
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => setOpenPassword((v) => !v)}
-                disabled={!user}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: 0
-                }}
-                title={!user ? "Connecte-toi" : ""}
-              >
-                <h3 style={{ margin: 0 }}>Mot de passe</h3>
-                <span style={{ opacity: 0.7 }}>{openPassword ? "▲" : "▼"}</span>
-              </button>
-
+              <h3 style={{ marginTop: 0 }}>Mot de passe</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
                 Change ton mot de passe (on n’affiche jamais l’ancien).
               </p>
 
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                <button
+                  className={openPassword ? "btn-primary" : "btn-ghost"}
+                  type="button"
+                  onClick={() => setOpenPassword((v) => !v)}
+                  disabled={!user}
+                  title={!user ? "Connecte-toi" : ""}
+                >
+                  {openPassword ? "Fermer" : "Ouvrir"}
+                </button>
+              </div>
+
               {openPassword && (
-                <div className="form" style={{ marginTop: 10 }}>
+                <div className="form" style={{ marginTop: 12 }}>
                   <div className="form-group">
                     <label>Nouveau mot de passe</label>
                     <input
@@ -354,11 +339,6 @@ export function Settings({ user, onOpenProfile }) {
                 >
                   Configurer
                 </button>
-
-                {/* on garde la prop, mais on ne l’affiche plus (tu voulais enlever le bouton) */}
-                {/* <button className="btn-ghost" type="button" onClick={() => onOpenProfile?.()}>
-                  Mon profil sportif
-                </button> */}
               </div>
             </div>
 
@@ -395,4 +375,3 @@ export function Settings({ user, onOpenProfile }) {
     </main>
   );
 }
-
