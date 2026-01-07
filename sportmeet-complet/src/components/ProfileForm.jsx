@@ -36,6 +36,10 @@ export function ProfileForm({
   // ✅ Age: blocage si < 16
   const [ageError, setAgeError] = useState("");
 
+  // ✅ Erreur submit (pour éviter "rien ne se passe")
+  const [submitError, setSubmitError] = useState("");
+  const [submitLoading, setSubmitLoading] = useState(false);
+
   // ✅ Position exacte
   const [coords, setCoords] = useState({ lat: null, lng: null });
   const [geoStatus, setGeoStatus] = useState("");
@@ -58,6 +62,11 @@ export function ProfileForm({
       });
       return [];
     });
+
+    setSubmitError("");
+    setSubmitLoading(false);
+    setPhotoError("");
+    setAgeError("");
 
     if (!existingProfile) {
       setForm(emptyForm);
@@ -227,6 +236,10 @@ export function ProfileForm({
   const submit = async (e) => {
     e.preventDefault();
 
+    // reset UI errors
+    setSubmitError("");
+    setPhotoError("");
+
     const ageNum = form.age === "" ? NaN : Number(form.age);
 
     // ✅ Age obligatoire + blocage <16
@@ -252,23 +265,40 @@ export function ProfileForm({
       return;
     }
 
-    await onSaveProfile({
-      ...form,
-      age: form.age ? Number(form.age) : null,
-      gender: form.gender || null,
+    setSubmitLoading(true);
+    try {
+      await onSaveProfile({
+        ...form,
+        age: form.age ? Number(form.age) : null,
+        gender: form.gender || null,
 
-      // ✅ position exacte
-      latitude: coords.lat,
-      longitude: coords.lng,
+        // ✅ position exacte
+        latitude: coords.lat,
+        longitude: coords.lng,
 
-      // ✅ important pour l’édition
-      keptPhotoUrls: keptPhotoUrls,
+        // ✅ important pour l’édition
+        keptPhotoUrls: isEdit ? keptPhotoUrls : [],
 
-      // ✅ nouvelles photos à uploader
-      photos
-    });
+        // ✅ nouvelles photos à uploader
+        photos
+      });
 
-    onDirtyChange?.(false);
+      onDirtyChange?.(false);
+    } catch (err) {
+      console.error(err);
+
+      const msg = err?.message || "";
+      if (msg === "AUTH_REQUIRED") setSubmitError("Connecte-toi pour enregistrer ton profil.");
+      else if (msg === "MISSING_FIELDS")
+        setSubmitError("Merci de remplir tous les champs obligatoires.");
+      else if (msg === "PHOTO_REQUIRED") setSubmitError("Ajoute au moins une photo.");
+      else if (msg === "AGE_REQUIRED") setSubmitError("Merci d’indiquer ton âge.");
+      else if (msg === "UNDER_16_BLOCKED") setSubmitError("Tu dois avoir 16 ans ou plus.");
+      else if (msg === "MAX_5_PHOTOS") setSubmitError("Maximum 5 photos.");
+      else setSubmitError("Impossible d’enregistrer pour le moment. Réessaie.");
+    } finally {
+      setSubmitLoading(false);
+    }
   };
 
   return (
@@ -344,7 +374,12 @@ export function ProfileForm({
 
       <div className="form-group">
         <label>Photos *</label>
-        <button type="button" className="btn-ghost" onClick={() => fileInputRef.current.click()}>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => fileInputRef.current.click()}
+          disabled={submitLoading || loadingExisting}
+        >
           Ajouter une photo ({keptPhotoUrls.length + photos.length}/5)
         </button>
 
@@ -382,6 +417,7 @@ export function ProfileForm({
                   onClick={() => removeKeptPhotoAt(idx)}
                   aria-label="Supprimer la photo"
                   title="Supprimer"
+                  disabled={submitLoading || loadingExisting}
                   style={{
                     position: "absolute",
                     top: 4,
@@ -425,6 +461,7 @@ export function ProfileForm({
                   onClick={() => removeNewPhotoAt(idx)}
                   aria-label="Supprimer la photo"
                   title="Supprimer"
+                  disabled={submitLoading || loadingExisting}
                   style={{
                     position: "absolute",
                     top: 4,
@@ -457,8 +494,14 @@ export function ProfileForm({
         )}
       </div>
 
-      <button className="btn-primary btn-block" type="submit" disabled={loadingExisting}>
-        Enregistrer
+      {submitError ? <div style={{ marginTop: 10, color: "tomato" }}>{submitError}</div> : null}
+
+      <button
+        className="btn-primary btn-block"
+        type="submit"
+        disabled={loadingExisting || submitLoading}
+      >
+        {submitLoading ? "Enregistrement..." : "Enregistrer"}
       </button>
     </form>
   );
