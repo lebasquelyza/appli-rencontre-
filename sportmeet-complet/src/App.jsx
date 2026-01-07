@@ -77,6 +77,31 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
+// ✅ garde un seul profil par user_id (le plus récent)
+function dedupeByUserLatest(list) {
+  const byUser = new Map();
+  const noUser = [];
+
+  for (const p of list) {
+    if (!p.user_id) {
+      noUser.push(p);
+      continue;
+    }
+
+    const prev = byUser.get(p.user_id);
+    if (!prev) {
+      byUser.set(p.user_id, p);
+      continue;
+    }
+
+    const prevTime = new Date(prev.createdAt).getTime();
+    const curTime = new Date(p.createdAt).getTime();
+    if (curTime >= prevTime) byUser.set(p.user_id, p);
+  }
+
+  return [...byUser.values(), ...noUser];
+}
+
 function HomePage({
   filters,
   onFiltersChange,
@@ -99,11 +124,7 @@ function HomePage({
       <main className="page">
         <div className="shell">
           <section className="card card-results">
-            <FiltersBar
-              filters={filters}
-              onChange={onFiltersChange}
-              onReset={onResetFilters}
-            />
+            <FiltersBar filters={filters} onChange={onFiltersChange} onReset={onResetFilters} />
 
             {!user && (
               <p className="form-message" style={{ marginTop: 8 }}>
@@ -340,10 +361,9 @@ export default function App() {
     setLoadingProfiles(true);
     setProfilesError(null);
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("profiles").select("*").order("created_at", {
+      ascending: false
+    });
 
     if (error) {
       console.error("Supabase fetch profiles error:", error);
@@ -370,12 +390,30 @@ export default function App() {
       createdAt: p.created_at
     }));
 
-    setProfiles(mapped.length ? mapped : seedProfiles);
+    const deduped = dedupeByUserLatest(mapped);
+    setProfiles(deduped.length ? deduped : seedProfiles);
     setLoadingProfiles(false);
   };
 
   useEffect(() => {
     fetchProfiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* -------------------------------
+     Realtime: met à jour la liste chez tous les clients
+  -------------------------------- */
+  useEffect(() => {
+    const channel = supabase
+      .channel("profiles-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+        fetchProfiles();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -410,9 +448,7 @@ export default function App() {
      Delete photos from Supabase Storage (best-effort)
   -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
-    const paths = (publicUrls || [])
-      .map(storagePathFromPublicUrl)
-      .filter(Boolean);
+    const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
 
     if (paths.length === 0) return;
 
@@ -550,6 +586,9 @@ export default function App() {
 
     await fetchMyProfile();
     await fetchProfiles();
+
+    // ✅ feedback: fermer le modal après save (évite "rien ne se passe")
+    setIsProfileModalOpen(false);
   };
 
   /* -------------------------------
