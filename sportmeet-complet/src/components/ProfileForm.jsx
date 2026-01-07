@@ -61,6 +61,40 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
     return Array.isArray(data) ? data : [];
   }
 
+  async function reverseGeocodeCity(lat, lng) {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&accept-language=fr&lat=${encodeURIComponent(
+      lat
+    )}&lon=${encodeURIComponent(lng)}`;
+
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) return null;
+    return await res.json();
+  }
+
+  function formatCityLabelFromAddress(address = {}) {
+    const city =
+      address.city ||
+      address.town ||
+      address.village ||
+      address.municipality ||
+      address.hamlet ||
+      address.locality ||
+      "";
+
+    const department = address.county || address.state_district || address.state || "";
+    const country = address.country || "";
+
+    const parts = [city, department, country].map((x) => (x || "").trim()).filter(Boolean);
+    return parts.join(", ");
+  }
+
+  function formatCityLabel(s) {
+    return (
+      formatCityLabelFromAddress(s?.address || {}) ||
+      (s?.display_name ? String(s.display_name) : "")
+    );
+  }
+
   /* -------------------------------
      Pré-remplissage
   -------------------------------- */
@@ -94,6 +128,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
       setPhotos([]);
       setKeptPhotoUrls([]);
       setCoords({ lat: null, lng: null });
+      setGeoStatus("");
 
       initialRef.current = JSON.stringify({
         ...emptyForm,
@@ -227,7 +262,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
   }, [form.city, cityConfirmed]);
 
   const confirmCityFromSuggestion = (s) => {
-    const label = s?.display_name || form.city;
+    const label = formatCityLabel(s) || form.city;
 
     setForm((p) => ({ ...p, city: label }));
     setCitySuggestions([]);
@@ -245,7 +280,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
     }
   };
 
-  // ✅ bouton 📍 : récupère position exacte
+  // ✅ bouton 📍 : récupère position exacte + remplit automatiquement la ville
   const detectLocation = () => {
     setGeoStatus("");
 
@@ -255,16 +290,35 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
     }
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
+
         setCoords({ lat, lng });
         setGeoStatus(`Position détectée ✅ (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
 
-        // ✅ si l'utilisateur choisit GPS, on considère la position confirmée
-        setCityConfirmed(true);
-        setCitySuggestions([]);
-        setCityConfirmStatus("Position confirmée ✅ (via GPS)");
+        // ✅ reverse geocoding => remplir automatiquement la ville
+        try {
+          const rev = await reverseGeocodeCity(lat, lng);
+          const label = formatCityLabelFromAddress(rev?.address || {});
+
+          if (label) {
+            setForm((p) => ({ ...p, city: label }));
+            setCityConfirmed(true);
+            setCitySuggestions([]);
+            setCityConfirmStatus("Ville remplie & confirmée ✅ (via GPS)");
+          } else {
+            // position ok, libellé ville introuvable
+            setCityConfirmed(true);
+            setCitySuggestions([]);
+            setCityConfirmStatus("Position confirmée ✅ (via GPS) — ville introuvable");
+          }
+        } catch (e) {
+          console.error("reverseGeocodeCity error:", e);
+          setCityConfirmed(true);
+          setCitySuggestions([]);
+          setCityConfirmStatus("Position confirmée ✅ (via GPS) — erreur de recherche ville");
+        }
       },
       (err) => {
         if (err.code === 1) setGeoStatus("Autorisation refusée.");
@@ -470,7 +524,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
           </small>
         ) : null}
 
-        {/* ✅ suggestions */}
+        {/* ✅ suggestions (Ville, Département, Pays) */}
         {citySuggestions.length > 0 && !cityConfirmed && (
           <div
             className="card"
@@ -489,7 +543,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
                 style={{ textAlign: "left", padding: 8 }}
                 onClick={() => confirmCityFromSuggestion(s)}
               >
-                {s.display_name}
+                {formatCityLabel(s)}
               </button>
             ))}
           </div>
