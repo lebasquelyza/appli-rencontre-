@@ -12,14 +12,12 @@ function shuffleArray(arr) {
 }
 
 export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireAuth }) {
-  // ✅ On garde un "ordre" interne qu'on peut reshuffle pour faire tourner en boucle
   const baseProfiles = useMemo(() => (Array.isArray(profiles) ? profiles : []), [profiles]);
 
   const [deck, setDeck] = useState([]);
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // ✅ quand la liste change: on re-shuffle et on repart au début
   useEffect(() => {
     setDeck(shuffleArray(baseProfiles));
     setIndex(0);
@@ -57,7 +55,6 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   };
 
   const handleReset = () => {
-    // ✅ “infini”: on re-mélange et on recommence
     setDeck(shuffleArray(baseProfiles));
     setIndex(0);
   };
@@ -68,7 +65,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   const shareUrl =
     typeof window !== "undefined" && window.location?.origin
       ? window.location.origin
-      : "https://matchfit.app"; // fallback (si jamais)
+      : "https://matchfit.app";
 
   const handleShare = async () => {
     const payload = { title: "MatchFit", text: shareText, url: shareUrl };
@@ -78,17 +75,14 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
         await navigator.share(payload);
         return;
       }
-    } catch (e) {
-      // si l'utilisateur annule, on ne fait rien
+    } catch {
       return;
     }
 
-    // fallback: copie dans le presse-papier
     try {
       await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
-      alert("Lien copié ✅");
+      alert("Message copié ✅");
     } catch {
-      // fallback ultime
       window.prompt("Copie ce message :", `${shareText}\n${shareUrl}`);
     }
   };
@@ -102,7 +96,6 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
     }
   };
 
-  // ✅ Cas: aucune sélection (0 profil)
   const hasAny = deck.length > 0;
 
   return (
@@ -157,14 +150,15 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
             </div>
           )}
 
-          <div className="hint">{remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}</div>
+          <div className="hint">
+            {remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}
+          </div>
         </>
       ) : (
-        // ✅ Fin de deck: on propose le partage + relance (infini)
         <div className="swipe-empty" style={{ textAlign: "center" }}>
           {hasAny ? (
             <>
-              <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te montrer 😅</p>
+              <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
               <p style={{ marginTop: 0, opacity: 0.9, lineHeight: 1.35 }}>
                 Partage <strong>MatchFit</strong> à tes potes… en espérant que ton/ta{" "}
                 <strong>gymcrush</strong> en entende parler 👀
