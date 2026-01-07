@@ -110,7 +110,8 @@ function HomePage({
   loadingProfiles,
   filteredProfiles,
   handleLike,
-  user,
+  userForUI,
+  isSuspended,
   loadingMyProfile,
   myProfile,
   handleSaveProfile,
@@ -119,7 +120,10 @@ function HomePage({
   isAuthModalOpen,
   setIsAuthModalOpen,
   profileToast,
-  setProfileToast
+  setProfileToast,
+  onResumeAccount,
+  resumeLoading,
+  resumeError
 }) {
   return (
     <>
@@ -143,7 +147,46 @@ function HomePage({
               </p>
             ) : null}
 
-            {!user && (
+            {/* ✅ Compte suspendu: blocage total + bouton REPRENDRE */}
+            {isSuspended ? (
+              <div
+                className="form-message error"
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  justifyContent: "space-between"
+                }}
+              >
+                <div style={{ lineHeight: 1.35 }}>
+                  <strong>Compte suspendu</strong> — tant que tu n’as pas repris ton compte,
+                  tu ne peux pas utiliser l’application.
+                  {myProfile?.suspension_reason ? (
+                    <div style={{ marginTop: 6, opacity: 0.9 }}>
+                      Raison : {myProfile.suspension_reason}
+                    </div>
+                  ) : null}
+                  {resumeError ? (
+                    <div style={{ marginTop: 6, opacity: 0.9 }}>
+                      {resumeError}
+                    </div>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-primary btn-sm"
+                  onClick={onResumeAccount}
+                  disabled={resumeLoading}
+                  title="Réactiver mon compte"
+                >
+                  {resumeLoading ? "..." : "REPRENDRE"}
+                </button>
+              </div>
+            ) : null}
+
+            {!userForUI && !isSuspended && (
               <p className="form-message" style={{ marginTop: 8 }}>
                 Connecte-toi pour créer/éditer ton profil et swiper.
               </p>
@@ -161,7 +204,7 @@ function HomePage({
               <SwipeDeck
                 profiles={filteredProfiles}
                 onLikeProfile={handleLike}
-                isAuthenticated={!!user}
+                isAuthenticated={!!userForUI && !isSuspended}
                 onRequireAuth={() => setIsAuthModalOpen(true)}
               />
             )}
@@ -199,7 +242,6 @@ function HomePage({
 function CrushesFullPage({ user, onRequireAuth }) {
   const navigate = useNavigate();
 
-  // si pas connecté -> ouvrir auth + retourner à l’accueil
   useEffect(() => {
     if (!user) {
       onRequireAuth?.();
@@ -221,13 +263,12 @@ export default function App() {
 
   const [profiles, setProfiles] = useState([]);
 
-  // ✅ Ajout radiusKm + myLocation
   const [filters, setFilters] = useState({
     sport: "",
     level: "",
     city: "",
     radiusKm: 0,
-    myLocation: null // {lat, lon}
+    myLocation: null
   });
 
   const [highlightNewProfile, setHighlightNewProfile] = useState(null);
@@ -240,18 +281,22 @@ export default function App() {
 
   const [user, setUser] = useState(null);
 
-  // ✅ Mon profil (lié au compte)
-  const [myProfile, setMyProfile] = useState(null); // row from DB mapped
+  const [myProfile, setMyProfile] = useState(null);
   const [loadingMyProfile, setLoadingMyProfile] = useState(false);
 
-  // ✅ liste filtrée (pour filtre distance async)
   const [filteredProfiles, setFilteredProfiles] = useState([]);
 
-  // ✅ cache géocodage ville -> coords
   const [geoCache] = useState(() => new Map());
 
-  // ✅ message profil créé / modifié
   const [profileToast, setProfileToast] = useState("");
+
+  // ✅ reprise compte
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeError, setResumeError] = useState("");
+
+  const isSuspended = !!user && myProfile?.status === "suspended";
+  // ✅ "comme si pas de compte" pour l'UI, mais on garde user en mémoire pour pouvoir reprendre
+  const userForUI = isSuspended ? null : user;
 
   async function geocodeCity(cityText) {
     const city = (cityText || "").trim().toLowerCase();
@@ -356,6 +401,8 @@ export default function App() {
       age: data.age ?? null,
       gender: data.gender ?? null,
       status: data.status ?? "active",
+      suspended_at: data.suspended_at ?? null,
+      suspension_reason: data.suspension_reason ?? null,
       city: data.city,
       sport: data.sport,
       level: data.level,
@@ -439,6 +486,41 @@ export default function App() {
   }, []);
 
   /* -------------------------------
+     REPRENDRE: réactiver le compte
+  -------------------------------- */
+  const handleResumeAccount = async () => {
+    setResumeError("");
+    if (!user || !myProfile?.id) return;
+
+    setResumeLoading(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          status: "active",
+          suspended_at: null,
+          suspension_reason: null
+        })
+        .eq("id", myProfile.id);
+
+      if (error) {
+        console.error("resume account error:", error);
+        setResumeError("Impossible de reprendre le compte. Vérifie tes permissions (RLS).");
+        return;
+      }
+
+      await fetchMyProfile();
+      await fetchProfiles();
+
+      setProfileToast("Compte repris ✅");
+      window.clearTimeout(handleResumeAccount.__t);
+      handleResumeAccount.__t = window.setTimeout(() => setProfileToast(""), 3000);
+    } finally {
+      setResumeLoading(false);
+    }
+  };
+
+  /* -------------------------------
      Upload photos -> URLs publiques
   -------------------------------- */
   const uploadProfilePhotos = async (profileId, files) => {
@@ -481,17 +563,14 @@ export default function App() {
 
   /* -------------------------------
      SAVE profil
-     ✅ Ajouts:
-       - logs env URL (sans key)
-       - verify read après write (pour voir la vraie erreur)
-       - message "Profil créé/Profil mis à jour"
-       - fermeture modal
+     ✅ Bloqué si compte suspendu
   -------------------------------- */
   const handleSaveProfile = async (data) => {
-    const wasEdit = !!myProfile?.id;
+    if (isSuspended) {
+      throw new Error("SUSPENDED_ACCOUNT");
+    }
 
-    // ✅ debug (sans exposer la clé)
-    console.log("SUPABASE URL:", import.meta.env.VITE_SUPABASE_URL);
+    const wasEdit = !!myProfile?.id;
 
     const photos = Array.isArray(data.photos) ? data.photos : [];
     const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
@@ -612,27 +691,10 @@ export default function App() {
       await deleteProfilePhotosFromStorage(removedUrls);
     }
 
-    // ✅ preuve: relire le profil après write (si RLS/env cassé, on le verra)
-    const verify = await supabase
-      .from("profiles")
-      .select("id,user_id,name,created_at")
-      .eq("id", profileId)
-      .maybeSingle();
-
-    console.log("VERIFY PROFILE:", verify);
-
-    if (verify?.error) {
-      // Si on ne peut pas relire, on force un message visible (souvent RLS)
-      setProfileToast("Profil enregistré, mais lecture bloquée (vérifie RLS) ⚠️");
-      // on ne throw pas ici pour ne pas casser l'UX
-    }
-
     await fetchMyProfile();
     await fetchProfiles();
 
     setProfileToast(wasEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
-
-    // auto-hide après 3s
     window.clearTimeout(handleSaveProfile.__t);
     handleSaveProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
 
@@ -702,28 +764,30 @@ export default function App() {
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* -------------------------------
-     Like/Swipe : bloqué si pas connecté
+     Like/Swipe : bloqué si pas connecté OU suspendu
   -------------------------------- */
   const handleLike = async (profile) => {
-    if (!user) {
-      setIsAuthModalOpen(true);
+    if (!user || isSuspended) {
+      if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
+      else setIsAuthModalOpen(true);
       return;
     }
     return;
   };
 
   const openProfileModal = () => {
-    if (!user) {
-      setIsAuthModalOpen(true);
+    if (!user || isSuspended) {
+      if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
+      else setIsAuthModalOpen(true);
       return;
     }
     setIsProfileModalOpen(true);
   };
 
-  // ✅ Ouvre une vraie page
   const openCrushesPage = () => {
-    if (!user) {
-      setIsAuthModalOpen(true);
+    if (!user || isSuspended) {
+      if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
+      else setIsAuthModalOpen(true);
       return;
     }
     navigate("/crushes");
@@ -731,12 +795,13 @@ export default function App() {
 
   return (
     <div className="app-root">
+      {/* ✅ on passe userForUI au Header pour qu’il se comporte comme "déconnecté" si suspendu */}
       <Header
         onOpenProfile={openProfileModal}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         onOpenCrushes={openCrushesPage}
-        user={user}
+        user={userForUI}
       />
 
       <Routes>
@@ -751,7 +816,8 @@ export default function App() {
               loadingProfiles={loadingProfiles}
               filteredProfiles={filteredProfiles}
               handleLike={handleLike}
-              user={user}
+              userForUI={userForUI}
+              isSuspended={isSuspended}
               loadingMyProfile={loadingMyProfile}
               myProfile={myProfile}
               handleSaveProfile={handleSaveProfile}
@@ -761,13 +827,21 @@ export default function App() {
               setIsAuthModalOpen={setIsAuthModalOpen}
               profileToast={profileToast}
               setProfileToast={setProfileToast}
+              onResumeAccount={handleResumeAccount}
+              resumeLoading={resumeLoading}
+              resumeError={resumeError}
             />
           }
         />
 
         <Route
           path="/crushes"
-          element={<CrushesFullPage user={user} onRequireAuth={() => setIsAuthModalOpen(true)} />}
+          element={
+            <CrushesFullPage
+              user={userForUI}
+              onRequireAuth={() => setIsAuthModalOpen(true)}
+            />
+          }
         />
 
         {/* ✅ Pages légales */}
@@ -775,10 +849,13 @@ export default function App() {
         <Route path="/cookies" element={<Cookies />} />
 
         {/* ✅ Réglages */}
-        <Route path="/settings" element={<Settings user={user} onOpenProfile={openProfileModal} />} />
+        <Route
+          path="/settings"
+          element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
+        />
 
         {/* ✅ Configurer compte */}
-        <Route path="/account" element={<AccountSettings user={user} />} />
+        <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
       <Footer />
