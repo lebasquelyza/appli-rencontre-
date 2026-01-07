@@ -59,7 +59,7 @@ export function Settings({ user }) {
           return;
         }
 
-        setName(data?.name || "");
+        setName(typeof data?.name === "string" ? data.name : "");
         setAge(data?.age ?? "");
       } finally {
         if (!cancelled) setLoading(false);
@@ -98,6 +98,15 @@ export function Settings({ user }) {
     }
   };
 
+  const displayName = (name || "").trim() || "Non renseigné";
+  const displayAge = age === "" || age == null ? "Non renseigné" : String(age);
+
+  const whiteDisabledInputStyle = {
+    color: "#fff",
+    WebkitTextFillColor: "#fff",
+    opacity: 1
+  };
+
   return (
     <main className="page">
       <div className="shell">
@@ -132,17 +141,34 @@ export function Settings({ user }) {
               <div className="form" style={{ marginTop: 12 }}>
                 <div className="form-group">
                   <label>Email</label>
-                  <input type="email" value={email} disabled readOnly />
+                  <input
+                    type="email"
+                    value={email || "Non renseigné"}
+                    disabled
+                    readOnly
+                    style={whiteDisabledInputStyle}
+                  />
                 </div>
 
                 <div className="form-group">
                   <label>Nom</label>
-                  <input value={name} disabled readOnly />
+                  <input
+                    value={displayName}
+                    disabled
+                    readOnly
+                    style={whiteDisabledInputStyle}
+                  />
                 </div>
 
                 <div className="form-group">
                   <label>Âge</label>
-                  <input type="number" value={age} disabled readOnly />
+                  <input
+                    type="text"
+                    value={displayAge}
+                    disabled
+                    readOnly
+                    style={whiteDisabledInputStyle}
+                  />
                 </div>
 
                 {loading ? (
@@ -151,7 +177,7 @@ export function Settings({ user }) {
               </div>
             </div>
 
-            {/* ✅ Mot de passe (dépliable, bouton même style que "Configurer") */}
+            {/* ✅ Mot de passe (dépliable) */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Mot de passe</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
