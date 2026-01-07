@@ -39,6 +39,9 @@ export function ProfileForm({
   // 🔐 référence état initial
   const initialRef = useRef(null);
 
+  // ✅ previews (object urls)
+  const [photoPreviews, setPhotoPreviews] = useState([]);
+
   /* -------------------------------
      Pré-remplissage
   -------------------------------- */
@@ -47,6 +50,17 @@ export function ProfileForm({
       setForm(emptyForm);
       setPhotos([]);
       setCoords({ lat: null, lng: null });
+
+      // ✅ reset previews
+      setPhotoPreviews((prev) => {
+        prev.forEach((p) => {
+          try {
+            URL.revokeObjectURL(p.url);
+          } catch {}
+        });
+        return [];
+      });
+
       initialRef.current = JSON.stringify({
         ...emptyForm,
         latitude: null,
@@ -68,6 +82,16 @@ export function ProfileForm({
 
     setForm(initial);
     setPhotos([]);
+
+    // ✅ reset previews
+    setPhotoPreviews((prev) => {
+      prev.forEach((p) => {
+        try {
+          URL.revokeObjectURL(p.url);
+        } catch {}
+      });
+      return [];
+    });
 
     // ✅ si ton backend a déjà lat/lng, on les récupère, sinon null
     setCoords({
@@ -104,6 +128,18 @@ export function ProfileForm({
     const dirty = current !== initialRef.current || photos.length > 0;
     onDirtyChange?.(dirty);
   }, [form, photos, coords, onDirtyChange]);
+
+  // ✅ cleanup previews on unmount
+  useEffect(() => {
+    return () => {
+      photoPreviews.forEach((p) => {
+        try {
+          URL.revokeObjectURL(p.url);
+        } catch {}
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -142,12 +178,38 @@ export function ProfileForm({
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    setPhotos((p) => {
-      const next = [...p, ...files].slice(0, 5);
+    setPhotos((prev) => {
+      const next = [...prev, ...files].slice(0, 5);
       return next;
     });
 
+    // ✅ previews pour les nouveaux fichiers (en respectant max 5)
+    setPhotoPreviews((prev) => {
+      const remaining = Math.max(0, 5 - prev.length);
+      const toAdd = files.slice(0, remaining).map((file) => ({
+        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(16).slice(2)}`,
+        file,
+        url: URL.createObjectURL(file)
+      }));
+      return [...prev, ...toAdd].slice(0, 5);
+    });
+
     e.target.value = "";
+  };
+
+  // ✅ supprimer une photo ajoutée (preview + file)
+  const removePhotoAt = (index) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+
+    setPhotoPreviews((prev) => {
+      const target = prev[index];
+      if (target?.url) {
+        try {
+          URL.revokeObjectURL(target.url);
+        } catch {}
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const submit = async (e) => {
@@ -212,13 +274,14 @@ export function ProfileForm({
         {ageError && <div style={{ marginTop: 8, color: "tomato" }}>{ageError}</div>}
       </div>
 
+      {/* ✅ Bouton Sexe (Femme / Homme / Autres) */}
       <div className="form-group">
-        <label>Genre *</label>
+        <label>Sexe *</label>
         <select name="gender" value={form.gender} onChange={handleChange}>
           <option value="">Sélectionner…</option>
           <option value="female">Femme</option>
           <option value="male">Homme</option>
-          <option value="other">Autre</option>
+          <option value="other">Autres</option>
         </select>
       </div>
 
@@ -277,6 +340,54 @@ export function ProfileForm({
           hidden
           onChange={handlePhotosSelected}
         />
+
+        {/* ✅ Aperçus + suppression */}
+        {photoPreviews.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+            {photoPreviews.map((p, idx) => (
+              <div
+                key={p.id}
+                style={{
+                  position: "relative",
+                  width: 72,
+                  height: 72,
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  border: "1px solid rgba(0,0,0,0.12)"
+                }}
+              >
+                <img
+                  src={p.url}
+                  alt={`Photo ${idx + 1}`}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removePhotoAt(idx)}
+                  aria-label="Supprimer la photo"
+                  title="Supprimer"
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    width: 22,
+                    height: 22,
+                    borderRadius: 999,
+                    border: "none",
+                    cursor: "pointer",
+                    background: "rgba(0,0,0,0.65)",
+                    color: "white",
+                    display: "grid",
+                    placeItems: "center",
+                    lineHeight: 1
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ✅ message obligatoire / erreurs */}
         {photoError ? (
