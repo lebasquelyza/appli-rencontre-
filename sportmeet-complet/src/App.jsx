@@ -337,6 +337,14 @@ export default function App() {
   // ✅ "comme si pas de compte" pour l'UI, mais on garde user en mémoire pour pouvoir reprendre
   const userForUI = isSuspended ? null : user;
 
+  // ✅ OUVRE AUTOMATIQUEMENT LE MODAL si lien Supabase "recovery"
+  useEffect(() => {
+    const h = window.location.hash || "";
+    const isRecovery =
+      h.includes("type=recovery") || (h.includes("access_token=") && h.includes("refresh_token="));
+    if (isRecovery) setIsAuthModalOpen(true);
+  }, []);
+
   async function geocodeCity(cityText) {
     const city = (cityText || "").trim().toLowerCase();
     if (!city) return null;
