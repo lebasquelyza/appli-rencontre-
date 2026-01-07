@@ -132,10 +132,14 @@ function HomePage({
     <>
       <main className="page">
         <div className="shell">
-          {/* ✅ seul changement: on réduit le bloc Explorer */}
+          {/* ✅ Explorer réduit (padding + largeur + marge) */}
           <section
             className="card card-results"
-            style={{ padding: 12, maxWidth: 980, margin: "0 auto" }}
+            style={{
+              padding: 8,
+              maxWidth: 820,
+              margin: "8px auto 0"
+            }}
           >
             <FiltersBar filters={filters} onChange={onFiltersChange} onReset={onResetFilters} />
 
