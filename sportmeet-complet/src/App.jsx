@@ -103,6 +103,23 @@ function dedupeByUserLatest(list) {
   return [...byUser.values(), ...noUser];
 }
 
+// ✅ Ajoute une carte “share” entre profils
+function withShareInterstitial(list, every = 8) {
+  const out = [];
+  let k = 0;
+
+  for (let i = 0; i < list.length; i++) {
+    out.push(list[i]);
+
+    if ((i + 1) % every === 0 && i < list.length - 1) {
+      k += 1;
+      out.push({ id: `__share_${k}`, __type: "share" });
+    }
+  }
+
+  return out;
+}
+
 function HomePage({
   filters,
   onFiltersChange,
@@ -132,7 +149,15 @@ function HomePage({
     <>
       <main className="page">
         <div className="shell">
-          <section className="card card-results">
+          {/* ✅ Explorer un peu plus compact */}
+          <section
+            className="card card-results"
+            style={{
+              padding: 8,
+              maxWidth: 820,
+              margin: "8px auto 0"
+            }}
+          >
             <FiltersBar filters={filters} onChange={onFiltersChange} onReset={onResetFilters} />
 
             {/* ✅ message après création / modification */}
@@ -217,10 +242,7 @@ function HomePage({
       {isProfileModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
           <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
-            <div
-              className="modal-header"
-              style={{ display: "flex", gap: 8, alignItems: "center" }}
-            >
+            <div className="modal-header" style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <h3 style={{ marginRight: "auto" }}>Mon profil sportif</h3>
 
               {/* ✅ bouton Aperçu */}
@@ -512,14 +534,12 @@ export default function App() {
     const realActive = deduped.filter((p) => (p.status ?? "active") === "active");
 
     // ✅ on complète avec des profils démo tant qu'il n'y a pas assez de profils réels
-    const MIN_PROFILES_TO_SHOW = 30; // ajuste: 20 / 30 / 50 / 100
+    const MIN_PROFILES_TO_SHOW = 30;
     const need = Math.max(0, MIN_PROFILES_TO_SHOW - realActive.length);
     const demoSlice = seedProfiles.slice(0, need);
 
-    // ✅ liste finale
     const finalList = [...realActive, ...demoSlice];
 
-    // ✅ fallback si vraiment rien
     setProfiles(finalList.length ? finalList : seedProfiles);
     setLoadingProfiles(false);
   };
@@ -783,12 +803,12 @@ export default function App() {
       });
 
       if (!radiusKm || radiusKm <= 0) {
-        if (!cancelled) setFilteredProfiles(base);
+        if (!cancelled) setFilteredProfiles(withShareInterstitial(base, 8));
         return;
       }
 
       if (!myLoc) {
-        if (!cancelled) setFilteredProfiles(base);
+        if (!cancelled) setFilteredProfiles(withShareInterstitial(base, 8));
         return;
       }
 
@@ -805,7 +825,7 @@ export default function App() {
         if (d <= radiusKm) kept.push(p);
       }
 
-      if (!cancelled) setFilteredProfiles(kept);
+      if (!cancelled) setFilteredProfiles(withShareInterstitial(kept, 8));
     };
 
     run();
