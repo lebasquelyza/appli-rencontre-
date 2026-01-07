@@ -247,7 +247,20 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
       setCityLoading(true);
       try {
         const list = await searchCities(q);
-        setCitySuggestions(list);
+
+        // ✅ dédupe: si le label affiché est identique, on ne le garde qu'une fois
+        const seen = new Set();
+        const deduped = [];
+        for (const s of list) {
+          const label = formatCityLabel(s);
+          const key = (label || "").trim().toLowerCase();
+          if (!key) continue;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          deduped.push(s);
+        }
+
+        setCitySuggestions(deduped);
       } catch (e) {
         console.error("searchCities error:", e);
         setCitySuggestions([]);
@@ -295,20 +308,14 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
         try {
           const rev = await reverseGeocodeCity(lat, lng);
           const label = formatCityLabelFromAddress(rev?.address || {});
-
-          if (label) {
-            setForm((p) => ({ ...p, city: label }));
-          }
-
-          setCityConfirmed(true);
-          setCitySuggestions([]);
-          setCityConfirmStatus("Ville confirmée ✅");
+          if (label) setForm((p) => ({ ...p, city: label }));
         } catch (e) {
           console.error("reverseGeocodeCity error:", e);
-          setCityConfirmed(true);
-          setCitySuggestions([]);
-          setCityConfirmStatus("Ville confirmée ✅");
         }
+
+        setCityConfirmed(true);
+        setCitySuggestions([]);
+        setCityConfirmStatus("Ville confirmée ✅");
       },
       (err) => {
         if (err.code === 1) setGeoStatus("Autorisation refusée.");
