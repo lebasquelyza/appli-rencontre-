@@ -331,11 +331,16 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
 }
 
-/* ✅ MODIF MINIMALE : vh -> dvh pour garder une taille stable sur mobile */
+/* ✅ MODIF MINIMALE : on verrouille la hauteur avec svh quand possible */
 .cardMedia{
-  height: 62dvh; /* au lieu de 62vh */
+  height: 62vh; /* fallback */
   min-height: 430px;
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
+}
+@supports (height: 1svh){
+  .cardMedia{
+    height: 62svh; /* ✅ stable même quand la barre d’adresse bouge */
+  }
 }
 
 /* ✅ base pour media (photos ou fallback) */
