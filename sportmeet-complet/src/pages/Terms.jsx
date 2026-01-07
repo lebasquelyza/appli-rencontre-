@@ -18,7 +18,7 @@ export function Terms() {
 
           <p style={{ marginTop: 12 }}>
             Les présentes conditions d’utilisation (« Conditions ») régissent l’accès et
-            l’utilisation de l’application SportMeet (l’« Application »).
+            l’utilisation de l’application MatchFit (l’« Application »).
           </p>
 
           <h2>1. Accès – Âge minimum</h2>
