@@ -1,5 +1,5 @@
 // sportmeet-complet/src/App.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 
 import { Header } from "./components/Header";
@@ -102,14 +102,6 @@ function dedupeByUserLatest(list) {
   return [...byUser.values(), ...noUser];
 }
 
-// ✅ met mon profil en premier dans la liste
-function putMyProfileFirst(list, userId) {
-  if (!userId) return list;
-  const mine = list.find((p) => p.user_id === userId);
-  if (!mine) return list;
-  return [mine, ...list.filter((p) => p.user_id !== userId)];
-}
-
 function HomePage({
   filters,
   onFiltersChange,
@@ -131,7 +123,9 @@ function HomePage({
   setProfileToast,
   onResumeAccount,
   resumeLoading,
-  resumeError
+  resumeError,
+  isPreviewModalOpen,
+  setIsPreviewModalOpen
 }) {
   return (
     <>
@@ -222,8 +216,23 @@ function HomePage({
       {isProfileModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
           <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Mon profil sportif</h3>
+            <div
+              className="modal-header"
+              style={{ display: "flex", gap: 8, alignItems: "center" }}
+            >
+              <h3 style={{ marginRight: "auto" }}>Mon profil sportif</h3>
+
+              {/* ✅ petit bouton Aperçu */}
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => setIsPreviewModalOpen(true)}
+                disabled={!myProfile}
+                title="Voir l’aperçu (comme dans le swipe)"
+              >
+                Aperçu
+              </button>
+
               <button className="btn-ghost" onClick={() => setIsProfileModalOpen(false)}>
                 Fermer
               </button>
@@ -235,6 +244,34 @@ function HomePage({
                 existingProfile={myProfile}
                 onSaveProfile={handleSaveProfile}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Modal Aperçu : EXACTEMENT la carte du SwipeDeck */}
+      {isPreviewModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsPreviewModalOpen(false)}>
+          <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Aperçu</h3>
+              <button className="btn-ghost" onClick={() => setIsPreviewModalOpen(false)}>
+                Fermer
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ paddingTop: 10 }}>
+              {!myProfile ? (
+                <p className="form-message">Aucun profil à prévisualiser.</p>
+              ) : (
+                <SwipeDeck
+                  profiles={[myProfile]}
+                  isAuthenticated={false}
+                  onLikeProfile={() => {}}
+                  onRequireAuth={() => {}}
+                  previewMode
+                />
+              )}
             </div>
           </div>
         </div>
@@ -277,9 +314,8 @@ export default function App() {
     myLocation: null
   });
 
-  const [highlightNewProfile, setHighlightNewProfile] = useState(null);
-
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const [loadingProfiles, setLoadingProfiles] = useState(false);
@@ -301,7 +337,6 @@ export default function App() {
   const [resumeError, setResumeError] = useState("");
 
   const isSuspended = !!user && myProfile?.status === "suspended";
-  // ✅ "comme si pas de compte" pour l'UI, mais on garde user en mémoire pour pouvoir reprendre
   const userForUI = isSuspended ? null : user;
 
   async function geocodeCity(cityText) {
@@ -366,6 +401,7 @@ export default function App() {
     setUser(null);
     setMyProfile(null);
     setIsProfileModalOpen(false);
+    setIsPreviewModalOpen(false);
     navigate("/", { replace: true });
   };
 
@@ -562,19 +598,14 @@ export default function App() {
     if (paths.length === 0) return;
 
     const { error } = await supabase.storage.from(BUCKET).remove(paths);
-    if (error) {
-      console.error("Supabase remove error:", error);
-    }
+    if (error) console.error("Supabase remove error:", error);
   };
 
   /* -------------------------------
-     SAVE profil
-     ✅ Bloqué si compte suspendu
+     SAVE profil (bloqué si suspendu)
   -------------------------------- */
   const handleSaveProfile = async (data) => {
-    if (isSuspended) {
-      throw new Error("SUSPENDED_ACCOUNT");
-    }
+    if (isSuspended) throw new Error("SUSPENDED_ACCOUNT");
 
     const wasEdit = !!myProfile?.id;
 
@@ -595,21 +626,15 @@ export default function App() {
     }
 
     const ageNum = Number(data.age);
-    if (!Number.isFinite(ageNum)) {
-      throw new Error("AGE_REQUIRED");
-    }
-    if (ageNum < 16) {
-      throw new Error("UNDER_16_BLOCKED");
-    }
+    if (!Number.isFinite(ageNum)) throw new Error("AGE_REQUIRED");
+    if (ageNum < 16) throw new Error("UNDER_16_BLOCKED");
 
     const genderValue =
       data.gender === "female" || data.gender === "male" || data.gender === "other"
         ? data.gender
         : null;
 
-    if (!myProfile && !hasNewPhotos) {
-      throw new Error("PHOTO_REQUIRED");
-    }
+    if (!myProfile && !hasNewPhotos) throw new Error("PHOTO_REQUIRED");
 
     const totalPhotosCount = (myProfile ? keptPhotoUrls.length : 0) + photos.length;
     if (totalPhotosCount > 5) throw new Error("MAX_5_PHOTOS");
@@ -708,7 +733,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     Filtres
+     Filtres (✅ mon profil exclu de la page Explorer)
   -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
   const handleResetFilters = () =>
@@ -722,29 +747,29 @@ export default function App() {
       const radiusKm = Number(filters.radiusKm || 0);
       const myLoc = filters.myLocation;
 
-      // ✅ on NE filtre PLUS mon profil (pour pouvoir l'afficher en premier)
       const base = profiles.filter((p) => {
+        // ✅ on retire mon profil du swipe
+        if (user && p.user_id === user.id) return false;
+
         if (filters.sport) {
           if (filters.sport === "Autre") {
             if (STANDARD_SPORTS.includes(p.sport)) return false;
           } else if (p.sport !== filters.sport) return false;
         }
-        if (filters.level && p.level !== filters.level) return false;
 
+        if (filters.level && p.level !== filters.level) return false;
         if (cityQuery && !p.city.toLowerCase().includes(cityQuery)) return false;
 
         return true;
       });
 
       if (!radiusKm || radiusKm <= 0) {
-        const ordered = putMyProfileFirst(base, user?.id);
-        if (!cancelled) setFilteredProfiles(ordered);
+        if (!cancelled) setFilteredProfiles(base);
         return;
       }
 
       if (!myLoc) {
-        const ordered = putMyProfileFirst(base, user?.id);
-        if (!cancelled) setFilteredProfiles(ordered);
+        if (!cancelled) setFilteredProfiles(base);
         return;
       }
 
@@ -761,8 +786,7 @@ export default function App() {
         if (d <= radiusKm) kept.push(p);
       }
 
-      const ordered = putMyProfileFirst(kept, user?.id);
-      if (!cancelled) setFilteredProfiles(ordered);
+      if (!cancelled) setFilteredProfiles(kept);
     };
 
     run();
@@ -773,11 +797,8 @@ export default function App() {
 
   /* -------------------------------
      Like/Swipe : bloqué si pas connecté OU suspendu
-     ✅ Empêche de liker son propre profil
   -------------------------------- */
   const handleLike = async (profile) => {
-    if (user && profile?.user_id === user.id) return;
-
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
       else setIsAuthModalOpen(true);
@@ -840,6 +861,8 @@ export default function App() {
               onResumeAccount={handleResumeAccount}
               resumeLoading={resumeLoading}
               resumeError={resumeError}
+              isPreviewModalOpen={isPreviewModalOpen}
+              setIsPreviewModalOpen={setIsPreviewModalOpen}
             />
           }
         />
