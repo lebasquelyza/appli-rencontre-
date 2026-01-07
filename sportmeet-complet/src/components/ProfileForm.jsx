@@ -162,7 +162,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
     const lng = existingProfile.longitude ?? null;
     setCoords({ lat, lng });
 
-    // ✅ en édition: on considère la ville comme déjà confirmée si elle est déjà enregistrée
+    // ✅ en édition: ville considérée confirmée si déjà enregistrée
     if ((initial.city || "").trim().length > 0) {
       setCityConfirmed(true);
       setCityConfirmStatus("Ville confirmée ✅");
@@ -223,8 +223,6 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
       setCityConfirmStatus("");
       setCitySuggestions([]);
       setGeoStatus("");
-      // (optionnel) si tu veux aussi vider coords quand il retape :
-      // setCoords({ lat: null, lng: null });
     }
 
     setForm((p) => ({ ...p, [name]: value }));
@@ -269,14 +267,11 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
     setCityConfirmed(true);
     setCityConfirmStatus("Ville confirmée ✅");
 
-    // ✅ on stocke des coords cohérentes avec la ville choisie
+    // ✅ coords cohérentes avec la ville choisie
     const lat = s?.lat != null ? Number(s.lat) : null;
     const lng = s?.lon != null ? Number(s.lon) : null;
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
       setCoords({ lat, lng });
-      setGeoStatus(`Position ville ✅ (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
-    } else {
-      setGeoStatus("");
     }
   };
 
@@ -295,7 +290,6 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
         const lng = pos.coords.longitude;
 
         setCoords({ lat, lng });
-        setGeoStatus(`Position détectée ✅ (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
 
         // ✅ reverse geocoding => remplir automatiquement la ville
         try {
@@ -304,20 +298,16 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
 
           if (label) {
             setForm((p) => ({ ...p, city: label }));
-            setCityConfirmed(true);
-            setCitySuggestions([]);
-            setCityConfirmStatus("Ville remplie & confirmée ✅ (via GPS)");
-          } else {
-            // position ok, libellé ville introuvable
-            setCityConfirmed(true);
-            setCitySuggestions([]);
-            setCityConfirmStatus("Position confirmée ✅ (via GPS) — ville introuvable");
           }
+
+          setCityConfirmed(true);
+          setCitySuggestions([]);
+          setCityConfirmStatus("Ville confirmée ✅");
         } catch (e) {
           console.error("reverseGeocodeCity error:", e);
           setCityConfirmed(true);
           setCitySuggestions([]);
-          setCityConfirmStatus("Position confirmée ✅ (via GPS) — erreur de recherche ville");
+          setCityConfirmStatus("Ville confirmée ✅");
         }
       },
       (err) => {
@@ -502,16 +492,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
           </button>
         </div>
 
-        {(geoStatus || (coords.lat != null && coords.lng != null)) && (
-          <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
-            {geoStatus ||
-              `Position enregistrée ✅ (${Number(coords.lat).toFixed(5)}, ${Number(coords.lng).toFixed(
-                5
-              )})`}
-          </small>
-        )}
-
-        {/* ✅ sous-champ (sans "ville reconnue") */}
+        {/* ✅ sous-champ (sans coordonnées) */}
         {!cityConfirmed ? (
           <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
             {cityLoading
@@ -548,6 +529,10 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
             ))}
           </div>
         )}
+
+        {geoStatus ? (
+          <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>{geoStatus}</small>
+        ) : null}
       </div>
 
       <div className="form-group">
