@@ -107,6 +107,13 @@ export function Settings({ user }) {
     opacity: 1
   };
 
+  // ✅ style lien "primary" (même couleur que les boutons primary)
+  const primaryLinkStyle = {
+    color: "var(--primary)",
+    fontWeight: 600,
+    textDecoration: "none"
+  };
+
   return (
     <main className="page">
       <div className="shell">
@@ -262,7 +269,10 @@ export function Settings({ user }) {
               <h3 style={{ marginTop: 0 }}>Nous contacter</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
                 Une question ou besoin d’aide ? Écris-nous à{" "}
-                <a href="mailto:sportifandpro@gmail.com">sportifandpro@gmail.com</a>.
+                <a href="mailto:sportifandpro@gmail.com" style={primaryLinkStyle}>
+                  sportifandpro@gmail.com
+                </a>
+                .
               </p>
             </div>
           </div>
