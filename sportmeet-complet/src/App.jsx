@@ -163,8 +163,8 @@ function HomePage({
                 }}
               >
                 <div style={{ lineHeight: 1.35 }}>
-                  <strong>Compte suspendu</strong> — tant que tu n’as pas repris ton compte,
-                  tu ne peux pas utiliser l’application.
+                  <strong>Compte suspendu</strong> — tant que tu n’as pas repris ton compte, tu ne
+                  peux pas utiliser l’application.
                   {myProfile?.suspension_reason ? (
                     <div style={{ marginTop: 6, opacity: 0.9 }}>
                       Raison : {myProfile.suspension_reason}
@@ -229,7 +229,7 @@ function HomePage({
                 className="btn-ghost btn-sm"
                 onClick={() => setIsPreviewModalOpen(true)}
                 disabled={!myProfile}
-                title="Voir l’aperçu (statique, sans scroll)"
+                title="Voir l’aperçu (statique, sans swipe)"
               >
                 Aperçu
               </button>
@@ -250,13 +250,10 @@ function HomePage({
         </div>
       )}
 
-      {/* ✅ Modal Aperçu : plein écran + carte statique, sans swipe, sans boutons, sans scroll */}
+      {/* ✅ Modal Aperçu : carte statique (pas SwipeDeck) */}
       {isPreviewModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsPreviewModalOpen(false)}>
-          <div
-            className="modal-card modal-card--preview"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Aperçu</h3>
               <button className="btn-ghost" onClick={() => setIsPreviewModalOpen(false)}>
@@ -264,14 +261,12 @@ function HomePage({
               </button>
             </div>
 
-            <div className="modal-body modal-body--preview">
+            <div className="modal-body" style={{ paddingTop: 10 }}>
               {!myProfile ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
-                <div className="preview-fit">
-                  <div className="preview-scale">
-                    <SwipeCard profile={myProfile} />
-                  </div>
+                <div style={{ maxWidth: 520, margin: "0 auto" }}>
+                  <SwipeCard profile={myProfile} />
                 </div>
               )}
             </div>
@@ -339,6 +334,7 @@ export default function App() {
   const [resumeError, setResumeError] = useState("");
 
   const isSuspended = !!user && myProfile?.status === "suspended";
+  // ✅ "comme si pas de compte" pour l'UI, mais on garde user en mémoire pour pouvoir reprendre
   const userForUI = isSuspended ? null : user;
 
   async function geocodeCity(cityText) {
@@ -466,7 +462,7 @@ export default function App() {
   }, [user?.id]);
 
   /* -------------------------------
-     Fetch tous les profils
+     Fetch tous les profils (✅ réels + démos si pas assez)
   -------------------------------- */
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
@@ -503,7 +499,20 @@ export default function App() {
     }));
 
     const deduped = dedupeByUserLatest(mapped);
-    setProfiles(deduped.length ? deduped : seedProfiles);
+
+    // ✅ on garde uniquement les profils actifs (recommandé)
+    const realActive = deduped.filter((p) => (p.status ?? "active") === "active");
+
+    // ✅ on complète avec des profils démo tant qu'il n'y a pas assez de profils réels
+    const MIN_PROFILES_TO_SHOW = 30; // ajuste: 20 / 30 / 50 / 100
+    const need = Math.max(0, MIN_PROFILES_TO_SHOW - realActive.length);
+    const demoSlice = seedProfiles.slice(0, need);
+
+    // ✅ liste finale
+    const finalList = [...realActive, ...demoSlice];
+
+    // ✅ fallback si vraiment rien
+    setProfiles(finalList.length ? finalList : seedProfiles);
     setLoadingProfiles(false);
   };
 
@@ -750,6 +759,7 @@ export default function App() {
       const myLoc = filters.myLocation;
 
       const base = profiles.filter((p) => {
+        // ✅ on retire mon profil du swipe
         if (user && p.user_id === user.id) return false;
 
         if (filters.sport) {
@@ -875,14 +885,17 @@ export default function App() {
           }
         />
 
+        {/* ✅ Pages légales */}
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
 
+        {/* ✅ Réglages */}
         <Route
           path="/settings"
           element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
         />
 
+        {/* ✅ Configurer compte */}
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
