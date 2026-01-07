@@ -30,6 +30,14 @@ const FIRSTNAMES = [
   "Sacha","Leïla","Hugo","Emma","Nina","Yanis","Lucas","Manon","Zoé","Rayan","Louna","Théo"
 ];
 
+const BIOS = [
+  "La communauté démarre 💪 Invite tes amis pour voir plus de monde près de toi.",
+  "Partant(e) pour rencontrer des partenaires d’entraînement dans ta ville 🙂",
+  "Objectif: rester régulier(ère) et progresser, à plusieurs c’est plus simple 💥",
+  "Tu veux un/une partenaire motivé(e) ? Rejoins la communauté et invite tes potes 👀",
+  "Séances cool + motivation. On construit la commu ensemble 🔥"
+];
+
 function pick(arr, i) {
   return arr[i % arr.length];
 }
@@ -45,13 +53,13 @@ function makeSeedProfile(i) {
   return {
     id: `seed-${i + 1}`,
     user_id: null,
-    name: `${name}`,
+    name,
     age,
     city,
     sport,
     level,
     availability: "En semaine soir + week-end",
-    bio: "Profil d’attente — la communauté démarre, invite tes amis pour voir plus de monde 💪",
+    bio: pick(BIOS, i),
     photo_urls: [],
     isCustom: false,
     isSeed: true,
