@@ -331,8 +331,9 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
 }
 
+/* ✅ MODIF MINIMALE : vh -> dvh pour garder une taille stable sur mobile */
 .cardMedia{
-  height: 62vh;
+  height: 62dvh; /* au lieu de 62vh */
   min-height: 430px;
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
 }
@@ -404,7 +405,6 @@ input:focus, select:focus, textarea:focus{
   z-index: 2;
 }
 
-/* ✅ MODIF MINIMALE : ajout de min-height:0 pour permettre le scroll interne de la bio */
 .cardOverlay{
   position:absolute;
   inset:0;
@@ -414,7 +414,6 @@ input:focus, select:focus, textarea:focus{
   padding: 18px;
   gap: 10px;
   background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,.78) 100%);
-  min-height: 0;
 }
 
 .titleRow{
@@ -446,36 +445,11 @@ input:focus, select:focus, textarea:focus{
   box-shadow: 0 18px 50px rgba(0,0,0,.35);
 }
 
-/* ✅ MODIF MINIMALE : bio clamp + scroll interne quand dépliée */
 .swipeBio{
   color: rgba(243,244,246,.88);
   font-size: 13px;
   line-height: 1.45;
   max-width: 60ch;
-}
-
-.swipeBio.is-clamped{
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-}
-
-.swipeBio.is-expanded{
-  max-height: 160px;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* ✅ NOUVEAU : wrapper + bouton (nécessaire pour le “voir plus”) */
-.swipeBioWrap{
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 0;
-}
-.swipeBioToggle{
-  align-self: flex-start;
 }
 
 .swipeFooter{ margin-top: 2px; display:flex; justify-content:flex-start; }
@@ -685,7 +659,6 @@ input:focus, select:focus, textarea:focus{
   .form .btn-primary.btn-block{
     position: static;
   }
-
   /* -------- Matches + Chat -------- */
 
   .matches-list{
@@ -779,4 +752,5 @@ input:focus, select:focus, textarea:focus{
   .chat-input input{
     flex: 1;
   }
+
 }
