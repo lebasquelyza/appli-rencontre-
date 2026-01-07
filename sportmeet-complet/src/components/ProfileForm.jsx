@@ -23,9 +23,15 @@ export function ProfileForm({
 
   const [form, setForm] = useState(emptyForm);
 
-  // ✅ Photos: 1 obligatoire, max 5
+  // ✅ Photos: nouvelles (File) upload
   const [photos, setPhotos] = useState([]);
   const [photoError, setPhotoError] = useState("");
+
+  // ✅ Photos existantes conservées (URLs)
+  const [keptPhotoUrls, setKeptPhotoUrls] = useState([]);
+
+  // ✅ previews (object urls) pour nouvelles photos
+  const [photoPreviews, setPhotoPreviews] = useState([]);
 
   // ✅ Age: blocage si < 16
   const [ageError, setAgeError] = useState("");
@@ -39,32 +45,31 @@ export function ProfileForm({
   // 🔐 référence état initial
   const initialRef = useRef(null);
 
-  // ✅ previews (object urls)
-  const [photoPreviews, setPhotoPreviews] = useState([]);
-
   /* -------------------------------
      Pré-remplissage
   -------------------------------- */
   useEffect(() => {
+    // cleanup previews avant reset
+    setPhotoPreviews((prev) => {
+      prev.forEach((p) => {
+        try {
+          URL.revokeObjectURL(p.url);
+        } catch {}
+      });
+      return [];
+    });
+
     if (!existingProfile) {
       setForm(emptyForm);
       setPhotos([]);
+      setKeptPhotoUrls([]);
       setCoords({ lat: null, lng: null });
-
-      // ✅ reset previews
-      setPhotoPreviews((prev) => {
-        prev.forEach((p) => {
-          try {
-            URL.revokeObjectURL(p.url);
-          } catch {}
-        });
-        return [];
-      });
 
       initialRef.current = JSON.stringify({
         ...emptyForm,
         latitude: null,
-        longitude: null
+        longitude: null,
+        photo_urls: []
       });
       return;
     }
@@ -83,15 +88,9 @@ export function ProfileForm({
     setForm(initial);
     setPhotos([]);
 
-    // ✅ reset previews
-    setPhotoPreviews((prev) => {
-      prev.forEach((p) => {
-        try {
-          URL.revokeObjectURL(p.url);
-        } catch {}
-      });
-      return [];
-    });
+    // ✅ photos déjà en base
+    const existingUrls = Array.isArray(existingProfile.photo_urls) ? existingProfile.photo_urls : [];
+    setKeptPhotoUrls(existingUrls);
 
     // ✅ si ton backend a déjà lat/lng, on les récupère, sinon null
     setCoords({
@@ -102,7 +101,8 @@ export function ProfileForm({
     initialRef.current = JSON.stringify({
       ...initial,
       latitude: existingProfile.latitude ?? null,
-      longitude: existingProfile.longitude ?? null
+      longitude: existingProfile.longitude ?? null,
+      photo_urls: existingUrls
     });
   }, [existingProfile?.id]);
 
@@ -122,12 +122,13 @@ export function ProfileForm({
       availability: form.availability,
       bio: form.bio,
       latitude: coords.lat,
-      longitude: coords.lng
+      longitude: coords.lng,
+      photo_urls: keptPhotoUrls
     });
 
     const dirty = current !== initialRef.current || photos.length > 0;
     onDirtyChange?.(dirty);
-  }, [form, photos, coords, onDirtyChange]);
+  }, [form, photos, coords, keptPhotoUrls, onDirtyChange]);
 
   // ✅ cleanup previews on unmount
   useEffect(() => {
@@ -171,36 +172,42 @@ export function ProfileForm({
     );
   };
 
-  // ✅ Photos: max 5, et 1 obligatoire (contrôle à l’ajout + contrôle au submit)
+  // ✅ Photos: max 5 total (existantes conservées + nouvelles)
   const handlePhotosSelected = (e) => {
     setPhotoError("");
 
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    setPhotos((prev) => {
-      const next = [...prev, ...files].slice(0, 5);
-      return next;
-    });
+    const totalAlready = keptPhotoUrls.length + photos.length;
+    const remaining = Math.max(0, 5 - totalAlready);
+    const accepted = files.slice(0, remaining);
 
-    // ✅ previews pour les nouveaux fichiers (en respectant max 5)
+    if (accepted.length === 0) {
+      setPhotoError("Maximum 5 photos.");
+      e.target.value = "";
+      return;
+    }
+
+    setPhotos((prev) => [...prev, ...accepted]);
+
     setPhotoPreviews((prev) => {
-      const remaining = Math.max(0, 5 - prev.length);
-      const toAdd = files.slice(0, remaining).map((file) => ({
-        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(16).slice(2)}`,
+      const toAdd = accepted.map((file) => ({
+        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()
+          .toString(16)
+          .slice(2)}`,
         file,
         url: URL.createObjectURL(file)
       }));
-      return [...prev, ...toAdd].slice(0, 5);
+      return [...prev, ...toAdd];
     });
 
     e.target.value = "";
   };
 
-  // ✅ supprimer une photo ajoutée (preview + file)
-  const removePhotoAt = (index) => {
+  // ✅ supprimer une photo NOUVELLE
+  const removeNewPhotoAt = (index) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
-
     setPhotoPreviews((prev) => {
       const target = prev[index];
       if (target?.url) {
@@ -210,6 +217,11 @@ export function ProfileForm({
       }
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  // ✅ supprimer une photo EXISTANTE (URL)
+  const removeKeptPhotoAt = (index) => {
+    setKeptPhotoUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   const submit = async (e) => {
@@ -227,14 +239,15 @@ export function ProfileForm({
       return;
     }
 
-    // ✅ 1 photo obligatoire
-    if (!photos || photos.length < 1) {
+    // ✅ 1 photo obligatoire (TOTAL)
+    const totalPhotosCount = keptPhotoUrls.length + photos.length;
+    if (totalPhotosCount < 1) {
       setPhotoError("Au moins 1 photo est obligatoire.");
       return;
     }
 
     // ✅ max 5 sécurité
-    if (photos.length > 5) {
+    if (totalPhotosCount > 5) {
       setPhotoError("Maximum 5 photos.");
       return;
     }
@@ -248,6 +261,10 @@ export function ProfileForm({
       latitude: coords.lat,
       longitude: coords.lng,
 
+      // ✅ important pour l’édition
+      keptPhotoUrls: keptPhotoUrls,
+
+      // ✅ nouvelles photos à uploader
       photos
     });
 
@@ -288,7 +305,6 @@ export function ProfileForm({
       <div className="form-group">
         <label>Ville *</label>
 
-        {/* ✅ Ville + icône 📍 à droite */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input name="city" value={form.city} onChange={handleChange} style={{ flex: 1 }} />
           <button
@@ -329,7 +345,7 @@ export function ProfileForm({
       <div className="form-group">
         <label>Photos *</label>
         <button type="button" className="btn-ghost" onClick={() => fileInputRef.current.click()}>
-          Ajouter une photo ({photos.length}/5)
+          Ajouter une photo ({keptPhotoUrls.length + photos.length}/5)
         </button>
 
         <input
@@ -341,9 +357,52 @@ export function ProfileForm({
           onChange={handlePhotosSelected}
         />
 
-        {/* ✅ Aperçus + suppression */}
-        {photoPreviews.length > 0 && (
+        {/* ✅ Aperçus: existantes + nouvelles */}
+        {(keptPhotoUrls.length > 0 || photoPreviews.length > 0) && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+            {keptPhotoUrls.map((url, idx) => (
+              <div
+                key={`kept-${url}-${idx}`}
+                style={{
+                  position: "relative",
+                  width: 72,
+                  height: 72,
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  border: "1px solid rgba(0,0,0,0.12)"
+                }}
+              >
+                <img
+                  src={url}
+                  alt={`Photo existante ${idx + 1}`}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeKeptPhotoAt(idx)}
+                  aria-label="Supprimer la photo"
+                  title="Supprimer"
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    width: 22,
+                    height: 22,
+                    borderRadius: 999,
+                    border: "none",
+                    cursor: "pointer",
+                    background: "rgba(0,0,0,0.65)",
+                    color: "white",
+                    display: "grid",
+                    placeItems: "center",
+                    lineHeight: 1
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+
             {photoPreviews.map((p, idx) => (
               <div
                 key={p.id}
@@ -358,12 +417,12 @@ export function ProfileForm({
               >
                 <img
                   src={p.url}
-                  alt={`Photo ${idx + 1}`}
+                  alt={`Nouvelle photo ${idx + 1}`}
                   style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                 />
                 <button
                   type="button"
-                  onClick={() => removePhotoAt(idx)}
+                  onClick={() => removeNewPhotoAt(idx)}
                   aria-label="Supprimer la photo"
                   title="Supprimer"
                   style={{
@@ -389,7 +448,6 @@ export function ProfileForm({
           </div>
         )}
 
-        {/* ✅ message obligatoire / erreurs */}
         {photoError ? (
           <div style={{ marginTop: 8, color: "tomato" }}>{photoError}</div>
         ) : (
