@@ -15,10 +15,9 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
 
   const next = () => setIndex((i) => i + 1);
 
-  // ✅ Partage MatchFit
+  // ✅ Partage MatchFit (sans "gymcrush")
   const shareText = useMemo(
-    () =>
-      "Je suis sur MatchFit 💪 Viens tester ! On sait jamais, ton/ta gymcrush en entendra parler 😉",
+    () => "Je suis sur MatchFit 💪 Viens tester ! Partage à tes potes, ça peut aider 😉",
     []
   );
 
@@ -58,7 +57,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
 
   const isShareCard = !!currentProfile && currentProfile.__type === "share";
 
-  // ✅ Faux profil pour réutiliser SwipeCard (même taille / même style)
+  // ✅ Faux profil pour réutiliser SwipeCard (même taille / même style) (sans "gymcrush")
   const shareProfileForCard = useMemo(
     () => ({
       id: currentProfile?.id || "__share",
@@ -66,11 +65,11 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
       age: null,
       gender: null,
       city: "Invite tes potes",
-      sport: "Gymcrush",
+      sport: "MatchFit",
       level: "🔥",
       availability: "",
       bio:
-        "Si tu veux trouver ton/ta gymcrush, partage à tes potes… en espérant qu’ils en entendent parler 😉",
+        "Si tu veux rencontrer plus de partenaires d’entraînement, partage à tes potes… en espérant qu’ils en entendent parler 😉",
       photo_urls: [], // si SwipeCard exige une image, dis-moi et je te mets un fallback
       isCustom: false
     }),
