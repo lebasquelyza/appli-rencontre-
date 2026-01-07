@@ -20,7 +20,7 @@ export function AccountSettings({ user }) {
       "Je reçois trop de notifications",
       "Je n’aime pas l’expérience",
       "Problème de sécurité / confidentialité",
-      "Autre"
+      "Autre",
     ],
     []
   );
@@ -48,7 +48,7 @@ export function AccountSettings({ user }) {
         .update({
           status: "suspended",
           suspended_at: new Date().toISOString(),
-          suspension_reason: fullReason
+          suspension_reason: fullReason,
         })
         .eq("user_id", user.id);
 
@@ -57,8 +57,14 @@ export function AccountSettings({ user }) {
       await supabase.auth.signOut();
       navigate("/", { replace: true });
     } catch (e) {
-      console.error(e);
-      setMsg("Impossible de suspendre le compte pour le moment.");
+      console.error("Suspend account error:", e);
+      const errMsg =
+        e?.message ||
+        e?.error_description ||
+        e?.details ||
+        (typeof e === "string" ? e : null) ||
+        "Impossible de suspendre le compte pour le moment.";
+      setMsg(errMsg);
     } finally {
       setLoading(false);
     }
@@ -74,10 +80,18 @@ export function AccountSettings({ user }) {
     try {
       const fullReason = [reason, detail].filter(Boolean).join(" — ");
 
-      // ✅ Option B : suppression complète via Edge Function (Auth + profil + photos)
-      const { error } = await supabase.functions.invoke("delete-account", {
-        body: { reason: fullReason }
+      // Debug : vérifier que la session existe bien (sinon 401 côté function)
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      console.log("delete-account session:", sessionData?.session);
+      if (sessionErr) console.warn("getSession error:", sessionErr);
+
+      // Appel Edge Function (doit s'appeler exactement "delete-account" côté Supabase)
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: { reason: fullReason },
       });
+
+      console.log("delete-account response data:", data);
+      console.log("delete-account response error:", error);
 
       if (error) throw error;
 
@@ -86,8 +100,18 @@ export function AccountSettings({ user }) {
 
       navigate("/", { replace: true });
     } catch (e) {
-      console.error(e);
-      setMsg("Impossible de supprimer le compte pour le moment.");
+      console.error("Delete account error:", e);
+
+      // Supabase renvoie parfois des champs différents selon la source de l'erreur
+      const errMsg =
+        e?.message ||
+        e?.error_description ||
+        e?.details ||
+        e?.hint ||
+        (typeof e === "string" ? e : null) ||
+        "Impossible de supprimer le compte pour le moment.";
+
+      setMsg(errMsg);
     } finally {
       setLoading(false);
     }
@@ -121,7 +145,10 @@ export function AccountSettings({ user }) {
               <button
                 className={action === "suspend" ? "btn-primary" : "btn-ghost"}
                 type="button"
-                onClick={() => setAction("suspend")}
+                onClick={() => {
+                  setAction("suspend");
+                  setMsg("");
+                }}
                 disabled={loading}
               >
                 Choisir
@@ -137,7 +164,10 @@ export function AccountSettings({ user }) {
               <button
                 className={action === "delete" ? "btn-primary" : "btn-ghost"}
                 type="button"
-                onClick={() => setAction("delete")}
+                onClick={() => {
+                  setAction("delete");
+                  setMsg("");
+                }}
                 disabled={loading}
               >
                 Choisir
@@ -169,7 +199,11 @@ export function AccountSettings({ user }) {
                 />
               </div>
 
-              {msg && <div style={{ marginTop: 10, color: "tomato" }}>{msg}</div>}
+              {msg && (
+                <div style={{ marginTop: 10, color: "tomato", whiteSpace: "pre-wrap" }}>
+                  {msg}
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
                 <button className="btn-primary" type="button" onClick={onConfirm} disabled={loading}>
