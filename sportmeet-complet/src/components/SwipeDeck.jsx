@@ -69,7 +69,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
       level: "",      // ✅ supprime le chip 🔥
       availability: "",
       bio:
-        "Si tu veux rencontrer plus de partenaires d’entraînement, partage à tes potes… en espérant qu’ils en entendent parler 😉",
+        "Si tu veux rencontrer plus de partenaires d’entraînement, partage à tes potes… en espérant que ta/ton gymcrush en entendent parler 😉",
       photo_urls: [],
       isCustom: false
     }),
