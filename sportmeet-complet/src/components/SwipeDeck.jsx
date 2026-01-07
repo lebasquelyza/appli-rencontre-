@@ -15,7 +15,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
 
   const next = () => setIndex((i) => i + 1);
 
-  // ✅ Partage MatchFit (réutilisé par la carte interstitielle + écran fin)
+  // ✅ Partage MatchFit
   const shareText = useMemo(
     () =>
       "Je suis sur MatchFit 💪 Viens tester ! On sait jamais, ton/ta gymcrush en entendra parler 😉",
@@ -56,18 +56,35 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
     }
   };
 
+  const isShareCard = !!currentProfile && currentProfile.__type === "share";
+
+  // ✅ Faux profil pour réutiliser SwipeCard (même taille / même style)
+  const shareProfileForCard = useMemo(
+    () => ({
+      id: currentProfile?.id || "__share",
+      name: "Partage MatchFit 💪",
+      age: null,
+      gender: null,
+      city: "Invite tes potes",
+      sport: "Gymcrush",
+      level: "🔥",
+      availability: "",
+      bio:
+        "Si tu veux trouver ton/ta gymcrush, partage à tes potes… en espérant qu’ils en entendent parler 😉",
+      photo_urls: [], // si SwipeCard exige une image, dis-moi et je te mets un fallback
+      isCustom: false
+    }),
+    [currentProfile?.id]
+  );
+
   const handleLike = async () => {
+    if (isShareCard) return; // ✅ pas de like sur la carte share
+
     if (!isAuthenticated) {
       onRequireAuth?.();
       return;
     }
     if (!currentProfile || busy) return;
-
-    // ✅ Si c’est une carte “share”, on la passe simplement
-    if (currentProfile?.__type === "share") {
-      next();
-      return;
-    }
 
     setBusy(true);
     try {
@@ -79,8 +96,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   };
 
   const handleSkip = () => {
-    // ✅ On autorise de passer une carte share même sans être connecté
-    if (currentProfile?.__type === "share") {
+    if (isShareCard) {
       if (busy) return;
       next();
       return;
@@ -99,90 +115,78 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
 
   const hasAny = Array.isArray(profiles) && profiles.length > 0;
 
-  // ✅ Carte interstitielle “Partager”
-  const ShareInterstitial = () => (
-    <div className="swipe-empty" style={{ textAlign: "center" }}>
-      <p style={{ marginBottom: 6, fontWeight: 800 }}>Trouver ton/ta gymcrush ? 👀</p>
-      <p style={{ marginTop: 0, opacity: 0.9, lineHeight: 1.35 }}>
-        Si tu veux trouver ton/ta <strong>gymcrush</strong>, partage à tes potes… en espérant
-        qu’ils en entendent parler 😉
-      </p>
-
-      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-        <button type="button" className="btn-primary" onClick={handleShare}>
-          Partager
-        </button>
-        <button type="button" className="btn-ghost" onClick={handleCopy}>
-          Copier le lien
-        </button>
-        <button type="button" className="btn-ghost" onClick={next} title="Continuer">
-          Continuer
-        </button>
-      </div>
-    </div>
-  );
-
   return (
     <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
-          {/* ✅ Si carte spéciale */}
-          {currentProfile?.__type === "share" ? (
-            <ShareInterstitial />
+          {/* ✅ Carte normale OU carte "share" (même composant => même taille) */}
+          {isShareCard ? (
+            <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
           ) : (
-            <>
-              <SwipeCard key={currentProfile.id} profile={currentProfile} />
+            <SwipeCard key={currentProfile.id} profile={currentProfile} />
+          )}
 
-              {!isAuthenticated ? (
-                <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
-                  <p className="form-message" style={{ margin: 0 }}>
-                    Connecte-toi pour liker ou passer des profils.
-                  </p>
-                  <button
-                    type="button"
-                    className="btn-primary btn-sm"
-                    onClick={() => onRequireAuth?.()}
-                  >
-                    Se connecter
-                  </button>
-                </div>
-              ) : (
-                <div className="actions">
-                  <button
-                    type="button"
-                    className="swBtn swBtnBad"
-                    onClick={handleSkip}
-                    disabled={busy}
-                    aria-label="Passer"
-                    title="Passer"
-                  >
-                    ✕
-                  </button>
+          {/* ✅ Actions */}
+          {!isAuthenticated && !isShareCard ? (
+            <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
+              <p className="form-message" style={{ margin: 0 }}>
+                Connecte-toi pour liker ou passer des profils.
+              </p>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                onClick={() => onRequireAuth?.()}
+              >
+                Se connecter
+              </button>
+            </div>
+          ) : isShareCard ? (
+            <div className="actions" style={{ justifyContent: "center", gap: 10 }}>
+              <button type="button" className="btn-primary" onClick={handleShare}>
+                Partager
+              </button>
+              <button type="button" className="btn-ghost" onClick={handleCopy}>
+                Copier le lien
+              </button>
+              <button type="button" className="btn-ghost" onClick={next} title="Continuer">
+                Continuer
+              </button>
+            </div>
+          ) : (
+            <div className="actions">
+              <button
+                type="button"
+                className="swBtn swBtnBad"
+                onClick={handleSkip}
+                disabled={busy}
+                aria-label="Passer"
+                title="Passer"
+              >
+                ✕
+              </button>
 
-                  <button
-                    type="button"
-                    className="swBtn swBtnPrimary"
-                    onClick={handleLike}
-                    disabled={busy}
-                    aria-label="Liker"
-                    title="Liker"
-                  >
-                    ❤
-                  </button>
+              <button
+                type="button"
+                className="swBtn swBtnPrimary"
+                onClick={handleLike}
+                disabled={busy}
+                aria-label="Liker"
+                title="Liker"
+              >
+                ❤
+              </button>
 
-                  <button
-                    type="button"
-                    className="swBtn swBtnGood"
-                    onClick={handleLike}
-                    disabled={busy}
-                    aria-label="Super like (like)"
-                    title="Super like (like)"
-                  >
-                    ★
-                  </button>
-                </div>
-              )}
-            </>
+              <button
+                type="button"
+                className="swBtn swBtnGood"
+                onClick={handleLike}
+                disabled={busy}
+                aria-label="Super like (like)"
+                title="Super like (like)"
+              >
+                ★
+              </button>
+            </div>
           )}
         </>
       ) : (
@@ -213,7 +217,9 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
             </>
           ) : (
             <>
-              <p style={{ marginBottom: 6, fontWeight: 700 }}>Aucun profil dans cette sélection.</p>
+              <p style={{ marginBottom: 6, fontWeight: 700 }}>
+                Aucun profil dans cette sélection.
+              </p>
               <p style={{ marginTop: 0, opacity: 0.9 }}>
                 Essaie d’élargir tes filtres, ou partage MatchFit pour attirer du monde 👇
               </p>
