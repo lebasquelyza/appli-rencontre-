@@ -15,7 +15,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
 
   const next = () => setIndex((i) => i + 1);
 
-  // ✅ Partage MatchFit (sans "gymcrush")
+  // ✅ Partage MatchFit (texte conservé)
   const shareText = useMemo(
     () => "Je suis sur MatchFit 💪 Viens tester ! Partage à tes potes, ça peut aider 😉",
     []
@@ -57,16 +57,16 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
 
   const isShareCard = !!currentProfile && currentProfile.__type === "share";
 
-  // ✅ Faux profil pour réutiliser SwipeCard (même taille / même style) (sans "gymcrush")
+  // ✅ Carte share : on enlève "Invite tes potes" (city) + le chip rouge (sport) + le chip 🔥 (level)
   const shareProfileForCard = useMemo(
     () => ({
       id: currentProfile?.id || "__share",
       name: "Partage MatchFit 💪",
       age: null,
       gender: null,
-      city: "Invite tes potes",
-      sport: "MatchFit",
-      level: "🔥",
+      city: "",       // ✅ supprime "Invite tes potes"
+      sport: "",      // ✅ supprime le chip rouge
+      level: "",      // ✅ supprime le chip 🔥
       availability: "",
       bio:
         "Si tu veux rencontrer plus de partenaires d’entraînement, partage à tes potes… en espérant qu’ils en entendent parler 😉",
@@ -77,7 +77,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   );
 
   const handleLike = async () => {
-    if (isShareCard) return; // ✅ pas de like sur la carte share
+    if (isShareCard) return;
 
     if (!isAuthenticated) {
       onRequireAuth?.();
@@ -109,7 +109,6 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
     next();
   };
 
-  // ✅ “relancer” la sélection (repart au début)
   const handleReset = () => setIndex(0);
 
   const hasAny = Array.isArray(profiles) && profiles.length > 0;
@@ -118,14 +117,12 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
     <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
-          {/* ✅ Carte normale OU carte "share" (même composant => même taille) */}
           {isShareCard ? (
             <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
           ) : (
             <SwipeCard key={currentProfile.id} profile={currentProfile} />
           )}
 
-          {/* ✅ Actions */}
           {!isAuthenticated && !isShareCard ? (
             <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
               <p className="form-message" style={{ margin: 0 }}>
@@ -189,7 +186,6 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
           )}
         </>
       ) : (
-        // ✅ Fin de sélection : on remet le texte d'avant + partage
         <div className="swipe-empty" style={{ textAlign: "center" }}>
           {hasAny ? (
             <>
@@ -216,9 +212,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
             </>
           ) : (
             <>
-              <p style={{ marginBottom: 6, fontWeight: 700 }}>
-                Aucun profil dans cette sélection.
-              </p>
+              <p style={{ marginBottom: 6, fontWeight: 700 }}>Aucun profil dans cette sélection.</p>
               <p style={{ marginTop: 0, opacity: 0.9 }}>
                 Essaie d’élargir tes filtres, ou partage MatchFit pour attirer du monde 👇
               </p>
