@@ -1,4 +1,4 @@
-//sportmeet-complet/src/components/ProfileForm.jsx
+// sportmeet-complet/src/components/ProfileForm.jsx
 import React, { useEffect, useRef, useState } from "react";
 
 const emptyForm = {
@@ -13,12 +13,7 @@ const emptyForm = {
   bio: ""
 };
 
-export function ProfileForm({
-  existingProfile,
-  loadingExisting,
-  onSaveProfile,
-  onDirtyChange
-}) {
+export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, onDirtyChange }) {
   const isEdit = !!existingProfile?.id;
 
   const [form, setForm] = useState(emptyForm);
@@ -44,10 +39,27 @@ export function ProfileForm({
   const [coords, setCoords] = useState({ lat: null, lng: null });
   const [geoStatus, setGeoStatus] = useState("");
 
+  // ✅ City confirm (Nominatim)
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityConfirmStatus, setCityConfirmStatus] = useState(""); // message UI
+  const [cityConfirmed, setCityConfirmed] = useState(false);
+  const debounceRef = useRef(null);
+
   const fileInputRef = useRef(null);
 
   // 🔐 référence état initial
   const initialRef = useRef(null);
+
+  async function searchCities(q) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&accept-language=fr&q=${encodeURIComponent(
+      q
+    )}`;
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }
 
   /* -------------------------------
      Pré-remplissage
@@ -63,10 +75,19 @@ export function ProfileForm({
       return [];
     });
 
+    // cleanup recherche ville (debounce)
+    window.clearTimeout(debounceRef.current);
+
     setSubmitError("");
     setSubmitLoading(false);
     setPhotoError("");
     setAgeError("");
+
+    // reset ville confirm states
+    setCitySuggestions([]);
+    setCityLoading(false);
+    setCityConfirmStatus("");
+    setCityConfirmed(false);
 
     if (!existingProfile) {
       setForm(emptyForm);
@@ -102,15 +123,20 @@ export function ProfileForm({
     setKeptPhotoUrls(existingUrls);
 
     // ✅ si ton backend a déjà lat/lng, on les récupère, sinon null
-    setCoords({
-      lat: existingProfile.latitude ?? null,
-      lng: existingProfile.longitude ?? null
-    });
+    const lat = existingProfile.latitude ?? null;
+    const lng = existingProfile.longitude ?? null;
+    setCoords({ lat, lng });
+
+    // ✅ en édition: on considère la ville comme déjà confirmée si elle est déjà enregistrée
+    if ((initial.city || "").trim().length > 0) {
+      setCityConfirmed(true);
+      setCityConfirmStatus("Ville confirmée ✅");
+    }
 
     initialRef.current = JSON.stringify({
       ...initial,
-      latitude: existingProfile.latitude ?? null,
-      longitude: existingProfile.longitude ?? null,
+      latitude: lat,
+      longitude: lng,
       photo_urls: existingUrls
     });
   }, [existingProfile?.id]);
@@ -147,6 +173,7 @@ export function ProfileForm({
           URL.revokeObjectURL(p.url);
         } catch {}
       });
+      window.clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -154,7 +181,68 @@ export function ProfileForm({
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "age") setAgeError("");
+
+    if (name === "city") {
+      // dès que l'utilisateur retape, on invalide la confirmation
+      setCityConfirmed(false);
+      setCityConfirmStatus("");
+      setCitySuggestions([]);
+      setGeoStatus("");
+      // (optionnel) si tu veux aussi vider coords quand il retape :
+      // setCoords({ lat: null, lng: null });
+    }
+
     setForm((p) => ({ ...p, [name]: value }));
+  };
+
+  /* -------------------------------
+     Autocomplete Ville (Nominatim) + confirmation
+  -------------------------------- */
+  useEffect(() => {
+    const q = (form.city || "").trim();
+
+    if (cityConfirmed) return;
+
+    if (q.length < 3) {
+      setCitySuggestions([]);
+      setCityLoading(false);
+      return;
+    }
+
+    window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(async () => {
+      setCityLoading(true);
+      try {
+        const list = await searchCities(q);
+        setCitySuggestions(list);
+      } catch (e) {
+        console.error("searchCities error:", e);
+        setCitySuggestions([]);
+      } finally {
+        setCityLoading(false);
+      }
+    }, 400);
+
+    return () => window.clearTimeout(debounceRef.current);
+  }, [form.city, cityConfirmed]);
+
+  const confirmCityFromSuggestion = (s) => {
+    const label = s?.display_name || form.city;
+
+    setForm((p) => ({ ...p, city: label }));
+    setCitySuggestions([]);
+    setCityConfirmed(true);
+    setCityConfirmStatus("Ville confirmée ✅");
+
+    // ✅ on stocke des coords cohérentes avec la ville choisie
+    const lat = s?.lat != null ? Number(s.lat) : null;
+    const lng = s?.lon != null ? Number(s.lon) : null;
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setCoords({ lat, lng });
+      setGeoStatus(`Position ville ✅ (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
+    } else {
+      setGeoStatus("");
+    }
   };
 
   // ✅ bouton 📍 : récupère position exacte
@@ -172,6 +260,11 @@ export function ProfileForm({
         const lng = pos.coords.longitude;
         setCoords({ lat, lng });
         setGeoStatus(`Position détectée ✅ (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
+
+        // ✅ si l'utilisateur choisit GPS, on considère la position confirmée
+        setCityConfirmed(true);
+        setCitySuggestions([]);
+        setCityConfirmStatus("Position confirmée ✅ (via GPS)");
       },
       (err) => {
         if (err.code === 1) setGeoStatus("Autorisation refusée.");
@@ -265,6 +358,12 @@ export function ProfileForm({
       return;
     }
 
+    // ✅ ville doit être confirmée (par liste OU GPS)
+    if (!cityConfirmed) {
+      setSubmitError("Merci de confirmer ta ville (sélectionne-la dans la liste ou utilise 📍).");
+      return;
+    }
+
     setSubmitLoading(true);
     try {
       await onSaveProfile({
@@ -272,7 +371,7 @@ export function ProfileForm({
         age: form.age ? Number(form.age) : null,
         gender: form.gender || null,
 
-        // ✅ position exacte
+        // ✅ position exacte / ville choisie
         latitude: coords.lat,
         longitude: coords.lng,
 
@@ -352,8 +451,48 @@ export function ProfileForm({
         {(geoStatus || (coords.lat != null && coords.lng != null)) && (
           <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
             {geoStatus ||
-              `Position enregistrée ✅ (${Number(coords.lat).toFixed(5)}, ${Number(coords.lng).toFixed(5)})`}
+              `Position enregistrée ✅ (${Number(coords.lat).toFixed(5)}, ${Number(coords.lng).toFixed(
+                5
+              )})`}
           </small>
+        )}
+
+        {/* ✅ sous-champ (sans "ville reconnue") */}
+        {!cityConfirmed ? (
+          <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
+            {cityLoading
+              ? "Recherche de la ville…"
+              : "Sélectionne la bonne ville dans la liste pour confirmer (ou utilise 📍)."}
+          </small>
+        ) : cityConfirmStatus ? (
+          <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
+            {cityConfirmStatus}
+          </small>
+        ) : null}
+
+        {/* ✅ suggestions */}
+        {citySuggestions.length > 0 && !cityConfirmed && (
+          <div
+            className="card"
+            style={{
+              marginTop: 8,
+              padding: 8,
+              display: "grid",
+              gap: 6
+            }}
+          >
+            {citySuggestions.map((s) => (
+              <button
+                key={s.place_id}
+                type="button"
+                className="btn-ghost"
+                style={{ textAlign: "left", padding: 8 }}
+                onClick={() => confirmCityFromSuggestion(s)}
+              >
+                {s.display_name}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
@@ -499,7 +638,7 @@ export function ProfileForm({
       <button
         className="btn-primary btn-block"
         type="submit"
-        disabled={loadingExisting || submitLoading}
+        disabled={loadingExisting || submitLoading || !cityConfirmed}
       >
         {submitLoading ? "Enregistrement..." : "Enregistrer"}
       </button>
