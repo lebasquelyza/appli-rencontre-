@@ -130,10 +130,38 @@ function HomePage({
 }) {
   return (
     <>
-      <main className="page">
-        <div className="shell">
-          <section className="card card-results">
-            <FiltersBar filters={filters} onChange={onFiltersChange} onReset={onResetFilters} />
+      {/* ✅ Home: pas de scroll page, le deck prend l’espace restant */}
+      <main
+        className="page"
+        style={{
+          height: "100%",
+          overflow: "hidden",
+          display: "flex"
+        }}
+      >
+        <div
+          className="shell"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex"
+          }}
+        >
+          <section
+            className="card card-results"
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden"
+            }}
+          >
+            <FiltersBar
+              filters={filters}
+              onChange={onFiltersChange}
+              onReset={onResetFilters}
+            />
 
             {/* ✅ message après création / modification */}
             {profileToast ? (
@@ -199,16 +227,19 @@ function HomePage({
               </p>
             )}
 
-            {loadingProfiles ? (
-              <p className="form-message">Chargement des profils…</p>
-            ) : (
-              <SwipeDeck
-                profiles={filteredProfiles}
-                onLikeProfile={handleLike}
-                isAuthenticated={!!userForUI && !isSuspended}
-                onRequireAuth={() => setIsAuthModalOpen(true)}
-              />
-            )}
+            {/* ✅ Zone deck = prend tout l'espace restant */}
+            <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+              {loadingProfiles ? (
+                <p className="form-message">Chargement des profils…</p>
+              ) : (
+                <SwipeDeck
+                  profiles={filteredProfiles}
+                  onLikeProfile={handleLike}
+                  isAuthenticated={!!userForUI && !isSuspended}
+                  onRequireAuth={() => setIsAuthModalOpen(true)}
+                />
+              )}
+            </div>
           </section>
         </div>
       </main>
@@ -845,7 +876,14 @@ export default function App() {
   };
 
   return (
-    <div className="app-root">
+    <div
+      className="app-root"
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column"
+      }}
+    >
       <Header
         onOpenProfile={openProfileModal}
         onOpenAuth={() => setIsAuthModalOpen(true)}
@@ -854,58 +892,61 @@ export default function App() {
         user={userForUI}
       />
 
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <HomePage
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              onResetFilters={handleResetFilters}
-              profilesError={profilesError}
-              loadingProfiles={loadingProfiles}
-              filteredProfiles={filteredProfiles}
-              handleLike={handleLike}
-              userForUI={userForUI}
-              isSuspended={isSuspended}
-              loadingMyProfile={loadingMyProfile}
-              myProfile={myProfile}
-              handleSaveProfile={handleSaveProfile}
-              isProfileModalOpen={isProfileModalOpen}
-              setIsProfileModalOpen={setIsProfileModalOpen}
-              isAuthModalOpen={isAuthModalOpen}
-              setIsAuthModalOpen={setIsAuthModalOpen}
-              profileToast={profileToast}
-              setProfileToast={setProfileToast}
-              onResumeAccount={handleResumeAccount}
-              resumeLoading={resumeLoading}
-              resumeError={resumeError}
-              isPreviewModalOpen={isPreviewModalOpen}
-              setIsPreviewModalOpen={setIsPreviewModalOpen}
-            />
-          }
-        />
+      {/* ✅ Zone centrale qui prend la place entre Header et Footer */}
+      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <HomePage
+                filters={filters}
+                onFiltersChange={handleFiltersChange}
+                onResetFilters={handleResetFilters}
+                profilesError={profilesError}
+                loadingProfiles={loadingProfiles}
+                filteredProfiles={filteredProfiles}
+                handleLike={handleLike}
+                userForUI={userForUI}
+                isSuspended={isSuspended}
+                loadingMyProfile={loadingMyProfile}
+                myProfile={myProfile}
+                handleSaveProfile={handleSaveProfile}
+                isProfileModalOpen={isProfileModalOpen}
+                setIsProfileModalOpen={setIsProfileModalOpen}
+                isAuthModalOpen={isAuthModalOpen}
+                setIsAuthModalOpen={setIsAuthModalOpen}
+                profileToast={profileToast}
+                setProfileToast={setProfileToast}
+                onResumeAccount={handleResumeAccount}
+                resumeLoading={resumeLoading}
+                resumeError={resumeError}
+                isPreviewModalOpen={isPreviewModalOpen}
+                setIsPreviewModalOpen={setIsPreviewModalOpen}
+              />
+            }
+          />
 
-        <Route
-          path="/crushes"
-          element={
-            <CrushesFullPage user={userForUI} onRequireAuth={() => setIsAuthModalOpen(true)} />
-          }
-        />
+          <Route
+            path="/crushes"
+            element={
+              <CrushesFullPage user={userForUI} onRequireAuth={() => setIsAuthModalOpen(true)} />
+            }
+          />
 
-        {/* ✅ Pages légales */}
-        <Route path="/conditions" element={<Terms />} />
-        <Route path="/cookies" element={<Cookies />} />
+          {/* ✅ Pages légales */}
+          <Route path="/conditions" element={<Terms />} />
+          <Route path="/cookies" element={<Cookies />} />
 
-        {/* ✅ Réglages */}
-        <Route
-          path="/settings"
-          element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
-        />
+          {/* ✅ Réglages */}
+          <Route
+            path="/settings"
+            element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
+          />
 
-        {/* ✅ Configurer compte */}
-        <Route path="/account" element={<AccountSettings user={userForUI} />} />
-      </Routes>
+          {/* ✅ Configurer compte */}
+          <Route path="/account" element={<AccountSettings user={userForUI} />} />
+        </Routes>
+      </div>
 
       <Footer />
     </div>
