@@ -152,12 +152,7 @@ export function Settings({ user }) {
 
                 <div className="form-group">
                   <label>Nom</label>
-                  <input
-                    value={displayName}
-                    disabled
-                    readOnly
-                    style={whiteDisabledInputStyle}
-                  />
+                  <input value={displayName} disabled readOnly style={whiteDisabledInputStyle} />
                 </div>
 
                 <div className="form-group">
@@ -235,11 +230,7 @@ export function Settings({ user }) {
               <p style={{ opacity: 0.85, marginTop: 6 }}>
                 Modifier ton profil, tes infos et tes préférences.
               </p>
-              <button
-                className="btn-primary"
-                onClick={() => navigate("/account")}
-                disabled={!user}
-              >
+              <button className="btn-primary" onClick={() => navigate("/account")} disabled={!user}>
                 Configurer
               </button>
             </div>
@@ -264,6 +255,15 @@ export function Settings({ user }) {
               <button className="btn-primary" onClick={() => navigate("/cookies")}>
                 Ouvrir
               </button>
+            </div>
+
+            {/* ✅ Nous contacter */}
+            <div className="card" style={{ padding: 14 }}>
+              <h3 style={{ marginTop: 0 }}>Nous contacter</h3>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>
+                Une question ou besoin d’aide ? Écris-nous à{" "}
+                <a href="mailto:sportifandpro@gmail.com">sportifandpro@gmail.com</a>.
+              </p>
             </div>
           </div>
         </section>
