@@ -1,31 +1,17 @@
 // sportmeet-complet/src/components/SwipeDeck.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { SwipeCard } from "./SwipeCard";
 
-function shuffleArray(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireAuth }) {
-  const baseProfiles = useMemo(() => (Array.isArray(profiles) ? profiles : []), [profiles]);
-
-  const [deck, setDeck] = useState([]);
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setDeck(shuffleArray(baseProfiles));
     setIndex(0);
-  }, [baseProfiles]);
+  }, [profiles]);
 
-  const hasProfile = index < deck.length;
-  const currentProfile = hasProfile ? deck[index] : null;
-  const remaining = hasProfile ? deck.length - index - 1 : 0;
+  const hasProfile = index < profiles.length;
+  const currentProfile = hasProfile ? profiles[index] : null;
 
   const next = () => setIndex((i) => i + 1);
 
@@ -54,49 +40,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
     next();
   };
 
-  const handleReset = () => {
-    setDeck(shuffleArray(baseProfiles));
-    setIndex(0);
-  };
-
-  // ✅ Partage MatchFit
-  const shareText =
-    "Je suis sur MatchFit 💪 Viens tester ! On sait jamais, ton/ta gymcrush en entendra parler 😉";
-  const shareUrl =
-    typeof window !== "undefined" && window.location?.origin
-      ? window.location.origin
-      : "https://matchfit.app";
-
-  const handleShare = async () => {
-    const payload = { title: "MatchFit", text: shareText, url: shareUrl };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(payload);
-        return;
-      }
-    } catch {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
-      alert("Message copié ✅");
-    } catch {
-      window.prompt("Copie ce message :", `${shareText}\n${shareUrl}`);
-    }
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      alert("Lien copié ✅");
-    } catch {
-      window.prompt("Copie ce lien :", shareUrl);
-    }
-  };
-
-  const hasAny = deck.length > 0;
+  const handleReset = () => setIndex(0);
 
   return (
     <div className="swipe-container" data-swipe-deck>
@@ -149,55 +93,13 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
               </button>
             </div>
           )}
-
-          <div className="hint">
-            {remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}
-          </div>
         </>
       ) : (
-        <div className="swipe-empty" style={{ textAlign: "center" }}>
-          {hasAny ? (
-            <>
-              <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
-              <p style={{ marginTop: 0, opacity: 0.9, lineHeight: 1.35 }}>
-                Partage <strong>MatchFit</strong> à tes potes… en espérant que ton/ta{" "}
-                <strong>gymcrush</strong> en entende parler 👀
-              </p>
-
-              <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-                <button type="button" className="btn-primary" onClick={handleShare}>
-                  Partager
-                </button>
-                <button type="button" className="btn-ghost" onClick={handleCopy}>
-                  Copier le lien
-                </button>
-              </div>
-
-              <div style={{ marginTop: 12 }}>
-                <button type="button" className="btn-ghost" onClick={handleReset}>
-                  Revoir des profils
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p style={{ marginBottom: 6, fontWeight: 700 }}>
-                Aucun profil dans cette sélection.
-              </p>
-              <p style={{ marginTop: 0, opacity: 0.9 }}>
-                Essaie d’élargir tes filtres, ou partage MatchFit pour attirer du monde 👇
-              </p>
-
-              <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-                <button type="button" className="btn-primary" onClick={handleShare}>
-                  Partager
-                </button>
-                <button type="button" className="btn-ghost" onClick={handleCopy}>
-                  Copier le lien
-                </button>
-              </div>
-            </>
-          )}
+        <div className="swipe-empty">
+          <p>Aucun autre profil dans cette sélection.</p>
+          <button type="button" className="btn-ghost" onClick={handleReset}>
+            Revoir depuis le début
+          </button>
         </div>
       )}
     </div>
