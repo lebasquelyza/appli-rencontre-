@@ -44,6 +44,10 @@ export function SwipeCard({ profile }) {
     startX.current = null;
   };
 
+  const city = (profile?.city || "").trim();
+  const sport = (profile?.sport || "").trim();
+  const level = (profile?.level || "").trim();
+
   return (
     <article className="card swipeCard">
       <div
@@ -78,24 +82,27 @@ export function SwipeCard({ profile }) {
               {profile?.name}
               {profile?.age ? `, ${profile.age}` : ""}
             </div>
-            <div className="sub">{profile?.city}</div>
+
+            {/* ✅ n'affiche pas si vide */}
+            {city ? <div className="sub">{city}</div> : null}
           </div>
 
-          <div className="chips">
-            <span className="chip chip-accent">{profile?.sport}</span>
-            <span className="chip">{profile?.level}</span>
-            {profile?.availability ? (
-              <span className="chip chip-soft">📅 {profile.availability}</span>
-            ) : null}
-          </div>
+          {/* ✅ n'affiche les chips que si valeurs */}
+          {(sport || level || profile?.availability) && (
+            <div className="chips">
+              {sport ? <span className="chip chip-accent">{sport}</span> : null}
+              {level ? <span className="chip">{level}</span> : null}
+              {profile?.availability ? (
+                <span className="chip chip-soft">📅 {profile.availability}</span>
+              ) : null}
+            </div>
+          )}
 
           {profile?.bio ? (
             <div className="swipeBio">
               {profile.bio.length > 220 ? `${profile.bio.slice(0, 220)}…` : profile.bio}
             </div>
           ) : null}
-
-          {/* ✅ plus de footer, plus de texte "profil" */}
         </div>
       </div>
     </article>
