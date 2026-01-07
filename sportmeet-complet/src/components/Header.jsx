@@ -142,7 +142,7 @@ export function Header({
         <div className="topbarRight">
           <span className="badge">MVP · Front</span>
 
-          {/* ✅ Partager (à gauche de Mes crush) */}
+          {/* ✅ Partager (sans flèche) */}
           <button
             type="button"
             className="btn-ghost btn-sm"
@@ -150,7 +150,7 @@ export function Header({
             title="Partager MatchFit"
             aria-label="Partager MatchFit"
           >
-            <span style={{ marginRight: 6 }}>⤴︎</span> Partager
+            Partager
           </button>
 
           <button type="button" className="btn-ghost btn-sm" onClick={handleCrushesClick}>
@@ -167,7 +167,7 @@ export function Header({
               aria-haspopup="menu"
               title="Compte"
             >
-              Compte <span style={{ marginLeft: 6, opacity: 0.9 }}>{menuOpen ? "▴" : "▾"}</span>
+              Compte
             </button>
 
             {menuOpen && (
