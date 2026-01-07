@@ -7,6 +7,7 @@ import { Footer } from "./components/Footer";
 import { ProfileForm } from "./components/ProfileForm";
 import { FiltersBar } from "./components/FiltersBar";
 import { SwipeDeck } from "./components/SwipeDeck";
+import { SwipeCard } from "./components/SwipeCard"; // ✅ AJOUT: pour l'aperçu statique
 import { AuthModal } from "./components/AuthModal";
 import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
@@ -228,7 +229,7 @@ function HomePage({
                 className="btn-ghost btn-sm"
                 onClick={() => setIsPreviewModalOpen(true)}
                 disabled={!myProfile}
-                title="Voir l’aperçu (comme dans le swipe)"
+                title="Voir l’aperçu (statique)"
               >
                 Aperçu
               </button>
@@ -249,7 +250,7 @@ function HomePage({
         </div>
       )}
 
-      {/* ✅ Modal Aperçu : EXACTEMENT la carte du SwipeDeck */}
+      {/* ✅ Modal Aperçu : carte statique, visible au complet, sans swipe et sans boutons */}
       {isPreviewModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsPreviewModalOpen(false)}>
           <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
@@ -264,14 +265,9 @@ function HomePage({
               {!myProfile ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
-                <SwipeDeck
-                  profiles={[myProfile]}
-                  // ✅ pour ne PAS afficher "Connecte-toi..."
-                  isAuthenticated={true}
-                  onLikeProfile={() => {}}
-                  onRequireAuth={() => {}}
-                  previewMode
-                />
+                <div style={{ maxWidth: 520, margin: "0 auto" }}>
+                  <SwipeCard profile={myProfile} />
+                </div>
               )}
             </div>
           </div>
@@ -881,7 +877,10 @@ export default function App() {
         <Route path="/cookies" element={<Cookies />} />
 
         {/* ✅ Réglages */}
-        <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
+        <Route
+          path="/settings"
+          element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
+        />
 
         {/* ✅ Configurer compte */}
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
