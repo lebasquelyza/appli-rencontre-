@@ -117,7 +117,9 @@ function HomePage({
   isProfileModalOpen,
   setIsProfileModalOpen,
   isAuthModalOpen,
-  setIsAuthModalOpen
+  setIsAuthModalOpen,
+  profileToast,
+  setProfileToast
 }) {
   return (
     <>
@@ -125,6 +127,21 @@ function HomePage({
         <div className="shell">
           <section className="card card-results">
             <FiltersBar filters={filters} onChange={onFiltersChange} onReset={onResetFilters} />
+
+            {/* ✅ message après création / modification */}
+            {profileToast ? (
+              <p className="form-message" style={{ marginTop: 8 }}>
+                {profileToast}{" "}
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={() => setProfileToast("")}
+                  style={{ marginLeft: 8 }}
+                >
+                  OK
+                </button>
+              </p>
+            ) : null}
 
             {!user && (
               <p className="form-message" style={{ marginTop: 8 }}>
@@ -182,7 +199,6 @@ function HomePage({
 function CrushesFullPage({ user, onRequireAuth }) {
   const navigate = useNavigate();
 
-  // si pas connecté -> ouvrir auth + retourner à l’accueil
   useEffect(() => {
     if (!user) {
       onRequireAuth?.();
@@ -204,13 +220,12 @@ export default function App() {
 
   const [profiles, setProfiles] = useState([]);
 
-  // ✅ Ajout radiusKm + myLocation
   const [filters, setFilters] = useState({
     sport: "",
     level: "",
     city: "",
     radiusKm: 0,
-    myLocation: null // {lat, lon}
+    myLocation: null
   });
 
   const [highlightNewProfile, setHighlightNewProfile] = useState(null);
@@ -223,15 +238,15 @@ export default function App() {
 
   const [user, setUser] = useState(null);
 
-  // ✅ Mon profil (lié au compte)
-  const [myProfile, setMyProfile] = useState(null); // row from DB mapped
+  const [myProfile, setMyProfile] = useState(null);
   const [loadingMyProfile, setLoadingMyProfile] = useState(false);
 
-  // ✅ liste filtrée (pour filtre distance async)
   const [filteredProfiles, setFilteredProfiles] = useState([]);
 
-  // ✅ cache géocodage ville -> coords
   const [geoCache] = useState(() => new Map());
+
+  // ✅ message profil créé / modifié
+  const [profileToast, setProfileToast] = useState("");
 
   async function geocodeCity(cityText) {
     const city = (cityText || "").trim().toLowerCase();
@@ -263,9 +278,6 @@ export default function App() {
     }
   }
 
-  /* -------------------------------
-     Auth session
-  -------------------------------- */
   useEffect(() => {
     let mounted = true;
 
@@ -287,9 +299,6 @@ export default function App() {
     };
   }, []);
 
-  /* -------------------------------
-     LOGOUT
-  -------------------------------- */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -298,9 +307,6 @@ export default function App() {
     navigate("/", { replace: true });
   };
 
-  /* -------------------------------
-     Fetch mon profil (lié à user_id)
-  -------------------------------- */
   const fetchMyProfile = async () => {
     if (!user) {
       setMyProfile(null);
@@ -354,16 +360,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  /* -------------------------------
-     Fetch tous les profils
-  -------------------------------- */
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
     setProfilesError(null);
 
-    const { data, error } = await supabase.from("profiles").select("*").order("created_at", {
-      ascending: false
-    });
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Supabase fetch profiles error:", error);
@@ -400,9 +404,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* -------------------------------
-     Realtime: met à jour la liste chez tous les clients
-  -------------------------------- */
   useEffect(() => {
     const channel = supabase
       .channel("profiles-realtime")
@@ -417,9 +418,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* -------------------------------
-     Upload photos -> URLs publiques
-  -------------------------------- */
   const uploadProfilePhotos = async (profileId, files) => {
     const urls = [];
 
@@ -444,9 +442,6 @@ export default function App() {
     return urls;
   };
 
-  /* -------------------------------
-     Delete photos from Supabase Storage (best-effort)
-  -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
     const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
 
@@ -455,14 +450,12 @@ export default function App() {
     const { error } = await supabase.storage.from(BUCKET).remove(paths);
     if (error) {
       console.error("Supabase remove error:", error);
-      // best-effort: on ne bloque pas l’update profil si la suppression échoue
     }
   };
 
-  /* -------------------------------
-     SAVE profil
-  -------------------------------- */
   const handleSaveProfile = async (data) => {
+    const wasEdit = !!myProfile?.id; // ✅ savoir si création ou édition
+
     const photos = Array.isArray(data.photos) ? data.photos : [];
     const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
     const hasNewPhotos = photos.length > 0;
@@ -479,7 +472,6 @@ export default function App() {
       throw new Error("MISSING_FIELDS");
     }
 
-    // ✅ Age obligatoire + blocage < 16 (sécurité côté save)
     const ageNum = Number(data.age);
     if (!Number.isFinite(ageNum)) {
       throw new Error("AGE_REQUIRED");
@@ -488,7 +480,6 @@ export default function App() {
       throw new Error("UNDER_16_BLOCKED");
     }
 
-    // ✅ Genre (normalisé)
     const genderValue =
       data.gender === "female" || data.gender === "male" || data.gender === "other"
         ? data.gender
@@ -587,13 +578,16 @@ export default function App() {
     await fetchMyProfile();
     await fetchProfiles();
 
-    // ✅ feedback: fermer le modal après save (évite "rien ne se passe")
+    // ✅ Afficher un texte après création / modification
+    setProfileToast(wasEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
+
+    // ✅ auto-hide après 3s
+    window.clearTimeout(handleSaveProfile.__t);
+    handleSaveProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
+
     setIsProfileModalOpen(false);
   };
 
-  /* -------------------------------
-     Filtres
-  -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
   const handleResetFilters = () =>
     setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
@@ -653,9 +647,6 @@ export default function App() {
     };
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* -------------------------------
-     Like/Swipe : bloqué si pas connecté
-  -------------------------------- */
   const handleLike = async (profile) => {
     if (!user) {
       setIsAuthModalOpen(true);
@@ -672,7 +663,6 @@ export default function App() {
     setIsProfileModalOpen(true);
   };
 
-  // ✅ Ouvre une vraie page
   const openCrushesPage = () => {
     if (!user) {
       setIsAuthModalOpen(true);
@@ -711,6 +701,8 @@ export default function App() {
               setIsProfileModalOpen={setIsProfileModalOpen}
               isAuthModalOpen={isAuthModalOpen}
               setIsAuthModalOpen={setIsAuthModalOpen}
+              profileToast={profileToast}
+              setProfileToast={setProfileToast}
             />
           }
         />
@@ -720,14 +712,11 @@ export default function App() {
           element={<CrushesFullPage user={user} onRequireAuth={() => setIsAuthModalOpen(true)} />}
         />
 
-        {/* ✅ Pages légales */}
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
 
-        {/* ✅ Réglages */}
         <Route path="/settings" element={<Settings user={user} onOpenProfile={openProfileModal} />} />
 
-        {/* ✅ Configurer compte */}
         <Route path="/account" element={<AccountSettings user={user} />} />
       </Routes>
 
