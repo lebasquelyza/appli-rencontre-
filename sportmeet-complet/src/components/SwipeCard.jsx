@@ -7,7 +7,7 @@ function hashToHue(str = "") {
   return h;
 }
 
-export function SwipeCard({ profile, disablePhotoSwipe = false }) {
+export function SwipeCard({ profile }) {
   const photos = Array.isArray(profile?.photo_urls) ? profile.photo_urls : [];
   const hasPhotos = photos.length > 0;
 
@@ -31,14 +31,11 @@ export function SwipeCard({ profile, disablePhotoSwipe = false }) {
   };
 
   const onTouchStart = (e) => {
-    if (disablePhotoSwipe) return;
     startX.current = e.touches[0].clientX;
   };
 
   const onTouchEnd = (e) => {
-    if (disablePhotoSwipe) return;
     if (startX.current === null) return;
-
     const dx = e.changedTouches[0].clientX - startX.current;
 
     if (Math.abs(dx) > 50) {
@@ -48,7 +45,7 @@ export function SwipeCard({ profile, disablePhotoSwipe = false }) {
     startX.current = null;
   };
 
-  const isDemo = !!profile?.isDemo;
+  const isSeed = !!profile?.isSeed; // ✅ profils d’attente générés localement
 
   return (
     <article className="card swipeCard">
@@ -58,9 +55,6 @@ export function SwipeCard({ profile, disablePhotoSwipe = false }) {
         onTouchEnd={onTouchEnd}
         style={!hasPhotos ? bgFallback : undefined}
       >
-        {/* ✅ Badge Démo */}
-        {isDemo ? <div className="demo-badge">Démo</div> : null}
-
         {/* Photos (si dispo) */}
         {hasPhotos && (
           <div className="photo-track" style={{ transform: `translateX(-${index * 100}%)` }}>
@@ -107,9 +101,7 @@ export function SwipeCard({ profile, disablePhotoSwipe = false }) {
           ) : null}
 
           <div className="swipeFooter">
-            <span className="profile-meta-tag">
-              {isDemo ? "Profil de démonstration" : "Profil réel (créé ici)"}
-            </span>
+            <span className="profile-meta-tag">{isSeed ? "Profil d’attente" : "Profil"}</span>
           </div>
         </div>
       </div>
