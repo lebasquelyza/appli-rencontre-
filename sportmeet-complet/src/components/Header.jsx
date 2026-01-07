@@ -23,6 +23,31 @@ export function Header({
     onOpenCrushes?.();
   };
 
+  // ✅ Partager (Web Share API + fallback copie)
+  const handleShare = async () => {
+    const url = window.location.origin;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "MatchFit",
+          text: "Rejoins-moi sur MatchFit 💪",
+          url
+        });
+        return;
+      }
+    } catch {
+      // (l’utilisateur peut annuler) -> on ignore
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Lien copié ✅");
+    } catch {
+      prompt("Copie ce lien :", url);
+    }
+  };
+
   const toggleMenu = () => setMenuOpen((v) => !v);
   const closeMenu = () => setMenuOpen(false);
 
@@ -119,6 +144,18 @@ export function Header({
 
           <button type="button" className="btn-ghost btn-sm" onClick={handleCrushesClick}>
             Mes crush
+          </button>
+
+          {/* ✅ Bouton Partager (petit icône) */}
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            onClick={handleShare}
+            title="Partager"
+            aria-label="Partager"
+            style={{ paddingInline: 10 }}
+          >
+            ⤴︎
           </button>
 
           {/* ✅ Compte */}
