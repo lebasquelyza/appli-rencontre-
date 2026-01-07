@@ -1,5 +1,5 @@
 // sportmeet-complet/src/pages/Settings.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -14,8 +14,7 @@ export function Settings({ user }) {
   const [openInfos, setOpenInfos] = useState(false);
   const [openPassword, setOpenPassword] = useState(false);
 
-  // Mes infos
-  const [profileId, setProfileId] = useState(null);
+  // Mes infos (lecture seule)
   const [email, setEmail] = useState(user?.email || "");
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -23,9 +22,6 @@ export function Settings({ user }) {
   // Mot de passe
   const [newPass, setNewPass] = useState("");
   const [newPass2, setNewPass2] = useState("");
-
-  const saveTimerRef = useRef(null);
-  const savingRef = useRef(false);
 
   useEffect(() => {
     setEmail(user?.email || "");
@@ -38,7 +34,7 @@ export function Settings({ user }) {
     setBanner.__t = window.setTimeout(() => setMsg(""), 3500);
   };
 
-  // Charger profil
+  // Charger profil pour afficher nom/âge (read-only)
   useEffect(() => {
     let cancelled = false;
 
@@ -47,9 +43,9 @@ export function Settings({ user }) {
 
       setLoading(true);
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("profiles")
-          .select("id, name, age")
+          .select("name, age")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -57,7 +53,13 @@ export function Settings({ user }) {
 
         if (cancelled) return;
 
-        setProfileId(data?.id ?? null);
+        if (error) {
+          console.error("Settings fetch profile error:", error);
+          setName("");
+          setAge("");
+          return;
+        }
+
         setName(data?.name || "");
         setAge(data?.age ?? "");
       } finally {
@@ -71,58 +73,23 @@ export function Settings({ user }) {
     };
   }, [user?.id]);
 
-  // Autosave
-  const scheduleAutoSave = () => {
+  const changePassword = async () => {
     if (!user) return;
 
-    window.clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = window.setTimeout(async () => {
-      if (savingRef.current) return;
-
-      const nextEmail = (email || "").trim().toLowerCase();
-      const nextName = (name || "").trim();
-      const ageNum = age === "" ? null : Number(age);
-
-      if (ageNum !== null && !Number.isFinite(ageNum)) {
-        setBanner("Âge invalide.", true);
-        return;
-      }
-
-      savingRef.current = true;
-      setLoading(true);
-      try {
-        if (nextEmail && nextEmail !== (user?.email || "").toLowerCase()) {
-          const { error } = await supabase.auth.updateUser({ email: nextEmail });
-          if (error) return setBanner("Impossible de modifier l’email.", true);
-        }
-
-        if (profileId) {
-          const { error } = await supabase
-            .from("profiles")
-            .update({ name: nextName || null, age: ageNum })
-            .eq("id", profileId);
-
-          if (error) return setBanner("Impossible d’enregistrer tes infos.", true);
-        }
-
-        setBanner("Enregistré ✅");
-      } finally {
-        savingRef.current = false;
-        setLoading(false);
-      }
-    }, 600);
-  };
-
-  const changePassword = async () => {
-    if (!newPass || newPass.length < 6)
+    if (!newPass || newPass.length < 6) {
       return setBanner("Mot de passe : 6 caractères minimum.", true);
-    if (newPass !== newPass2)
+    }
+    if (newPass !== newPass2) {
       return setBanner("Les mots de passe ne correspondent pas.", true);
+    }
 
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPass });
-      if (error) return setBanner("Impossible de changer le mot de passe.", true);
+      if (error) {
+        console.error("update password error:", error);
+        return setBanner("Impossible de changer le mot de passe.", true);
+      }
 
       setNewPass("");
       setNewPass2("");
@@ -143,6 +110,12 @@ export function Settings({ user }) {
             <h1 style={{ margin: 0 }}>Réglages</h1>
           </div>
 
+          {!user && (
+            <p className="form-message" style={{ marginTop: 12 }}>
+              Connecte-toi pour accéder à la configuration du compte.
+            </p>
+          )}
+
           {msg && (
             <p className={`form-message ${isError ? "error" : ""}`} style={{ marginTop: 12 }}>
               {msg}
@@ -150,11 +123,11 @@ export function Settings({ user }) {
           )}
 
           <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-            {/* Mes infos */}
+            {/* Mes infos (non modifiable) */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Mes infos</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
-                Email, nom et âge. Enregistrement automatique.
+                Informations de ton compte (lecture seule).
               </p>
 
               <button
@@ -169,41 +142,22 @@ export function Settings({ user }) {
                 <div className="form" style={{ marginTop: 12 }}>
                   <div className="form-group">
                     <label>Email</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        scheduleAutoSave();
-                      }}
-                      onBlur={scheduleAutoSave}
-                    />
+                    <input type="email" value={email} disabled readOnly />
                   </div>
 
                   <div className="form-group">
                     <label>Nom</label>
-                    <input
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        scheduleAutoSave();
-                      }}
-                      onBlur={scheduleAutoSave}
-                    />
+                    <input value={name} disabled readOnly />
                   </div>
 
                   <div className="form-group">
                     <label>Âge</label>
-                    <input
-                      type="number"
-                      value={age}
-                      onChange={(e) => {
-                        setAge(e.target.value);
-                        scheduleAutoSave();
-                      }}
-                      onBlur={scheduleAutoSave}
-                    />
+                    <input type="number" value={age} disabled readOnly />
                   </div>
+
+                  {loading ? (
+                    <small style={{ display: "block", marginTop: 6, opacity: 0.75 }}>...</small>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -211,9 +165,7 @@ export function Settings({ user }) {
             {/* Mot de passe */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Mot de passe</h3>
-              <p style={{ opacity: 0.85, marginTop: 6 }}>
-                Changer ton mot de passe.
-              </p>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>Changer ton mot de passe.</p>
 
               <button
                 className="btn-primary"
@@ -231,6 +183,8 @@ export function Settings({ user }) {
                       type="password"
                       value={newPass}
                       onChange={(e) => setNewPass(e.target.value)}
+                      disabled={!user || loading}
+                      autoComplete="new-password"
                     />
                   </div>
 
@@ -240,10 +194,16 @@ export function Settings({ user }) {
                       type="password"
                       value={newPass2}
                       onChange={(e) => setNewPass2(e.target.value)}
+                      disabled={!user || loading}
+                      autoComplete="new-password"
                     />
                   </div>
 
-                  <button className="btn-primary" onClick={changePassword}>
+                  <button
+                    className="btn-primary"
+                    onClick={changePassword}
+                    disabled={!user || loading}
+                  >
                     Changer le mot de passe
                   </button>
                 </div>
