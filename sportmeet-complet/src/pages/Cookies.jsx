@@ -17,7 +17,7 @@ export function Cookies() {
           </div>
 
           <p style={{ marginTop: 12 }}>
-            Cette page explique comment SportMeet utilise des cookies et technologies similaires
+            Cette page explique comment MatchFit utilise des cookies et technologies similaires
             (stockage local, tokens, etc.) pour faire fonctionner l’Application.
           </p>
 
@@ -74,4 +74,3 @@ export function Cookies() {
     </main>
   );
 }
-
