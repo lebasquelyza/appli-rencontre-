@@ -37,7 +37,7 @@ export function Header({
         return;
       }
     } catch {
-      // (l’utilisateur peut annuler) -> on ignore
+      // l'utilisateur peut annuler -> on ignore
     }
 
     try {
@@ -142,20 +142,19 @@ export function Header({
         <div className="topbarRight">
           <span className="badge">MVP · Front</span>
 
-          <button type="button" className="btn-ghost btn-sm" onClick={handleCrushesClick}>
-            Mes crush
-          </button>
-
-          {/* ✅ Bouton Partager (petit icône) */}
+          {/* ✅ Partager (à gauche de Mes crush) */}
           <button
             type="button"
             className="btn-ghost btn-sm"
             onClick={handleShare}
-            title="Partager"
-            aria-label="Partager"
-            style={{ paddingInline: 10 }}
+            title="Partager MatchFit"
+            aria-label="Partager MatchFit"
           >
-            ⤴︎
+            <span style={{ marginRight: 6 }}>⤴︎</span> Partager
+          </button>
+
+          <button type="button" className="btn-ghost btn-sm" onClick={handleCrushesClick}>
+            Mes crush
           </button>
 
           {/* ✅ Compte */}
