@@ -1,3 +1,4 @@
+//sportmeet-complet/src/components/FiltersBar.jsx
 import React, { useMemo, useRef, useState } from "react";
 
 export function FiltersBar({ filters, onChange, onReset }) {
@@ -16,6 +17,7 @@ export function FiltersBar({ filters, onChange, onReset }) {
     if (filters.level) n += 1;
     if (filters.city && filters.city.trim()) n += 1;
     if (hasRadius) n += 1;
+    if (filters.gender) n += 1; // ✅ ajout filtre Sexe
     return n;
   }, [filters, hasRadius]);
 
@@ -114,6 +116,7 @@ export function FiltersBar({ filters, onChange, onReset }) {
             <span className="chip chip-soft">📍 {filters.city.trim()}</span>
           ) : null}
           {hasRadius ? <span className="chip chip-soft">📏 {radiusKm} km</span> : null}
+          {filters.gender ? <span className="chip chip-soft">🧑 {filters.gender}</span> : null}
         </div>
       )}
 
@@ -157,6 +160,21 @@ export function FiltersBar({ filters, onChange, onReset }) {
                 <option value="Intermédiaire">Intermédiaire</option>
                 <option value="Confirmé">Confirmé</option>
                 <option value="Expert">Expert</option>
+              </select>
+            </div>
+
+            {/* ✅ AJOUT: filtre Sexe */}
+            <div className="form-group">
+              <label htmlFor="filter-gender">Sexe</label>
+              <select
+                id="filter-gender"
+                value={filters.gender || ""}
+                onChange={(e) => onChange({ gender: e.target.value })}
+              >
+                <option value="">Tous</option>
+                <option value="Femme">Femme</option>
+                <option value="Homme">Homme</option>
+                <option value="Autres">Autres</option>
               </select>
             </div>
 
