@@ -199,6 +199,7 @@ function HomePage({
 function CrushesFullPage({ user, onRequireAuth }) {
   const navigate = useNavigate();
 
+  // si pas connecté -> ouvrir auth + retourner à l’accueil
   useEffect(() => {
     if (!user) {
       onRequireAuth?.();
@@ -220,12 +221,13 @@ export default function App() {
 
   const [profiles, setProfiles] = useState([]);
 
+  // ✅ Ajout radiusKm + myLocation
   const [filters, setFilters] = useState({
     sport: "",
     level: "",
     city: "",
     radiusKm: 0,
-    myLocation: null
+    myLocation: null // {lat, lon}
   });
 
   const [highlightNewProfile, setHighlightNewProfile] = useState(null);
@@ -238,11 +240,14 @@ export default function App() {
 
   const [user, setUser] = useState(null);
 
-  const [myProfile, setMyProfile] = useState(null);
+  // ✅ Mon profil (lié au compte)
+  const [myProfile, setMyProfile] = useState(null); // row from DB mapped
   const [loadingMyProfile, setLoadingMyProfile] = useState(false);
 
+  // ✅ liste filtrée (pour filtre distance async)
   const [filteredProfiles, setFilteredProfiles] = useState([]);
 
+  // ✅ cache géocodage ville -> coords
   const [geoCache] = useState(() => new Map());
 
   // ✅ message profil créé / modifié
@@ -278,6 +283,9 @@ export default function App() {
     }
   }
 
+  /* -------------------------------
+     Auth session
+  -------------------------------- */
   useEffect(() => {
     let mounted = true;
 
@@ -299,6 +307,9 @@ export default function App() {
     };
   }, []);
 
+  /* -------------------------------
+     LOGOUT
+  -------------------------------- */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -307,6 +318,9 @@ export default function App() {
     navigate("/", { replace: true });
   };
 
+  /* -------------------------------
+     Fetch mon profil (lié à user_id)
+  -------------------------------- */
   const fetchMyProfile = async () => {
     if (!user) {
       setMyProfile(null);
@@ -360,6 +374,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  /* -------------------------------
+     Fetch tous les profils
+  -------------------------------- */
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
     setProfilesError(null);
@@ -404,6 +421,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* -------------------------------
+     Realtime: met à jour la liste chez tous les clients
+  -------------------------------- */
   useEffect(() => {
     const channel = supabase
       .channel("profiles-realtime")
@@ -418,6 +438,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* -------------------------------
+     Upload photos -> URLs publiques
+  -------------------------------- */
   const uploadProfilePhotos = async (profileId, files) => {
     const urls = [];
 
@@ -442,6 +465,9 @@ export default function App() {
     return urls;
   };
 
+  /* -------------------------------
+     Delete photos from Supabase Storage (best-effort)
+  -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
     const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
 
@@ -453,8 +479,19 @@ export default function App() {
     }
   };
 
+  /* -------------------------------
+     SAVE profil
+     ✅ Ajouts:
+       - logs env URL (sans key)
+       - verify read après write (pour voir la vraie erreur)
+       - message "Profil créé/Profil mis à jour"
+       - fermeture modal
+  -------------------------------- */
   const handleSaveProfile = async (data) => {
-    const wasEdit = !!myProfile?.id; // ✅ savoir si création ou édition
+    const wasEdit = !!myProfile?.id;
+
+    // ✅ debug (sans exposer la clé)
+    console.log("SUPABASE URL:", import.meta.env.VITE_SUPABASE_URL);
 
     const photos = Array.isArray(data.photos) ? data.photos : [];
     const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
@@ -575,19 +612,36 @@ export default function App() {
       await deleteProfilePhotosFromStorage(removedUrls);
     }
 
+    // ✅ preuve: relire le profil après write (si RLS/env cassé, on le verra)
+    const verify = await supabase
+      .from("profiles")
+      .select("id,user_id,name,created_at")
+      .eq("id", profileId)
+      .maybeSingle();
+
+    console.log("VERIFY PROFILE:", verify);
+
+    if (verify?.error) {
+      // Si on ne peut pas relire, on force un message visible (souvent RLS)
+      setProfileToast("Profil enregistré, mais lecture bloquée (vérifie RLS) ⚠️");
+      // on ne throw pas ici pour ne pas casser l'UX
+    }
+
     await fetchMyProfile();
     await fetchProfiles();
 
-    // ✅ Afficher un texte après création / modification
     setProfileToast(wasEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
 
-    // ✅ auto-hide après 3s
+    // auto-hide après 3s
     window.clearTimeout(handleSaveProfile.__t);
     handleSaveProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
 
     setIsProfileModalOpen(false);
   };
 
+  /* -------------------------------
+     Filtres
+  -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
   const handleResetFilters = () =>
     setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
@@ -647,6 +701,9 @@ export default function App() {
     };
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* -------------------------------
+     Like/Swipe : bloqué si pas connecté
+  -------------------------------- */
   const handleLike = async (profile) => {
     if (!user) {
       setIsAuthModalOpen(true);
@@ -663,6 +720,7 @@ export default function App() {
     setIsProfileModalOpen(true);
   };
 
+  // ✅ Ouvre une vraie page
   const openCrushesPage = () => {
     if (!user) {
       setIsAuthModalOpen(true);
@@ -712,11 +770,14 @@ export default function App() {
           element={<CrushesFullPage user={user} onRequireAuth={() => setIsAuthModalOpen(true)} />}
         />
 
+        {/* ✅ Pages légales */}
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
 
+        {/* ✅ Réglages */}
         <Route path="/settings" element={<Settings user={user} onOpenProfile={openProfileModal} />} />
 
+        {/* ✅ Configurer compte */}
         <Route path="/account" element={<AccountSettings user={user} />} />
       </Routes>
 
