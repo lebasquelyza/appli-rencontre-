@@ -7,7 +7,7 @@ import { Footer } from "./components/Footer";
 import { ProfileForm } from "./components/ProfileForm";
 import { FiltersBar } from "./components/FiltersBar";
 import { SwipeDeck } from "./components/SwipeDeck";
-import { SwipeCard } from "./components/SwipeCard"; // ✅ AJOUT: pour l'aperçu statique
+import { SwipeCard } from "./components/SwipeCard"; // ✅ Aperçu statique
 import { AuthModal } from "./components/AuthModal";
 import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
@@ -223,13 +223,13 @@ function HomePage({
             >
               <h3 style={{ marginRight: "auto" }}>Mon profil sportif</h3>
 
-              {/* ✅ petit bouton Aperçu */}
+              {/* ✅ bouton Aperçu */}
               <button
                 type="button"
                 className="btn-ghost btn-sm"
                 onClick={() => setIsPreviewModalOpen(true)}
                 disabled={!myProfile}
-                title="Voir l’aperçu (statique)"
+                title="Voir l’aperçu (statique, sans scroll)"
               >
                 Aperçu
               </button>
@@ -250,10 +250,13 @@ function HomePage({
         </div>
       )}
 
-      {/* ✅ Modal Aperçu : carte statique, visible au complet, sans swipe et sans boutons */}
+      {/* ✅ Modal Aperçu : plein écran + carte statique, sans swipe, sans boutons, sans scroll */}
       {isPreviewModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsPreviewModalOpen(false)}>
-          <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-card modal-card--preview"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h3>Aperçu</h3>
               <button className="btn-ghost" onClick={() => setIsPreviewModalOpen(false)}>
@@ -261,12 +264,14 @@ function HomePage({
               </button>
             </div>
 
-            <div className="modal-body" style={{ paddingTop: 10 }}>
+            <div className="modal-body modal-body--preview">
               {!myProfile ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
-                <div style={{ maxWidth: 520, margin: "0 auto" }}>
-                  <SwipeCard profile={myProfile} />
+                <div className="preview-fit">
+                  <div className="preview-scale">
+                    <SwipeCard profile={myProfile} />
+                  </div>
                 </div>
               )}
             </div>
@@ -334,7 +339,6 @@ export default function App() {
   const [resumeError, setResumeError] = useState("");
 
   const isSuspended = !!user && myProfile?.status === "suspended";
-  // ✅ "comme si pas de compte" pour l'UI, mais on garde user en mémoire pour pouvoir reprendre
   const userForUI = isSuspended ? null : user;
 
   async function geocodeCity(cityText) {
@@ -746,7 +750,6 @@ export default function App() {
       const myLoc = filters.myLocation;
 
       const base = profiles.filter((p) => {
-        // ✅ on retire mon profil du swipe
         if (user && p.user_id === user.id) return false;
 
         if (filters.sport) {
@@ -796,7 +799,7 @@ export default function App() {
   /* -------------------------------
      Like/Swipe : bloqué si pas connecté OU suspendu
   -------------------------------- */
-  const handleLike = async (profile) => {
+  const handleLike = async () => {
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
       else setIsAuthModalOpen(true);
@@ -872,17 +875,14 @@ export default function App() {
           }
         />
 
-        {/* ✅ Pages légales */}
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
 
-        {/* ✅ Réglages */}
         <Route
           path="/settings"
           element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
         />
 
-        {/* ✅ Configurer compte */}
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
