@@ -14,8 +14,12 @@ export function SwipeCard({ profile }) {
   const [index, setIndex] = useState(0);
   const startX = useRef(null);
 
+  // ✅ bio dépliable
+  const [bioExpanded, setBioExpanded] = useState(false);
+
   useEffect(() => {
     setIndex(0);
+    setBioExpanded(false); // ✅ reset quand on change de profil
   }, [profile?.id]);
 
   const initial = profile?.name?.[0]?.toUpperCase() ?? "M";
@@ -47,6 +51,10 @@ export function SwipeCard({ profile }) {
   const city = (profile?.city || "").trim();
   const sport = (profile?.sport || "").trim();
   const level = (profile?.level || "").trim();
+
+  const bio = (profile?.bio || "").trim();
+  const hasBio = !!bio;
+  const isLongBio = bio.length > 220; // même seuil que ton ancien slice
 
   return (
     <article className="card swipeCard">
@@ -82,12 +90,9 @@ export function SwipeCard({ profile }) {
               {profile?.name}
               {profile?.age ? `, ${profile.age}` : ""}
             </div>
-
-            {/* ✅ n'affiche pas si vide */}
             {city ? <div className="sub">{city}</div> : null}
           </div>
 
-          {/* ✅ n'affiche les chips que si valeurs */}
           {(sport || level || profile?.availability) && (
             <div className="chips">
               {sport ? <span className="chip chip-accent">{sport}</span> : null}
@@ -98,9 +103,21 @@ export function SwipeCard({ profile }) {
             </div>
           )}
 
-          {profile?.bio ? (
-            <div className="swipeBio">
-              {profile.bio.length > 220 ? `${profile.bio.slice(0, 220)}…` : profile.bio}
+          {hasBio ? (
+            <div className="swipeBioWrap">
+              <div className={`swipeBio ${bioExpanded ? "is-expanded" : "is-clamped"}`}>
+                {bio}
+              </div>
+
+              {isLongBio ? (
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm swipeBioToggle"
+                  onClick={() => setBioExpanded((v) => !v)}
+                >
+                  {bioExpanded ? "Voir moins" : "Voir plus"}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
