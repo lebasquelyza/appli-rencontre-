@@ -102,6 +102,14 @@ function dedupeByUserLatest(list) {
   return [...byUser.values(), ...noUser];
 }
 
+// ✅ met mon profil en premier dans la liste
+function putMyProfileFirst(list, userId) {
+  if (!userId) return list;
+  const mine = list.find((p) => p.user_id === userId);
+  if (!mine) return list;
+  return [mine, ...list.filter((p) => p.user_id !== userId)];
+}
+
 function HomePage({
   filters,
   onFiltersChange,
@@ -168,9 +176,7 @@ function HomePage({
                     </div>
                   ) : null}
                   {resumeError ? (
-                    <div style={{ marginTop: 6, opacity: 0.9 }}>
-                      {resumeError}
-                    </div>
+                    <div style={{ marginTop: 6, opacity: 0.9 }}>{resumeError}</div>
                   ) : null}
                 </div>
 
@@ -716,9 +722,8 @@ export default function App() {
       const radiusKm = Number(filters.radiusKm || 0);
       const myLoc = filters.myLocation;
 
+      // ✅ on NE filtre PLUS mon profil (pour pouvoir l'afficher en premier)
       const base = profiles.filter((p) => {
-        if (user && p.user_id === user.id) return false;
-
         if (filters.sport) {
           if (filters.sport === "Autre") {
             if (STANDARD_SPORTS.includes(p.sport)) return false;
@@ -732,12 +737,14 @@ export default function App() {
       });
 
       if (!radiusKm || radiusKm <= 0) {
-        if (!cancelled) setFilteredProfiles(base);
+        const ordered = putMyProfileFirst(base, user?.id);
+        if (!cancelled) setFilteredProfiles(ordered);
         return;
       }
 
       if (!myLoc) {
-        if (!cancelled) setFilteredProfiles(base);
+        const ordered = putMyProfileFirst(base, user?.id);
+        if (!cancelled) setFilteredProfiles(ordered);
         return;
       }
 
@@ -754,7 +761,8 @@ export default function App() {
         if (d <= radiusKm) kept.push(p);
       }
 
-      if (!cancelled) setFilteredProfiles(kept);
+      const ordered = putMyProfileFirst(kept, user?.id);
+      if (!cancelled) setFilteredProfiles(ordered);
     };
 
     run();
@@ -765,8 +773,11 @@ export default function App() {
 
   /* -------------------------------
      Like/Swipe : bloqué si pas connecté OU suspendu
+     ✅ Empêche de liker son propre profil
   -------------------------------- */
   const handleLike = async (profile) => {
+    if (user && profile?.user_id === user.id) return;
+
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
       else setIsAuthModalOpen(true);
@@ -795,7 +806,6 @@ export default function App() {
 
   return (
     <div className="app-root">
-      {/* ✅ on passe userForUI au Header pour qu’il se comporte comme "déconnecté" si suspendu */}
       <Header
         onOpenProfile={openProfileModal}
         onOpenAuth={() => setIsAuthModalOpen(true)}
@@ -836,12 +846,7 @@ export default function App() {
 
         <Route
           path="/crushes"
-          element={
-            <CrushesFullPage
-              user={userForUI}
-              onRequireAuth={() => setIsAuthModalOpen(true)}
-            />
-          }
+          element={<CrushesFullPage user={userForUI} onRequireAuth={() => setIsAuthModalOpen(true)} />}
         />
 
         {/* ✅ Pages légales */}
@@ -849,10 +854,7 @@ export default function App() {
         <Route path="/cookies" element={<Cookies />} />
 
         {/* ✅ Réglages */}
-        <Route
-          path="/settings"
-          element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
-        />
+        <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
 
         {/* ✅ Configurer compte */}
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
