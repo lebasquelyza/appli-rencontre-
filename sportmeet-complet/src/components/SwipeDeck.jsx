@@ -70,7 +70,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
       availability: "",
       bio:
         "Si tu veux rencontrer plus de partenaires d’entraînement, partage à tes potes… en espérant qu’ils en entendent parler 😉",
-      photo_urls: [], // si SwipeCard exige une image, dis-moi et je te mets un fallback
+      photo_urls: [],
       isCustom: false
     }),
     [currentProfile?.id]
