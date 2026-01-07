@@ -10,16 +10,15 @@ export function Settings({ user }) {
   const [msg, setMsg] = useState("");
   const [isError, setIsError] = useState(false);
 
-  // Accordéons
-  const [openInfos, setOpenInfos] = useState(false);
+  // ✅ Mot de passe dépliable
   const [openPassword, setOpenPassword] = useState(false);
 
-  // Mes infos (lecture seule)
+  // ✅ Mes infos (lecture seule, toujours visible)
   const [email, setEmail] = useState(user?.email || "");
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
 
-  // Mot de passe
+  // ✅ Mot de passe
   const [newPass, setNewPass] = useState("");
   const [newPass2, setNewPass2] = useState("");
 
@@ -34,7 +33,7 @@ export function Settings({ user }) {
     setBanner.__t = window.setTimeout(() => setMsg(""), 3500);
   };
 
-  // Charger profil pour afficher nom/âge (read-only)
+  // ✅ Charger profil pour afficher nom/âge (read-only)
   useEffect(() => {
     let cancelled = false;
 
@@ -123,49 +122,41 @@ export function Settings({ user }) {
           )}
 
           <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-            {/* Mes infos (non modifiable) */}
+            {/* ✅ Mes infos (toujours visible, non modifiable) */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Mes infos</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
                 Informations de ton compte (lecture seule).
               </p>
 
-              <button
-                className="btn-primary"
-                onClick={() => setOpenInfos((v) => !v)}
-                disabled={!user}
-              >
-                {openInfos ? "Fermer" : "Ouvrir"}
-              </button>
-
-              {openInfos && (
-                <div className="form" style={{ marginTop: 12 }}>
-                  <div className="form-group">
-                    <label>Email</label>
-                    <input type="email" value={email} disabled readOnly />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Nom</label>
-                    <input value={name} disabled readOnly />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Âge</label>
-                    <input type="number" value={age} disabled readOnly />
-                  </div>
-
-                  {loading ? (
-                    <small style={{ display: "block", marginTop: 6, opacity: 0.75 }}>...</small>
-                  ) : null}
+              <div className="form" style={{ marginTop: 12 }}>
+                <div className="form-group">
+                  <label>Email</label>
+                  <input type="email" value={email} disabled readOnly />
                 </div>
-              )}
+
+                <div className="form-group">
+                  <label>Nom</label>
+                  <input value={name} disabled readOnly />
+                </div>
+
+                <div className="form-group">
+                  <label>Âge</label>
+                  <input type="number" value={age} disabled readOnly />
+                </div>
+
+                {loading ? (
+                  <small style={{ display: "block", marginTop: 6, opacity: 0.75 }}>...</small>
+                ) : null}
+              </div>
             </div>
 
-            {/* Mot de passe */}
+            {/* ✅ Mot de passe (dépliable, bouton même style que "Configurer") */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Mot de passe</h3>
-              <p style={{ opacity: 0.85, marginTop: 6 }}>Changer ton mot de passe.</p>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>
+                Change ton mot de passe (on n’affiche jamais l’ancien).
+              </p>
 
               <button
                 className="btn-primary"
@@ -185,6 +176,7 @@ export function Settings({ user }) {
                       onChange={(e) => setNewPass(e.target.value)}
                       disabled={!user || loading}
                       autoComplete="new-password"
+                      placeholder="6 caractères minimum"
                     />
                   </div>
 
@@ -196,6 +188,7 @@ export function Settings({ user }) {
                       onChange={(e) => setNewPass2(e.target.value)}
                       disabled={!user || loading}
                       autoComplete="new-password"
+                      placeholder="Répète le mot de passe"
                     />
                   </div>
 
@@ -210,7 +203,7 @@ export function Settings({ user }) {
               )}
             </div>
 
-            {/* Configuration */}
+            {/* ✅ Configuration */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Configuration</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
@@ -225,7 +218,7 @@ export function Settings({ user }) {
               </button>
             </div>
 
-            {/* Conditions */}
+            {/* ✅ Conditions */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Conditions d’utilisation</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
@@ -236,7 +229,7 @@ export function Settings({ user }) {
               </button>
             </div>
 
-            {/* Cookies */}
+            {/* ✅ Cookies */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Cookies</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
