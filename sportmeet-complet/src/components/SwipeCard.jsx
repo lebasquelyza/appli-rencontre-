@@ -14,7 +14,6 @@ export function SwipeCard({ profile }) {
   const [index, setIndex] = useState(0);
   const startX = useRef(null);
 
-  // ✅ reset photo index quand on change de profil
   useEffect(() => {
     setIndex(0);
   }, [profile?.id]);
@@ -45,8 +44,6 @@ export function SwipeCard({ profile }) {
     startX.current = null;
   };
 
-  const isSeed = !!profile?.isSeed; // ✅ profils d’attente générés localement
-
   return (
     <article className="card swipeCard">
       <div
@@ -55,7 +52,6 @@ export function SwipeCard({ profile }) {
         onTouchEnd={onTouchEnd}
         style={!hasPhotos ? bgFallback : undefined}
       >
-        {/* Photos (si dispo) */}
         {hasPhotos && (
           <div className="photo-track" style={{ transform: `translateX(-${index * 100}%)` }}>
             {photos.map((src, i) => (
@@ -68,7 +64,6 @@ export function SwipeCard({ profile }) {
 
         <div className="swipeAvatar">{initial}</div>
 
-        {/* Dots (si plusieurs photos) */}
         {photos.length > 1 && (
           <div className="photo-dots" aria-label="Photos du profil">
             {photos.map((_, i) => (
@@ -100,9 +95,7 @@ export function SwipeCard({ profile }) {
             </div>
           ) : null}
 
-          <div className="swipeFooter">
-            <span className="profile-meta-tag">{isSeed ? "Profil d’attente" : "Profil"}</span>
-          </div>
+          {/* ✅ plus de footer, plus de texte "profil" */}
         </div>
       </div>
     </article>
