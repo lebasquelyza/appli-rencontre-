@@ -266,7 +266,8 @@ function HomePage({
               ) : (
                 <SwipeDeck
                   profiles={[myProfile]}
-                  isAuthenticated={false}
+                  // ✅ pour ne PAS afficher "Connecte-toi..."
+                  isAuthenticated={true}
                   onLikeProfile={() => {}}
                   onRequireAuth={() => {}}
                   previewMode
@@ -337,6 +338,7 @@ export default function App() {
   const [resumeError, setResumeError] = useState("");
 
   const isSuspended = !!user && myProfile?.status === "suspended";
+  // ✅ "comme si pas de compte" pour l'UI, mais on garde user en mémoire pour pouvoir reprendre
   const userForUI = isSuspended ? null : user;
 
   async function geocodeCity(cityText) {
@@ -869,7 +871,9 @@ export default function App() {
 
         <Route
           path="/crushes"
-          element={<CrushesFullPage user={userForUI} onRequireAuth={() => setIsAuthModalOpen(true)} />}
+          element={
+            <CrushesFullPage user={userForUI} onRequireAuth={() => setIsAuthModalOpen(true)} />
+          }
         />
 
         {/* ✅ Pages légales */}
