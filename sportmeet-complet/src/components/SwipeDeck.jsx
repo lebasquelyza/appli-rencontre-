@@ -2,7 +2,13 @@
 import React, { useEffect, useState } from "react";
 import { SwipeCard } from "./SwipeCard";
 
-export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireAuth }) {
+export function SwipeDeck({
+  profiles,
+  onLikeProfile,
+  isAuthenticated,
+  onRequireAuth,
+  previewMode = false
+}) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
@@ -49,12 +55,17 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
         <>
           <SwipeCard key={currentProfile.id} profile={currentProfile} />
 
-          {!isAuthenticated ? (
+          {/* ✅ En mode aperçu, on n'affiche PAS les actions (croix/coeur/étoile ni le bloc "Se connecter") */}
+          {previewMode ? null : !isAuthenticated ? (
             <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
               <p className="form-message" style={{ margin: 0 }}>
                 Connecte-toi pour liker ou passer des profils.
               </p>
-              <button type="button" className="btn-primary btn-sm" onClick={() => onRequireAuth?.()}>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                onClick={() => onRequireAuth?.()}
+              >
                 Se connecter
               </button>
             </div>
@@ -95,7 +106,9 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
             </div>
           )}
 
-          <div className="hint">{remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}</div>
+          <div className="hint">
+            {remaining > 0 ? `${remaining} profil(s) à venir` : "Dernier profil"}
+          </div>
         </>
       ) : (
         <div className="swipe-empty">
