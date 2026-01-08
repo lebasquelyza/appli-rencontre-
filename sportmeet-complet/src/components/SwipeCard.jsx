@@ -21,6 +21,16 @@ export function SwipeCard({ profile }) {
     setBioOpen(false);
   }, [profile?.id]);
 
+  // ✅ MODIF: Fix iOS Safari — hauteur stable via --vh (1% de innerHeight)
+  useEffect(() => {
+    const setVh = () => {
+      document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
+    };
+    setVh();
+    window.addEventListener("resize", setVh);
+    return () => window.removeEventListener("resize", setVh);
+  }, []);
+
   const initial = profile?.name?.[0]?.toUpperCase() ?? "M";
   const hue = hashToHue(`${profile?.name}-${profile?.city}-${profile?.sport}`);
 
@@ -32,12 +42,20 @@ export function SwipeCard({ profile }) {
     `
   };
 
+  // ✅ MODIF: Ne pas swiper les photos si le doigt est sur la bio ouverte (scroll)
+  const isInBio = (target) => {
+    return !!target?.closest?.(".swipeBio.open, .bioToggle");
+  };
+
   const onTouchStart = (e) => {
+    if (isInBio(e.target)) return; // ✅ MODIF
     startX.current = e.touches[0].clientX;
   };
 
   const onTouchEnd = (e) => {
+    if (isInBio(e.target)) return; // ✅ MODIF
     if (startX.current === null) return;
+
     const dx = e.changedTouches[0].clientX - startX.current;
 
     if (Math.abs(dx) > 50) {
