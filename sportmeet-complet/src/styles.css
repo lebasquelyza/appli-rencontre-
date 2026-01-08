@@ -405,11 +405,11 @@ input:focus, select:focus, textarea:focus{
   z-index: 2;
 }
 
-/* ✅✅✅ IMPORTANT : overlay taille FIXE (ne change jamais) */
+/* ✅✅✅ IMPORTANT : overlay taille FIXE identique à “Partage MatchFit” */
 .cardOverlay{
   position:absolute;
   left:0; right:0; bottom:0;
-  height: 34%;              /* ✅ zone texte fixe */
+  height: 34%;              /* ✅ fixe la “zone texte” */
   padding: 18px;
   display:flex;
   flex-direction:column;
@@ -419,12 +419,12 @@ input:focus, select:focus, textarea:focus{
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.82) 60%, rgba(0,0,0,.88) 100%);
 }
 
-/* ✅ title sur 1 ligne */
+/* ✅ title sur 1 ligne (sinon ça agrandit l’overlay) */
 .titleRow{
   display:flex;
   align-items:baseline;
   gap:10px;
-  flex-wrap: nowrap;
+  flex-wrap: nowrap;        /* ✅ plus de wrap */
   min-width: 0;
 }
 .h1{
@@ -432,7 +432,7 @@ input:focus, select:focus, textarea:focus{
   font-weight: 900;
   line-height:1.1;
   min-width: 0;
-  white-space: nowrap;
+  white-space: nowrap;      /* ✅ 1 ligne */
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -440,7 +440,7 @@ input:focus, select:focus, textarea:focus{
   color: var(--muted);
   font-weight:700;
   font-size: 13px;
-  white-space: nowrap;
+  white-space: nowrap;      /* ✅ 1 ligne */
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -492,7 +492,7 @@ input:focus, select:focus, textarea:focus{
   max-width: 60ch;
 }
 
-/* ✅ bio repliée : 2 lignes (le clamp gère l’effet "...") */
+/* ✅ bio repliée : 2 lignes (comme carte partage) */
 .swipeBio.clamp{
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -500,36 +500,28 @@ input:focus, select:focus, textarea:focus{
   overflow: hidden;
 }
 
-/* ✅ bio ouverte : scroll interne (la carte NE change pas) */
+/* ✅ bio ouverte : scroll interne, sans changer la taille de la carte */
 .swipeBio.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  max-height: 140px;     /* ✅ ajuste si tu veux (120-160) */
+  max-height: 88px;     /* ✅ limite interne */
   padding-right: 6px;
 }
 
-/* ✅ bouton “…” / “✕” */
-.bioDots{
+.bioToggle{
   align-self: flex-start;
   font: inherit;
-  font-size: 22px;
-  line-height: 1;
-  font-weight: 900;
+  font-size: 12px;
+  font-weight: 800;
   color: rgba(243,244,246,.92);
   background: rgba(255,255,255,.06);
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 7px 10px;
   cursor: pointer;
   user-select: none;
 }
-.bioDots:active{ transform: scale(.98); }
-
-/* look un peu plus compact quand ouvert */
-.bioDots.is-open{
-  font-size: 16px;
-  padding: 7px 12px;
-}
+.bioToggle:active{ transform: scale(.99); }
 
 .actions{
   display:flex;
