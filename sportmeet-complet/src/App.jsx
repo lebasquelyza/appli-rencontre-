@@ -323,17 +323,26 @@ function CrushesFullPage({ user, onRequireAuth }) {
 export default function App() {
   const navigate = useNavigate();
 
-  // ✅ MODIF: Fix iPhone/Safari — calcule un --vh stable (barre d’adresse dynamique)
+  // ✅ FIX iPhone/Safari (définitif) : viewport stable via visualViewport
   useEffect(() => {
     const setVh = () => {
-      document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--vh", `${h * 0.01}px`);
     };
+
     setVh();
+
     window.addEventListener("resize", setVh);
     window.addEventListener("orientationchange", setVh);
+
+    window.visualViewport?.addEventListener("resize", setVh);
+    window.visualViewport?.addEventListener("scroll", setVh);
+
     return () => {
       window.removeEventListener("resize", setVh);
       window.removeEventListener("orientationchange", setVh);
+      window.visualViewport?.removeEventListener("resize", setVh);
+      window.visualViewport?.removeEventListener("scroll", setVh);
     };
   }, []);
 
