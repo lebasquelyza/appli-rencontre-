@@ -14,8 +14,11 @@ export function SwipeCard({ profile }) {
   const [index, setIndex] = useState(0);
   const startX = useRef(null);
 
+  const [bioOpen, setBioOpen] = useState(false);
+
   useEffect(() => {
     setIndex(0);
+    setBioOpen(false);
   }, [profile?.id]);
 
   const initial = profile?.name?.[0]?.toUpperCase() ?? "M";
@@ -47,6 +50,9 @@ export function SwipeCard({ profile }) {
   const city = (profile?.city || "").trim();
   const sport = (profile?.sport || "").trim();
   const level = (profile?.level || "").trim();
+  const bio = (profile?.bio || "").trim();
+
+  const bioIsLong = bio.length > 220;
 
   return (
     <article className="card swipeCard">
@@ -82,7 +88,6 @@ export function SwipeCard({ profile }) {
               {profile?.name}
               {profile?.age ? `, ${profile.age}` : ""}
             </div>
-
             {city ? <div className="sub">{city}</div> : null}
           </div>
 
@@ -96,9 +101,19 @@ export function SwipeCard({ profile }) {
             </div>
           )}
 
-          {profile?.bio ? (
-            <div className="swipeBio">
-              {profile.bio.length > 220 ? `${profile.bio.slice(0, 220)}…` : profile.bio}
+          {bio ? (
+            <div className="bioWrap">
+              <div className={`swipeBio ${bioOpen ? "open" : "clamp"}`}>{bio}</div>
+
+              {bioIsLong ? (
+                <button
+                  type="button"
+                  className="bioToggle"
+                  onClick={() => setBioOpen((v) => !v)}
+                >
+                  {bioOpen ? "Réduire" : "Voir +"}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
