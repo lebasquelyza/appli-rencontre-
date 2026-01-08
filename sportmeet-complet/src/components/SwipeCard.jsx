@@ -51,7 +51,6 @@ export function SwipeCard({ profile }) {
   const sport = (profile?.sport || "").trim();
   const level = (profile?.level || "").trim();
   const bio = (profile?.bio || "").trim();
-
   const bioIsLong = bio.length > 220;
 
   return (
@@ -82,7 +81,8 @@ export function SwipeCard({ profile }) {
           </div>
         )}
 
-        <div className="cardOverlay">
+        {/* ✅ overlay taille FIXE identique pour toutes les cartes */}
+        <div className={`cardOverlay ${bioOpen ? "bio-open" : ""}`}>
           <div className="titleRow">
             <div className="h1">
               {profile?.name}
@@ -91,8 +91,9 @@ export function SwipeCard({ profile }) {
             {city ? <div className="sub">{city}</div> : null}
           </div>
 
+          {/* ✅ chips sur 1 ligne (scroll horizontal si ça dépasse) */}
           {(sport || level || profile?.availability) && (
-            <div className="chips">
+            <div className="chips chips-oneLine">
               {sport ? <span className="chip chip-accent">{sport}</span> : null}
               {level ? <span className="chip">{level}</span> : null}
               {profile?.availability ? (
