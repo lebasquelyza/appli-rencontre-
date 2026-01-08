@@ -31,7 +31,7 @@ body{
   overflow-x:hidden;
 }
 
-/* ✅ FIX: bloque le scroll page pendant SwipeDeck (ajouté via body.classList) */
+/* ✅ FIX: bloque le scroll page pendant SwipeDeck */
 body.no-scroll{
   overflow: hidden;
 }
@@ -336,7 +336,7 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
 }
 
-/* ✅ FIX: hauteur stable sur mobile (remplace 62vh par --vh) */
+/* ✅ FIX: hauteur stable sur mobile */
 .cardMedia{
   height: calc(var(--vh, 1vh) * 62);
   min-height: 430px;
@@ -654,16 +654,13 @@ input:focus, select:focus, textarea:focus{
     border-radius: calc(var(--r) + 4px);
   }
 
-  /* On revient à un scroll "normal" */
   .modal-body--scroll{
     padding-bottom: 18px;
   }
 
-  /* Et on enlève le bouton sticky (sinon ça prend trop de place) */
   .form .btn-primary.btn-block{
     position: static;
   }
-  /* -------- Matches + Chat -------- */
 
   .matches-list{
     display:flex;
@@ -703,7 +700,6 @@ input:focus, select:focus, textarea:focus{
 
   .match-row-sub{
     font-size: 12px;
-   _tf
     color: rgba(243,244,246,.70);
     white-space: nowrap;
     overflow:hidden;
@@ -758,3 +754,4 @@ input:focus, select:focus, textarea:focus{
     flex: 1;
   }
 }
+
