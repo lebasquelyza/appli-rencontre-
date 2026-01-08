@@ -81,8 +81,8 @@ export function SwipeCard({ profile }) {
           </div>
         )}
 
-        {/* ✅ Overlay FIXE : ne change jamais la taille de la carte */}
-        <div className="cardOverlay">
+        {/* ✅ overlay taille FIXE identique pour toutes les cartes */}
+        <div className={`cardOverlay ${bioOpen ? "bio-open" : ""}`}>
           <div className="titleRow">
             <div className="h1">
               {profile?.name}
@@ -91,8 +91,8 @@ export function SwipeCard({ profile }) {
             {city ? <div className="sub">{city}</div> : null}
           </div>
 
-          {/* ✅ chips supprimées quand bio ouverte */}
-          {!bioOpen && (sport || level || profile?.availability) && (
+          {/* ✅ chips sur 1 ligne (scroll horizontal si ça dépasse) */}
+          {(sport || level || profile?.availability) && (
             <div className="chips chips-oneLine">
               {sport ? <span className="chip chip-accent">{sport}</span> : null}
               {level ? <span className="chip">{level}</span> : null}
@@ -109,11 +109,10 @@ export function SwipeCard({ profile }) {
               {bioIsLong ? (
                 <button
                   type="button"
-                  className={`bioDots ${bioOpen ? "is-open" : ""}`}
-                  aria-label={bioOpen ? "Fermer la bio" : "Afficher la bio"}
+                  className="bioToggle"
                   onClick={() => setBioOpen((v) => !v)}
                 >
-                  {bioOpen ? "✕" : "…"}
+                  {bioOpen ? "Réduire" : "Voir +"}
                 </button>
               ) : null}
             </div>
