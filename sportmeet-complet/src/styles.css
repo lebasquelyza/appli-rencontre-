@@ -44,8 +44,10 @@ body::before{
 .app-root{ min-height:100dvh; }
 
 .page{
+  /* ✅ MODIF: garder la même base, mais permettre aux enfants flex de rétrécir */
   min-height: calc(100dvh - 120px);
   display:flex;
+  flex-direction: column;      /* ✅ MODIF */
   justify-content:center;
   padding: 14px 14px 22px;
 }
@@ -55,6 +57,9 @@ body::before{
   display:flex;
   flex-direction:column;
   gap:14px;
+
+  flex: 1;                     /* ✅ MODIF */
+  min-height: 0;               /* ✅ MODIF */
 }
 
 /* Header */
@@ -329,12 +334,27 @@ input:focus, select:focus, textarea:focus{
   display:flex;
   flex-direction:column;
   gap: 10px;
+
+  flex: 1;        /* ✅ MODIF */
+  min-height: 0;  /* ✅ MODIF */
 }
 
-/* ✅ hauteur fixe (stable iOS si tu mets --vh via JS) */
+/* ✅ MODIF: la hauteur FIXE est sur la carte, pas sur cardMedia */
+.swipeCard{
+  transform: translateZ(0);
+
+  height: calc(var(--vh, 1vh) * 62);     /* ✅ MODIF (migré depuis .cardMedia) */
+  max-height: calc(var(--vh, 1vh) * 62); /* ✅ MODIF */
+  min-height: 430px;                     /* ✅ MODIF */
+  display: flex;                         /* ✅ MODIF */
+  flex-direction: column;                /* ✅ MODIF */
+  overflow: hidden;                      /* ✅ MODIF */
+}
+
+/* ✅ MODIF: cardMedia suit la carte (ne pilote plus la hauteur) */
 .cardMedia{
-  height: calc(var(--vh, 1vh) * 62);
-  min-height: 430px;
+  height: 100%;            /* ✅ MODIF */
+  min-height: 0;           /* ✅ MODIF */
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
 }
 
@@ -409,13 +429,13 @@ input:focus, select:focus, textarea:focus{
 .cardOverlay{
   position:absolute;
   left:0; right:0; bottom:0;
-  height: 34%;              /* ✅ fixe la “zone texte” */
+  height: 34%;
   padding: 18px;
   display:flex;
   flex-direction:column;
   justify-content:flex-end;
   gap: 10px;
-  overflow: hidden;         /* ✅ rien ne peut agrandir l’overlay */
+  overflow: hidden;
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.82) 60%, rgba(0,0,0,.88) 100%);
 }
 
@@ -424,7 +444,7 @@ input:focus, select:focus, textarea:focus{
   display:flex;
   align-items:baseline;
   gap:10px;
-  flex-wrap: nowrap;        /* ✅ plus de wrap */
+  flex-wrap: nowrap;
   min-width: 0;
 }
 .h1{
@@ -432,7 +452,7 @@ input:focus, select:focus, textarea:focus{
   font-weight: 900;
   line-height:1.1;
   min-width: 0;
-  white-space: nowrap;      /* ✅ 1 ligne */
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -440,7 +460,7 @@ input:focus, select:focus, textarea:focus{
   color: var(--muted);
   font-weight:700;
   font-size: 13px;
-  white-space: nowrap;      /* ✅ 1 ligne */
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -458,8 +478,6 @@ input:focus, select:focus, textarea:focus{
 .chips-oneLine .chip{ flex: 0 0 auto; }
 
 /* Avatar */
-.swipeCard{ transform: translateZ(0); }
-
 .swipeAvatar{
   position:absolute;
   top: 16px;
@@ -504,7 +522,7 @@ input:focus, select:focus, textarea:focus{
 .swipeBio.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  max-height: 88px;     /* ✅ limite interne */
+  max-height: 88px;
   padding-right: 6px;
 }
 
