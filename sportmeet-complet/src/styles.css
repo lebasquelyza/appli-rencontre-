@@ -14,11 +14,6 @@
   --bad:#ef4444;
 
   --r: 28px;
-
-  /* ✅✅✅ Taille carte (MODIFIE ICI) */
-  --card-max-width: 420px;     /* largeur max */
-  --card-media-vh: 62;         /* hauteur = vh * valeur */
-  --card-media-min-height: 430px; /* hauteur minimum */
 }
 
 *{ box-sizing:border-box; }
@@ -56,7 +51,7 @@ body::before{
 }
 
 .shell{
-  width: min(var(--card-max-width), 100%); /* ✅ largeur contrôlée */
+  width:min(420px, 100%);
   display:flex;
   flex-direction:column;
   gap:14px;
@@ -141,7 +136,6 @@ body::before{
     0 18px 50px rgba(0,0,0,.45),
     0 1px 0 rgba(255,255,255,.06) inset;
   backdrop-filter: blur(10px);
-  width: 100%; /* ✅ prend toute la largeur de .shell */
 }
 
 .card-results{
@@ -337,19 +331,11 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
 }
 
-/* ✅ hauteur contrôlée via variables */
+/* ✅ hauteur fixe (stable iOS si tu mets --vh via JS) */
 .cardMedia{
-  height: calc(var(--vh, 1vh) * var(--card-media-vh));
-  min-height: var(--card-media-min-height);
+  height: calc(var(--vh, 1vh) * 62);
+  min-height: 430px;
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
-}
-
-/* ✅ Ajustement mobile : un peu moins haut sur petits écrans */
-@media (max-width: 420px){
-  :root{
-    --card-media-vh: 58;
-    --card-media-min-height: 410px;
-  }
 }
 
 /* ✅ base pour media (photos ou fallback) */
@@ -419,7 +405,7 @@ input:focus, select:focus, textarea:focus{
   z-index: 2;
 }
 
-/* ✅✅✅ overlay taille FIXE identique pour toutes les cartes */
+/* ✅✅✅ IMPORTANT : overlay taille FIXE + animation */
 .cardOverlay{
   position:absolute;
   left:0; right:0; bottom:0;
@@ -431,9 +417,15 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
   overflow: hidden;
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.82) 60%, rgba(0,0,0,.88) 100%);
+  transition: height .22s ease; /* ✅ animation */
 }
 
-/* ✅ title sur 1 ligne */
+/* ✅ quand bio open : l’overlay grandit vers le haut */
+.cardOverlay.bio-open{
+  height: 56%;  /* tu peux ajuster 50% - 65% */
+}
+
+/* ✅ title sur 1 ligne (sinon ça agrandit l’overlay) */
 .titleRow{
   display:flex;
   align-items:baseline;
@@ -506,7 +498,7 @@ input:focus, select:focus, textarea:focus{
   max-width: 60ch;
 }
 
-/* ✅ bio repliée : 2 lignes */
+/* ✅ bio repliée : 2 lignes (avec ...) */
 .swipeBio.clamp{
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -514,28 +506,30 @@ input:focus, select:focus, textarea:focus{
   overflow: hidden;
 }
 
-/* ✅ bio ouverte : scroll interne */
+/* ✅ bio ouverte : scroll interne, sans changer la taille de la carte */
 .swipeBio.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  max-height: 88px;
+  max-height: 220px; /* ✅ plus grand */
   padding-right: 6px;
 }
 
-.bioToggle{
+/* ✅ bouton "..." */
+.bioDots{
   align-self: flex-start;
   font: inherit;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 900;
   color: rgba(243,244,246,.92);
   background: rgba(255,255,255,.06);
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 999px;
-  padding: 7px 10px;
+  padding: 6px 12px;
   cursor: pointer;
   user-select: none;
 }
-.bioToggle:active{ transform: scale(.99); }
+.bioDots:active{ transform: scale(.98); }
 
 .actions{
   display:flex;
@@ -709,7 +703,7 @@ input:focus, select:focus, textarea:focus{
   -webkit-overflow-scrolling: touch;
 }
 
-/* ✅ mobile */
+/* ✅ CORRECTION : sur mobile on NE force plus le plein écran */
 @media (max-width: 640px){
   .modal-backdrop{
     padding: 14px;
