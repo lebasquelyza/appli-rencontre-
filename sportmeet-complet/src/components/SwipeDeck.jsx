@@ -6,23 +6,50 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // ✅ FIX: --vh stable + bloque le scroll page pendant le deck
+  // ✅ FIX iPhone Safari (robuste):
+  // - calcule une hauteur basée sur visualViewport (plus fiable que innerHeight)
+  // - lock le scroll iOS via body position:fixed
   useEffect(() => {
     const setVh = () => {
-      const vh = window.innerHeight * 0.01;
+      const height =
+        (window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
+      const vh = height * 0.01;
       document.documentElement.style.setProperty("--vh", `${vh}px`);
     };
 
+    // set initial + listeners
     setVh();
     window.addEventListener("resize", setVh);
     window.addEventListener("orientationchange", setVh);
 
+    // visualViewport bouge quand la barre d'adresse apparaît/disparaît
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", setVh);
+      window.visualViewport.addEventListener("scroll", setVh);
+    }
+
+    // lock scroll (iOS)
+    const scrollY = window.scrollY || 0;
+    document.body.style.top = `-${scrollY}px`;
     document.body.classList.add("no-scroll");
+    document.documentElement.classList.add("no-scroll");
 
     return () => {
       window.removeEventListener("resize", setVh);
       window.removeEventListener("orientationchange", setVh);
+
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", setVh);
+        window.visualViewport.removeEventListener("scroll", setVh);
+      }
+
       document.body.classList.remove("no-scroll");
+      document.documentElement.classList.remove("no-scroll");
+
+      const top = document.body.style.top;
+      document.body.style.top = "";
+      const restoreY = top ? Math.abs(parseInt(top, 10)) : 0;
+      window.scrollTo(0, restoreY);
     };
   }, []);
 
@@ -53,9 +80,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
         await navigator.share(payload);
         return;
       }
-    } catch {
-      // user cancelled -> ignore
-    }
+    } catch {}
 
     try {
       await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
