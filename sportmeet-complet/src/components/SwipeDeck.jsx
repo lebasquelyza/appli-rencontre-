@@ -6,7 +6,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // ✅ FIX: --vh stable + bloque le scroll page pendant le deck
+  // ✅ iOS Safari fix: vh stable + empêche le scroll page pendant le deck
   useEffect(() => {
     const setVh = () => {
       const vh = window.innerHeight * 0.01;
