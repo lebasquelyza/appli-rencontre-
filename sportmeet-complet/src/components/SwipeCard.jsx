@@ -81,7 +81,8 @@ export function SwipeCard({ profile }) {
           </div>
         )}
 
-        <div className={`cardOverlay ${bioOpen ? "bio-open" : ""}`}>
+        {/* ✅ Overlay FIXE : ne change jamais la taille de la carte */}
+        <div className="cardOverlay">
           <div className="titleRow">
             <div className="h1">
               {profile?.name}
@@ -90,7 +91,7 @@ export function SwipeCard({ profile }) {
             {city ? <div className="sub">{city}</div> : null}
           </div>
 
-          {/* ✅ chips cachées quand bio ouverte */}
+          {/* ✅ chips supprimées quand bio ouverte */}
           {!bioOpen && (sport || level || profile?.availability) && (
             <div className="chips chips-oneLine">
               {sport ? <span className="chip chip-accent">{sport}</span> : null}
@@ -105,7 +106,6 @@ export function SwipeCard({ profile }) {
             <div className="bioWrap">
               <div className={`swipeBio ${bioOpen ? "open" : "clamp"}`}>{bio}</div>
 
-              {/* ✅ bouton: fermé = … / ouvert = ✕ */}
               {bioIsLong ? (
                 <button
                   type="button"
