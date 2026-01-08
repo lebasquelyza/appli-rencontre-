@@ -6,6 +6,26 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
+  // ✅ FIX: verrouille une unité vh stable + bloque le scroll page pendant le deck
+  useEffect(() => {
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty("--vh", `${vh}px`);
+    };
+
+    setVh();
+    window.addEventListener("resize", setVh);
+    window.addEventListener("orientationchange", setVh);
+
+    document.body.classList.add("no-scroll");
+
+    return () => {
+      window.removeEventListener("resize", setVh);
+      window.removeEventListener("orientationchange", setVh);
+      document.body.classList.remove("no-scroll");
+    };
+  }, []);
+
   useEffect(() => {
     setIndex(0);
   }, [profiles]);
@@ -64,9 +84,9 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
       name: "Partage MatchFit 💪",
       age: null,
       gender: null,
-      city: "",       // ✅ supprime "Invite tes potes"
-      sport: "",      // ✅ supprime le chip rouge
-      level: "",      // ✅ supprime le chip 🔥
+      city: "",
+      sport: "",
+      level: "",
       availability: "",
       bio:
         "Si tu veux rencontrer plus de partenaires d’entraînement, partage à tes potes… en espérant que ta/ton gymcrush en entendent parler 😉",
