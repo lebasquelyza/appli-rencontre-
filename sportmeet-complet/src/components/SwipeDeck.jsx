@@ -6,50 +6,30 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // ✅ FIX iPhone Safari (robuste):
-  // - calcule une hauteur basée sur visualViewport (plus fiable que innerHeight)
-  // - lock le scroll iOS via body position:fixed
+  // ✅ iPhone Safari: vh stable (sans bloquer le scroll)
   useEffect(() => {
     const setVh = () => {
       const height =
         (window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
-      const vh = height * 0.01;
-      document.documentElement.style.setProperty("--vh", `${vh}px`);
+      document.documentElement.style.setProperty("--vh", `${height * 0.01}px`);
     };
 
-    // set initial + listeners
     setVh();
     window.addEventListener("resize", setVh);
     window.addEventListener("orientationchange", setVh);
 
-    // visualViewport bouge quand la barre d'adresse apparaît/disparaît
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", setVh);
       window.visualViewport.addEventListener("scroll", setVh);
     }
 
-    // lock scroll (iOS)
-    const scrollY = window.scrollY || 0;
-    document.body.style.top = `-${scrollY}px`;
-    document.body.classList.add("no-scroll");
-    document.documentElement.classList.add("no-scroll");
-
     return () => {
       window.removeEventListener("resize", setVh);
       window.removeEventListener("orientationchange", setVh);
-
       if (window.visualViewport) {
         window.visualViewport.removeEventListener("resize", setVh);
         window.visualViewport.removeEventListener("scroll", setVh);
       }
-
-      document.body.classList.remove("no-scroll");
-      document.documentElement.classList.remove("no-scroll");
-
-      const top = document.body.style.top;
-      document.body.style.top = "";
-      const restoreY = top ? Math.abs(parseInt(top, 10)) : 0;
-      window.scrollTo(0, restoreY);
     };
   }, []);
 
