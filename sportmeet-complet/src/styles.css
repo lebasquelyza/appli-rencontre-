@@ -31,6 +31,11 @@ body{
   overflow-x:hidden;
 }
 
+/* ✅ FIX: bloque le scroll page pendant SwipeDeck (ajouté via body.classList) */
+body.no-scroll{
+  overflow: hidden;
+}
+
 body::before{
   content:"";
   position:fixed; inset:0;
@@ -324,21 +329,16 @@ input:focus, select:focus, textarea:focus{
 }
 
 /* Swipe deck */
-/* ✅ MODIF MINIMALE : le deck prend la place dispo et évite le scroll page */
 .swipe-container{
   margin-top: 10px;
   display:flex;
   flex-direction:column;
   gap: 10px;
-
-  flex: 1;
-  min-height: 0;
-  overscroll-behavior: contain;
 }
 
-/* ✅ MODIF MINIMALE : la carte prend l'espace restant (au lieu d'un vh instable) */
+/* ✅ FIX: hauteur stable sur mobile (remplace 62vh par --vh) */
 .cardMedia{
-  flex: 1;
+  height: calc(var(--vh, 1vh) * 62);
   min-height: 430px;
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
 }
@@ -389,8 +389,7 @@ input:focus, select:focus, textarea:focus{
   background: #fff;
 }
 
-/* ✅ voile sombre UNIQUEMENT quand il y a une photo
-   (corrige l'encart sur profils sans photo) */
+/* ✅ voile sombre UNIQUEMENT quand il y a une photo */
 .swipeMedia.has-photo::before{
   content:"";
   position:absolute;
@@ -704,6 +703,7 @@ input:focus, select:focus, textarea:focus{
 
   .match-row-sub{
     font-size: 12px;
+   _tf
     color: rgba(243,244,246,.70);
     white-space: nowrap;
     overflow:hidden;
@@ -757,5 +757,4 @@ input:focus, select:focus, textarea:focus{
   .chat-input input{
     flex: 1;
   }
-
 }
