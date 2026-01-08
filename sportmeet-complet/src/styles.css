@@ -31,6 +31,19 @@ body{
   overflow-x:hidden;
 }
 
+/* ✅ LOCK iOS: empêche le scroll/bounce qui fait “varier” la taille */
+html.no-scroll,
+body.no-scroll{
+  height: 100%;
+  overflow: hidden;
+}
+body.no-scroll{
+  position: fixed;
+  width: 100%;
+  left: 0;
+  right: 0;
+}
+
 body::before{
   content:"";
   position:fixed; inset:0;
@@ -229,7 +242,7 @@ input:focus, select:focus, textarea:focus{
   background: rgba(255,255,255,.04);
 }
 
-/* Filters (bouton + panel déroulant) */
+/* Filters */
 .filters{
   display:flex;
   flex-direction:column;
@@ -283,7 +296,6 @@ input:focus, select:focus, textarea:focus{
   padding-bottom: 2px;
 }
 
-/* ✅ Slide fluide */
 .filters-panelWrap{
   overflow: hidden;
   max-height: 0px;
@@ -324,26 +336,20 @@ input:focus, select:focus, textarea:focus{
 }
 
 /* Swipe deck */
-/* ✅ MODIF MINIMALE : le deck prend la place dispo et évite le scroll page */
 .swipe-container{
   margin-top: 10px;
   display:flex;
   flex-direction:column;
   gap: 10px;
-
-  flex: 1;
-  min-height: 0;
-  overscroll-behavior: contain;
 }
 
-/* ✅ MODIF MINIMALE : la carte prend l'espace restant (au lieu d'un vh instable) */
+/* ✅ hauteur stable iOS */
 .cardMedia{
-  flex: 1;
+  height: calc(var(--vh, 1vh) * 62);
   min-height: 430px;
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
 }
 
-/* ✅ base pour media (photos ou fallback) */
 .swipeMedia{
   position: relative;
   background-repeat: no-repeat;
@@ -351,7 +357,7 @@ input:focus, select:focus, textarea:focus{
   background-position: center;
 }
 
-/* ✅ Carousel photos */
+/* Carousel photos */
 .photo-track{
   display: flex;
   height: 100%;
@@ -369,7 +375,7 @@ input:focus, select:focus, textarea:focus{
   display: block;
 }
 
-/* ✅ Dots */
+/* Dots */
 .photo-dots{
   position: absolute;
   top: 14px;
@@ -389,8 +395,6 @@ input:focus, select:focus, textarea:focus{
   background: #fff;
 }
 
-/* ✅ voile sombre UNIQUEMENT quand il y a une photo
-   (corrige l'encart sur profils sans photo) */
 .swipeMedia.has-photo::before{
   content:"";
   position:absolute;
@@ -403,7 +407,6 @@ input:focus, select:focus, textarea:focus{
   content: none;
 }
 
-/* Overlay + avatar au-dessus */
 .cardOverlay,
 .swipeAvatar{
   position: relative;
@@ -621,10 +624,7 @@ input:focus, select:focus, textarea:focus{
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
 
-/* -------------------------------
-   Modal mobile-friendly (profil etc.)
--------------------------------- */
-
+/* Modal mobile-friendly */
 .modal-card--sheet{
   width: min(520px, 100%);
   max-height: 85vh;
@@ -632,7 +632,6 @@ input:focus, select:focus, textarea:focus{
   flex-direction: column;
 }
 
-/* ✅ clé : la zone scroll doit pouvoir rétrécir */
 .modal-body--scroll{
   flex: 1;
   min-height: 0;
@@ -640,7 +639,6 @@ input:focus, select:focus, textarea:focus{
   -webkit-overflow-scrolling: touch;
 }
 
-/* ✅ CORRECTION : sur mobile on NE force plus le plein écran */
 @media (max-width: 640px){
   .modal-backdrop{
     padding: 14px;
@@ -655,16 +653,13 @@ input:focus, select:focus, textarea:focus{
     border-radius: calc(var(--r) + 4px);
   }
 
-  /* On revient à un scroll "normal" */
   .modal-body--scroll{
     padding-bottom: 18px;
   }
 
-  /* Et on enlève le bouton sticky (sinon ça prend trop de place) */
   .form .btn-primary.btn-block{
     position: static;
   }
-  /* -------- Matches + Chat -------- */
 
   .matches-list{
     display:flex;
@@ -757,5 +752,4 @@ input:focus, select:focus, textarea:focus{
   .chat-input input{
     flex: 1;
   }
-
 }
