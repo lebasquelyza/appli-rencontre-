@@ -6,7 +6,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // ✅ FIX: verrouille une unité vh stable + bloque le scroll page pendant le deck
+  // ✅ FIX: --vh stable + bloque le scroll page pendant le deck
   useEffect(() => {
     const setVh = () => {
       const vh = window.innerHeight * 0.01;
@@ -35,7 +35,6 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
 
   const next = () => setIndex((i) => i + 1);
 
-  // ✅ Partage MatchFit (texte conservé)
   const shareText = useMemo(
     () => "Je suis sur MatchFit 💪 Viens tester ! Partage à tes potes, ça peut aider 😉",
     []
@@ -77,7 +76,6 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
 
   const isShareCard = !!currentProfile && currentProfile.__type === "share";
 
-  // ✅ Carte share : on enlève "Invite tes potes" (city) + le chip rouge (sport) + le chip 🔥 (level)
   const shareProfileForCard = useMemo(
     () => ({
       id: currentProfile?.id || "__share",
