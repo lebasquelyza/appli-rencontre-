@@ -31,7 +31,7 @@ body{
   overflow-x:hidden;
 }
 
-/* ✅ FIX: bloque le scroll page pendant SwipeDeck */
+/* ✅ FIX iPhone Safari: bloque le scroll de page pendant le deck */
 body.no-scroll{
   overflow: hidden;
 }
@@ -336,7 +336,7 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
 }
 
-/* ✅ FIX: hauteur stable sur mobile */
+/* ✅ FIX iPhone Safari: hauteur stable (remplace 62vh) */
 .cardMedia{
   height: calc(var(--vh, 1vh) * 62);
   min-height: 430px;
@@ -349,6 +349,9 @@ input:focus, select:focus, textarea:focus{
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
+
+  /* ✅ aide iOS à gérer swipe horizontal + scroll overlay */
+  touch-action: pan-y;
 }
 
 /* ✅ Carousel photos */
@@ -389,7 +392,8 @@ input:focus, select:focus, textarea:focus{
   background: #fff;
 }
 
-/* ✅ voile sombre UNIQUEMENT quand il y a une photo */
+/* ✅ voile sombre UNIQUEMENT quand il y a une photo
+   (corrige l'encart sur profils sans photo) */
 .swipeMedia.has-photo::before{
   content:"";
   position:absolute;
@@ -418,6 +422,16 @@ input:focus, select:focus, textarea:focus{
   padding: 18px;
   gap: 10px;
   background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,.78) 100%);
+
+  /* ✅ garde la même “présence” visuelle même si bio/chips longues */
+  max-height: 42%;
+  overflow: hidden;
+}
+
+/* ✅ quand bio ouverte: scroll interne dans l’overlay */
+.cardOverlay.bio-open{
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .titleRow{
@@ -449,12 +463,46 @@ input:focus, select:focus, textarea:focus{
   box-shadow: 0 18px 50px rgba(0,0,0,.35);
 }
 
+.bioWrap{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
 .swipeBio{
   color: rgba(243,244,246,.88);
   font-size: 13px;
   line-height: 1.45;
   max-width: 60ch;
 }
+
+/* ✅ bio repliée */
+.swipeBio.clamp{
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ✅ bio ouverte */
+.swipeBio.open{
+  overflow: visible;
+}
+
+.bioToggle{
+  align-self: flex-start;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(243,244,246,.92);
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  padding: 7px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.bioToggle:active{ transform: scale(.99); }
 
 .swipeFooter{ margin-top: 2px; display:flex; justify-content:flex-start; }
 
@@ -654,13 +702,17 @@ input:focus, select:focus, textarea:focus{
     border-radius: calc(var(--r) + 4px);
   }
 
+  /* On revient à un scroll "normal" */
   .modal-body--scroll{
     padding-bottom: 18px;
   }
 
+  /* Et on enlève le bouton sticky (sinon ça prend trop de place) */
   .form .btn-primary.btn-block{
     position: static;
   }
+
+  /* -------- Matches + Chat -------- */
 
   .matches-list{
     display:flex;
@@ -754,4 +806,3 @@ input:focus, select:focus, textarea:focus{
     flex: 1;
   }
 }
-
