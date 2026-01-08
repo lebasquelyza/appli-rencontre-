@@ -91,8 +91,8 @@ export function SwipeCard({ profile }) {
             {city ? <div className="sub">{city}</div> : null}
           </div>
 
-          {/* ✅ chips sur 1 ligne (scroll horizontal si ça dépasse) */}
-          {(sport || level || profile?.availability) && (
+          {/* ✅ chips sur 1 ligne MAIS cachées quand bio ouverte */}
+          {!bioOpen && (sport || level || profile?.availability) && (
             <div className="chips chips-oneLine">
               {sport ? <span className="chip chip-accent">{sport}</span> : null}
               {level ? <span className="chip">{level}</span> : null}
@@ -106,13 +106,15 @@ export function SwipeCard({ profile }) {
             <div className="bioWrap">
               <div className={`swipeBio ${bioOpen ? "open" : "clamp"}`}>{bio}</div>
 
+              {/* ✅ bouton "..." */}
               {bioIsLong ? (
                 <button
                   type="button"
-                  className="bioToggle"
+                  className="bioDots"
+                  aria-label={bioOpen ? "Réduire la bio" : "Afficher la bio"}
                   onClick={() => setBioOpen((v) => !v)}
                 >
-                  {bioOpen ? "Réduire" : "Voir +"}
+                  …
                 </button>
               ) : null}
             </div>
@@ -122,3 +124,4 @@ export function SwipeCard({ profile }) {
     </article>
   );
 }
+
