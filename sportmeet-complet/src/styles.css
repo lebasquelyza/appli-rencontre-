@@ -331,7 +331,7 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
 }
 
-/* ✅ hauteur fixe (stable iOS si tu mets --vh via JS) */
+/* ✅ hauteur fixe */
 .cardMedia{
   height: calc(var(--vh, 1vh) * 62);
   min-height: 430px;
@@ -405,7 +405,7 @@ input:focus, select:focus, textarea:focus{
   z-index: 2;
 }
 
-/* ✅✅✅ IMPORTANT : overlay taille FIXE + animation */
+/* ✅ overlay taille FIXE + animation */
 .cardOverlay{
   position:absolute;
   left:0; right:0; bottom:0;
@@ -417,15 +417,15 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
   overflow: hidden;
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.82) 60%, rgba(0,0,0,.88) 100%);
-  transition: height .22s ease; /* ✅ animation */
+  transition: height .22s ease;
 }
 
 /* ✅ quand bio open : l’overlay grandit vers le haut */
 .cardOverlay.bio-open{
-  height: 56%;  /* tu peux ajuster 50% - 65% */
+  height: 56%;
 }
 
-/* ✅ title sur 1 ligne (sinon ça agrandit l’overlay) */
+/* ✅ title sur 1 ligne */
 .titleRow{
   display:flex;
   align-items:baseline;
@@ -498,7 +498,7 @@ input:focus, select:focus, textarea:focus{
   max-width: 60ch;
 }
 
-/* ✅ bio repliée : 2 lignes (avec ...) */
+/* ✅ bio repliée : 2 lignes */
 .swipeBio.clamp{
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -506,15 +506,15 @@ input:focus, select:focus, textarea:focus{
   overflow: hidden;
 }
 
-/* ✅ bio ouverte : scroll interne, sans changer la taille de la carte */
+/* ✅ bio ouverte : scroll interne */
 .swipeBio.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  max-height: 220px; /* ✅ plus grand */
+  max-height: 220px;
   padding-right: 6px;
 }
 
-/* ✅ bouton "..." */
+/* ✅ bouton : fermé = … / ouvert = ✕ */
 .bioDots{
   align-self: flex-start;
   font: inherit;
@@ -530,6 +530,12 @@ input:focus, select:focus, textarea:focus{
   user-select: none;
 }
 .bioDots:active{ transform: scale(.98); }
+
+/* ✅ petit look différent quand ouvert (optionnel) */
+.bioDots.is-open{
+  font-size: 16px;
+  padding: 7px 12px;
+}
 
 .actions{
   display:flex;
@@ -695,7 +701,6 @@ input:focus, select:focus, textarea:focus{
   flex-direction: column;
 }
 
-/* ✅ clé : la zone scroll doit pouvoir rétrécir */
 .modal-body--scroll{
   flex: 1;
   min-height: 0;
@@ -703,7 +708,6 @@ input:focus, select:focus, textarea:focus{
   -webkit-overflow-scrolling: touch;
 }
 
-/* ✅ CORRECTION : sur mobile on NE force plus le plein écran */
 @media (max-width: 640px){
   .modal-backdrop{
     padding: 14px;
@@ -725,8 +729,6 @@ input:focus, select:focus, textarea:focus{
   .form .btn-primary.btn-block{
     position: static;
   }
-
-  /* -------- Matches + Chat -------- */
 
   .matches-list{
     display:flex;
