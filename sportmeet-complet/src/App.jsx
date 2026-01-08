@@ -149,7 +149,6 @@ function HomePage({
     <>
       <main className="page">
         <div className="shell">
-          {/* ✅ Explorer un peu plus compact */}
           <section
             className="card card-results"
             style={{
@@ -160,7 +159,6 @@ function HomePage({
           >
             <FiltersBar filters={filters} onChange={onFiltersChange} onReset={onResetFilters} />
 
-            {/* ✅ message après création / modification */}
             {profileToast ? (
               <p className="form-message" style={{ marginTop: 8 }}>
                 {profileToast}{" "}
@@ -175,7 +173,6 @@ function HomePage({
               </p>
             ) : null}
 
-            {/* ✅ Compte suspendu: blocage total + bouton REPRENDRE */}
             {isSuspended ? (
               <div
                 className="form-message error"
@@ -238,14 +235,12 @@ function HomePage({
         </div>
       </main>
 
-      {/* ---------- MODALS ---------- */}
       {isProfileModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
           <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header" style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <h3 style={{ marginRight: "auto" }}>Mon profil sportif</h3>
 
-              {/* ✅ bouton Aperçu */}
               <button
                 type="button"
                 className="btn-ghost btn-sm"
@@ -272,7 +267,6 @@ function HomePage({
         </div>
       )}
 
-      {/* ✅ Modal Aperçu : carte statique (pas SwipeDeck) */}
       {isPreviewModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsPreviewModalOpen(false)}>
           <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
@@ -323,27 +317,16 @@ function CrushesFullPage({ user, onRequireAuth }) {
 export default function App() {
   const navigate = useNavigate();
 
-  // ✅ FIX iPhone/Safari (définitif) : viewport stable via visualViewport
+  // ✅ FIX DEFINITIF iPhone: on ne “suit” PAS le scroll Safari (sinon ça bouge)
+  // On fixe --vh au chargement + rotation uniquement.
   useEffect(() => {
     const setVh = () => {
       const h = window.visualViewport?.height ?? window.innerHeight;
       document.documentElement.style.setProperty("--vh", `${h * 0.01}px`);
     };
-
     setVh();
-
-    window.addEventListener("resize", setVh);
     window.addEventListener("orientationchange", setVh);
-
-    window.visualViewport?.addEventListener("resize", setVh);
-    window.visualViewport?.addEventListener("scroll", setVh);
-
-    return () => {
-      window.removeEventListener("resize", setVh);
-      window.removeEventListener("orientationchange", setVh);
-      window.visualViewport?.removeEventListener("resize", setVh);
-      window.visualViewport?.removeEventListener("scroll", setVh);
-    };
+    return () => window.removeEventListener("orientationchange", setVh);
   }, []);
 
   const [profiles, setProfiles] = useState([]);
@@ -374,15 +357,12 @@ export default function App() {
 
   const [profileToast, setProfileToast] = useState("");
 
-  // ✅ reprise compte
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState("");
 
   const isSuspended = !!user && myProfile?.status === "suspended";
-  // ✅ "comme si pas de compte" pour l'UI, mais on garde user en mémoire pour pouvoir reprendre
   const userForUI = isSuspended ? null : user;
 
-  // ✅ OUVRE AUTOMATIQUEMENT LE MODAL si lien Supabase "recovery"
   useEffect(() => {
     const h = window.location.hash || "";
     const isRecovery =
@@ -420,9 +400,6 @@ export default function App() {
     }
   }
 
-  /* -------------------------------
-     Auth session
-  -------------------------------- */
   useEffect(() => {
     let mounted = true;
 
@@ -444,9 +421,6 @@ export default function App() {
     };
   }, []);
 
-  /* -------------------------------
-     LOGOUT
-  -------------------------------- */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -456,9 +430,6 @@ export default function App() {
     navigate("/", { replace: true });
   };
 
-  /* -------------------------------
-     Fetch mon profil (lié à user_id)
-  -------------------------------- */
   const fetchMyProfile = async () => {
     if (!user) {
       setMyProfile(null);
@@ -514,9 +485,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  /* -------------------------------
-     Fetch tous les profils (✅ réels + démos si pas assez)
-  -------------------------------- */
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
     setProfilesError(null);
@@ -553,10 +521,8 @@ export default function App() {
 
     const deduped = dedupeByUserLatest(mapped);
 
-    // ✅ on garde uniquement les profils actifs (recommandé)
     const realActive = deduped.filter((p) => (p.status ?? "active") === "active");
 
-    // ✅ on complète avec des profils démo tant qu'il n'y a pas assez de profils réels
     const MIN_PROFILES_TO_SHOW = 30;
     const need = Math.max(0, MIN_PROFILES_TO_SHOW - realActive.length);
     const demoSlice = seedProfiles.slice(0, need);
@@ -572,9 +538,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* -------------------------------
-     Realtime: met à jour la liste chez tous les clients
-  -------------------------------- */
   useEffect(() => {
     const channel = supabase
       .channel("profiles-realtime")
@@ -589,9 +552,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* -------------------------------
-     REPRENDRE: réactiver le compte
-  -------------------------------- */
   const handleResumeAccount = async () => {
     setResumeError("");
     if (!user || !myProfile?.id) return;
@@ -624,9 +584,6 @@ export default function App() {
     }
   };
 
-  /* -------------------------------
-     Upload photos -> URLs publiques
-  -------------------------------- */
   const uploadProfilePhotos = async (profileId, files) => {
     const urls = [];
 
@@ -651,21 +608,14 @@ export default function App() {
     return urls;
   };
 
-  /* -------------------------------
-     Delete photos from Supabase Storage (best-effort)
-  -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
     const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
-
     if (paths.length === 0) return;
 
     const { error } = await supabase.storage.from(BUCKET).remove(paths);
     if (error) console.error("Supabase remove error:", error);
   };
 
-  /* -------------------------------
-     SAVE profil (bloqué si suspendu)
-  -------------------------------- */
   const handleSaveProfile = async (data) => {
     if (isSuspended) throw new Error("SUSPENDED_ACCOUNT");
 
@@ -683,9 +633,7 @@ export default function App() {
       throw new Error("AUTH_REQUIRED");
     }
 
-    if (!data.name || !data.city || !data.sport || !data.level) {
-      throw new Error("MISSING_FIELDS");
-    }
+    if (!data.name || !data.city || !data.sport || !data.level) throw new Error("MISSING_FIELDS");
 
     const ageNum = Number(data.age);
     if (!Number.isFinite(ageNum)) throw new Error("AGE_REQUIRED");
@@ -794,9 +742,6 @@ export default function App() {
     setIsProfileModalOpen(false);
   };
 
-  /* -------------------------------
-     Filtres (✅ mon profil exclu de la page Explorer)
-  -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
   const handleResetFilters = () =>
     setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
@@ -810,7 +755,6 @@ export default function App() {
       const myLoc = filters.myLocation;
 
       const base = profiles.filter((p) => {
-        // ✅ on retire mon profil du swipe
         if (user && p.user_id === user.id) return false;
 
         if (filters.sport) {
@@ -857,9 +801,6 @@ export default function App() {
     };
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* -------------------------------
-     Like/Swipe : bloqué si pas connecté OU suspendu
-  -------------------------------- */
   const handleLike = async () => {
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
@@ -936,17 +877,14 @@ export default function App() {
           }
         />
 
-        {/* ✅ Pages légales */}
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
 
-        {/* ✅ Réglages */}
         <Route
           path="/settings"
           element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
         />
 
-        {/* ✅ Configurer compte */}
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
