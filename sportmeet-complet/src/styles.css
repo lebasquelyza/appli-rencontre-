@@ -31,19 +31,6 @@ body{
   overflow-x:hidden;
 }
 
-/* ✅ LOCK iOS: empêche le scroll/bounce qui fait “varier” la taille */
-html.no-scroll,
-body.no-scroll{
-  height: 100%;
-  overflow: hidden;
-}
-body.no-scroll{
-  position: fixed;
-  width: 100%;
-  left: 0;
-  right: 0;
-}
-
 body::before{
   content:"";
   position:fixed; inset:0;
@@ -242,7 +229,7 @@ input:focus, select:focus, textarea:focus{
   background: rgba(255,255,255,.04);
 }
 
-/* Filters */
+/* Filters (bouton + panel déroulant) */
 .filters{
   display:flex;
   flex-direction:column;
@@ -296,6 +283,7 @@ input:focus, select:focus, textarea:focus{
   padding-bottom: 2px;
 }
 
+/* ✅ Slide fluide */
 .filters-panelWrap{
   overflow: hidden;
   max-height: 0px;
@@ -343,21 +331,23 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
 }
 
-/* ✅ hauteur stable iOS */
+/* ✅ carte taille fixe + stable iOS (via --vh) */
 .cardMedia{
   height: calc(var(--vh, 1vh) * 62);
   min-height: 430px;
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
 }
 
+/* ✅ base pour media (photos ou fallback) */
 .swipeMedia{
   position: relative;
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
+  touch-action: pan-y;
 }
 
-/* Carousel photos */
+/* ✅ Carousel photos */
 .photo-track{
   display: flex;
   height: 100%;
@@ -375,7 +365,7 @@ input:focus, select:focus, textarea:focus{
   display: block;
 }
 
-/* Dots */
+/* ✅ Dots */
 .photo-dots{
   position: absolute;
   top: 14px;
@@ -395,6 +385,7 @@ input:focus, select:focus, textarea:focus{
   background: #fff;
 }
 
+/* ✅ voile sombre UNIQUEMENT quand il y a une photo */
 .swipeMedia.has-photo::before{
   content:"";
   position:absolute;
@@ -407,6 +398,7 @@ input:focus, select:focus, textarea:focus{
   content: none;
 }
 
+/* Overlay + avatar au-dessus */
 .cardOverlay,
 .swipeAvatar{
   position: relative;
@@ -423,6 +415,51 @@ input:focus, select:focus, textarea:focus{
   gap: 10px;
   background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,.78) 100%);
 }
+
+/* ✅ bio wrapper */
+.bioWrap{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+/* ✅ bio clamp fermé */
+.swipeBio{
+  color: rgba(243,244,246,.88);
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 60ch;
+}
+.swipeBio.clamp{
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ✅ bio ouverte: scroll interne (sans changer la hauteur de la carte) */
+.swipeBio.open{
+  max-height: 110px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 6px;
+}
+
+/* bouton */
+.bioToggle{
+  align-self: flex-start;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(243,244,246,.92);
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  padding: 7px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.bioToggle:active{ transform: scale(.99); }
 
 .titleRow{
   display:flex;
@@ -451,13 +488,6 @@ input:focus, select:focus, textarea:focus{
   background: rgba(255,255,255,.85);
   border: 1px solid rgba(255,255,255,.25);
   box-shadow: 0 18px 50px rgba(0,0,0,.35);
-}
-
-.swipeBio{
-  color: rgba(243,244,246,.88);
-  font-size: 13px;
-  line-height: 1.45;
-  max-width: 60ch;
 }
 
 .swipeFooter{ margin-top: 2px; display:flex; justify-content:flex-start; }
@@ -624,7 +654,10 @@ input:focus, select:focus, textarea:focus{
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
 
-/* Modal mobile-friendly */
+/* -------------------------------
+   Modal mobile-friendly (profil etc.)
+-------------------------------- */
+
 .modal-card--sheet{
   width: min(520px, 100%);
   max-height: 85vh;
@@ -632,6 +665,7 @@ input:focus, select:focus, textarea:focus{
   flex-direction: column;
 }
 
+/* ✅ clé : la zone scroll doit pouvoir rétrécir */
 .modal-body--scroll{
   flex: 1;
   min-height: 0;
@@ -639,6 +673,7 @@ input:focus, select:focus, textarea:focus{
   -webkit-overflow-scrolling: touch;
 }
 
+/* ✅ CORRECTION : sur mobile on NE force plus le plein écran */
 @media (max-width: 640px){
   .modal-backdrop{
     padding: 14px;
