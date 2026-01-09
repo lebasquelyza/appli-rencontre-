@@ -55,18 +55,10 @@ body::before{
   padding: 14px 14px 22px;
 }
 
-/* ✅ STYLE "VRAIE APP" sur mobile: quasi bord-à-bord */
+/* ✅ "Vraie app" sur mobile : quasi bord-à-bord + coins un peu moins ronds */
 @media (max-width: 520px){
-  .page{
-    padding: 6px 6px 12px;
-  }
-
-  /* ✅ gagne encore de la largeur si la carte est dans .card-results */
-  .card-results{
-    padding: 10px; /* au lieu de 14px */
-  }
-
-  /* ✅ look plus "plein écran" */
+  .page{ padding: 6px 6px 12px; }
+  .card-results{ padding: 10px; } /* au lieu de 14px */
   :root{ --r: 22px; }
 }
 
@@ -236,14 +228,25 @@ input:focus, select:focus, textarea:focus{
 
 /* Chips */
 .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+
+/* ✅ FIX iOS: texte centré verticalement dans les chips (Fitness/Intermédiaire/Mercredi) */
 .chip{
   font-size:12px;
-  padding:8px 10px;
+  line-height: 1;              /* évite le décalage vertical iOS */
+  min-height: 30px;            /* hauteur stable */
+  padding: 0 12px;             /* padding vertical géré par min-height */
+  display: inline-flex;        /* permet le centrage */
+  align-items: center;         /* centre verticalement */
+  justify-content: center;     /* centre horizontalement */
+  gap: 6px;                    /* si icône */
   border-radius:999px;
   border:1px solid var(--stroke);
   background: rgba(255,255,255,.05);
   color: rgba(243,244,246,.85);
+  vertical-align: middle;
 }
+.chip img, .chip svg{ display:block; }
+
 .chip-accent{
   border-color: rgba(255,77,109,.35);
   background: rgba(255,77,109,.12);
@@ -355,10 +358,10 @@ input:focus, select:focus, textarea:focus{
   min-height: 0;
 }
 
-/* ✅✅✅ CARTE: taille stable basée sur --appH (ne bouge pas sur iPhone) */
+/* ✅✅✅ CARTE: taille stable basée sur --appH (ne bouge pas sur iPhone) + largeur 100% */
 .swipeCard{
   height: clamp(360px, calc(var(--appH, 100vh) * 0.56), 560px);
-  width: 100%; /* ✅ prend toute la largeur dispo */
+  width: 100%;
   overflow: hidden;
   transform: translateZ(0);
 }
