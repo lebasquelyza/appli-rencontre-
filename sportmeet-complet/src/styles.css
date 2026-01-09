@@ -908,6 +908,3 @@ input:focus, select:focus, textarea:focus{
   .chat-input input{ flex: 1; }
 }
 
-  .modal-body--scroll{ padding-bottom: 18px; }
-  .form .btn-primary.btn-block{ position: static; }
-}
