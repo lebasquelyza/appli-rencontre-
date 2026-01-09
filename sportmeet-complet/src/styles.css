@@ -17,19 +17,37 @@
 }
 
 *{ box-sizing:border-box; }
+
+/* ✅ FIX iPhone PWA: le fond doit aussi exister sur HTML (safe-area) */
 html,body{ height:100%; }
 
-body{
+html{
   margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  color: var(--text);
+  padding:0;
   background:
     radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
     radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
     radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
     linear-gradient(180deg, var(--bg1), var(--bg0));
+}
+
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+
+  /* ✅ Même fond que html (évite les zones blanches en haut) */
+  background:
+    radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
+    radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
+    radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
+
   overflow-x:hidden;
 }
+
+/* ✅ s’assure que le root couvre bien tout l’écran */
+#root{ min-height: 100vh; }
 
 body::before{
   content:"";
@@ -44,6 +62,10 @@ body::before{
 .app-root{
   /* ✅ stable (ne bouge pas avec la barre Safari) */
   min-height: var(--appH, 100vh);
+
+  /* ✅ FIX iPhone PWA: respecter les safe-areas (haut + bas) */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .page{
@@ -55,9 +77,11 @@ body::before{
   padding: 14px 14px 22px;
 }
 
-/* ✅ "Vraie app" sur mobile : quasi bord-à-bord + coins un peu moins ronds */
+/* ✅ "Vraie app" sur mobile : plus bord-à-bord */
 @media (max-width: 520px){
-  .page{ padding: 6px 6px 12px; }
+  /* ✅ plus large : réduit les marges latérales */
+  .page{ padding: 4px 4px 10px; }
+
   .card-results{ padding: 10px; } /* au lieu de 14px */
   :root{ --r: 22px; }
 }
@@ -71,6 +95,13 @@ body::before{
   flex-direction:column;
   gap:14px;
   min-height: 0;
+}
+
+/* ✅ Sur iPhone: autorise une largeur plus grande (moins “étroit”) */
+@media (max-width: 520px){
+  .shell{
+    max-width: 100%;
+  }
 }
 
 /* Header */
@@ -91,6 +122,16 @@ body::before{
   align-items:center;
   justify-content:space-between;
   gap:12px;
+}
+
+/* ✅ sur iPhone: un peu plus d’air au-dessus si notch */
+@media (max-width: 520px){
+  .topbar-inner{
+    padding-top: calc(10px + env(safe-area-inset-top));
+    padding-bottom: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 }
 
 .brand{
@@ -232,13 +273,13 @@ input:focus, select:focus, textarea:focus{
 /* ✅ FIX iOS: texte centré verticalement dans les chips (Fitness/Intermédiaire/Mercredi) */
 .chip{
   font-size:12px;
-  line-height: 1;              /* évite le décalage vertical iOS */
-  min-height: 30px;            /* hauteur stable */
-  padding: 0 12px;             /* padding vertical géré par min-height */
-  display: inline-flex;        /* permet le centrage */
-  align-items: center;         /* centre verticalement */
-  justify-content: center;     /* centre horizontalement */
-  gap: 6px;                    /* si icône */
+  line-height: 1;
+  min-height: 30px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border-radius:999px;
   border:1px solid var(--stroke);
   background: rgba(255,255,255,.05);
@@ -358,9 +399,10 @@ input:focus, select:focus, textarea:focus{
   min-height: 0;
 }
 
-/* ✅✅✅ CARTE: taille stable basée sur --appH (ne bouge pas sur iPhone) + largeur 100% */
+/* ✅✅✅ CARTE: moins haute + plus “large visuellement” (grâce aux paddings réduits) */
 .swipeCard{
-  height: clamp(360px, calc(var(--appH, 100vh) * 0.56), 560px);
+  /* avant: *0.56, max 560px -> un peu trop haut */
+  height: clamp(340px, calc(var(--appH, 100vh) * 0.50), 520px);
   width: 100%;
   overflow: hidden;
   transform: translateZ(0);
@@ -706,6 +748,30 @@ input:focus, select:focus, textarea:focus{
 
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
+
+/* ✅ Sur iPhone: footer “MatchFit © 2026” centré tout en bas, un peu plus haut */
+@media (max-width: 520px){
+  .footer{
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(env(safe-area-inset-bottom) + 12px);
+    padding: 0;
+    border-top: 0;
+    background: transparent;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .footer-inner{
+    justify-content: center;
+  }
+
+  /* optionnel: si tu as une note, on la cache sur mobile */
+  .footer-note{
+    display: none;
+  }
+}
 
 /* Modal sheet */
 .modal-card--sheet{
