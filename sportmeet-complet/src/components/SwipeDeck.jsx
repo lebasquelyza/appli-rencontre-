@@ -6,7 +6,6 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // ✅ Tu as déjà --appH dans App.jsx, donc on n’a plus besoin de --vh ici.
   useEffect(() => {
     setIndex(0);
   }, [profiles]);
@@ -114,7 +113,6 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
     <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
-          {/* ✅ wrapper pour contrôler la largeur + marges */}
           <div className="swipeStage">
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
