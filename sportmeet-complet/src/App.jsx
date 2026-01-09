@@ -235,6 +235,7 @@ function HomePage({
         </div>
       </main>
 
+      {/* ---------- MODALS ---------- */}
       {isProfileModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
           <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
@@ -317,16 +318,27 @@ function CrushesFullPage({ user, onRequireAuth }) {
 export default function App() {
   const navigate = useNavigate();
 
-  // ✅ FIX DEFINITIF iPhone: on ne “suit” PAS le scroll Safari (sinon ça bouge)
-  // On fixe --vh au chargement + rotation uniquement.
+  // ✅ FIX DEFINITIF iPhone: on “verrouille” la hauteur de l’app
+  // IMPORTANT: pas de resize => sinon Safari barre d’adresse fait bouger tout.
   useEffect(() => {
-    const setVh = () => {
+    const setAppHeight = () => {
       const h = window.visualViewport?.height ?? window.innerHeight;
-      document.documentElement.style.setProperty("--vh", `${h * 0.01}px`);
+      document.documentElement.style.setProperty("--appH", `${h}px`);
     };
-    setVh();
-    window.addEventListener("orientationchange", setVh);
-    return () => window.removeEventListener("orientationchange", setVh);
+
+    setAppHeight();
+
+    window.addEventListener("orientationchange", setAppHeight);
+
+    const onVis = () => {
+      if (!document.hidden) setAppHeight();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      window.removeEventListener("orientationchange", setAppHeight);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, []);
 
   const [profiles, setProfiles] = useState([]);
@@ -400,6 +412,9 @@ export default function App() {
     }
   }
 
+  /* -------------------------------
+     Auth session
+  -------------------------------- */
   useEffect(() => {
     let mounted = true;
 
@@ -421,6 +436,9 @@ export default function App() {
     };
   }, []);
 
+  /* -------------------------------
+     LOGOUT
+  -------------------------------- */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -430,6 +448,9 @@ export default function App() {
     navigate("/", { replace: true });
   };
 
+  /* -------------------------------
+     Fetch mon profil (lié à user_id)
+  -------------------------------- */
   const fetchMyProfile = async () => {
     if (!user) {
       setMyProfile(null);
@@ -485,6 +506,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  /* -------------------------------
+     Fetch tous les profils (✅ réels + démos si pas assez)
+  -------------------------------- */
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
     setProfilesError(null);
@@ -538,6 +562,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* -------------------------------
+     Realtime
+  -------------------------------- */
   useEffect(() => {
     const channel = supabase
       .channel("profiles-realtime")
@@ -552,6 +579,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* -------------------------------
+     REPRENDRE: réactiver le compte
+  -------------------------------- */
   const handleResumeAccount = async () => {
     setResumeError("");
     if (!user || !myProfile?.id) return;
@@ -584,6 +614,9 @@ export default function App() {
     }
   };
 
+  /* -------------------------------
+     Upload photos -> URLs publiques
+  -------------------------------- */
   const uploadProfilePhotos = async (profileId, files) => {
     const urls = [];
 
@@ -608,6 +641,9 @@ export default function App() {
     return urls;
   };
 
+  /* -------------------------------
+     Delete photos from Supabase Storage (best-effort)
+  -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
     const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
     if (paths.length === 0) return;
@@ -616,6 +652,9 @@ export default function App() {
     if (error) console.error("Supabase remove error:", error);
   };
 
+  /* -------------------------------
+     SAVE profil
+  -------------------------------- */
   const handleSaveProfile = async (data) => {
     if (isSuspended) throw new Error("SUSPENDED_ACCOUNT");
 
@@ -742,6 +781,9 @@ export default function App() {
     setIsProfileModalOpen(false);
   };
 
+  /* -------------------------------
+     Filtres
+  -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
   const handleResetFilters = () =>
     setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
@@ -801,6 +843,9 @@ export default function App() {
     };
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* -------------------------------
+     Like/Swipe
+  -------------------------------- */
   const handleLike = async () => {
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
