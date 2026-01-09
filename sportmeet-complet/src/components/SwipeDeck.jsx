@@ -6,33 +6,7 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // ✅ iPhone Safari: vh stable (sans bloquer le scroll)
-  useEffect(() => {
-    const setVh = () => {
-      const height =
-        (window.visualViewport && window.visualViewport.height) || window.innerHeight || 0;
-      document.documentElement.style.setProperty("--vh", `${height * 0.01}px`);
-    };
-
-    setVh();
-    window.addEventListener("resize", setVh);
-    window.addEventListener("orientationchange", setVh);
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", setVh);
-      window.visualViewport.addEventListener("scroll", setVh);
-    }
-
-    return () => {
-      window.removeEventListener("resize", setVh);
-      window.removeEventListener("orientationchange", setVh);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", setVh);
-        window.visualViewport.removeEventListener("scroll", setVh);
-      }
-    };
-  }, []);
-
+  // ✅ Tu as déjà --appH dans App.jsx, donc on n’a plus besoin de --vh ici.
   useEffect(() => {
     setIndex(0);
   }, [profiles]);
@@ -140,11 +114,14 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
     <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
-          {isShareCard ? (
-            <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
-          ) : (
-            <SwipeCard key={currentProfile.id} profile={currentProfile} />
-          )}
+          {/* ✅ wrapper pour contrôler la largeur + marges */}
+          <div className="swipeStage">
+            {isShareCard ? (
+              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
+            ) : (
+              <SwipeCard key={currentProfile.id} profile={currentProfile} />
+            )}
+          </div>
 
           {!isAuthenticated && !isShareCard ? (
             <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
