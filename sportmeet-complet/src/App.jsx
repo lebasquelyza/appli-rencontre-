@@ -318,18 +318,13 @@ function CrushesFullPage({ user, onRequireAuth }) {
 export default function App() {
   const navigate = useNavigate();
 
-  // ✅ FIX DEFINITIF iPhone: hauteur verrouillée + suppression du rebond scroll iOS (body lock)
+  // ✅ FIX DEFINITIF iPhone: on “verrouille” la hauteur de l’app
+  // IMPORTANT: pas de resize => sinon Safari barre d’adresse fait bouger tout.
   useEffect(() => {
     const setAppHeight = () => {
       const h = window.visualViewport?.height ?? window.innerHeight;
       document.documentElement.style.setProperty("--appH", `${h}px`);
     };
-
-    // lock body scroll (sinon iOS "pompe" et fait bouger visuellement)
-    const prevOverflow = document.body.style.overflow;
-    const prevOverscroll = document.body.style.overscrollBehavior;
-    document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
 
     setAppHeight();
 
@@ -343,8 +338,6 @@ export default function App() {
     return () => {
       window.removeEventListener("orientationchange", setAppHeight);
       document.removeEventListener("visibilitychange", onVis);
-      document.body.style.overflow = prevOverflow;
-      document.body.style.overscrollBehavior = prevOverscroll;
     };
   }, []);
 
@@ -456,7 +449,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     Fetch mon profil
+     Fetch mon profil (lié à user_id)
   -------------------------------- */
   const fetchMyProfile = async () => {
     if (!user) {
@@ -514,7 +507,7 @@ export default function App() {
   }, [user?.id]);
 
   /* -------------------------------
-     Fetch profils
+     Fetch tous les profils (✅ réels + démos si pas assez)
   -------------------------------- */
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
@@ -551,6 +544,7 @@ export default function App() {
     }));
 
     const deduped = dedupeByUserLatest(mapped);
+
     const realActive = deduped.filter((p) => (p.status ?? "active") === "active");
 
     const MIN_PROFILES_TO_SHOW = 30;
@@ -586,7 +580,7 @@ export default function App() {
   }, []);
 
   /* -------------------------------
-     REPRENDRE
+     REPRENDRE: réactiver le compte
   -------------------------------- */
   const handleResumeAccount = async () => {
     setResumeError("");
@@ -648,7 +642,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     Delete photos storage
+     Delete photos from Supabase Storage (best-effort)
   -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
     const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
