@@ -17,10 +17,9 @@
 }
 
 *{ box-sizing:border-box; }
-
-/* ✅ FIX iPhone PWA: le fond doit aussi exister sur HTML (safe-area) */
 html,body{ height:100%; }
 
+/* ✅ FIX iPhone PWA: le fond doit aussi exister sur HTML (safe-area) */
 html{
   margin:0;
   padding:0;
@@ -35,18 +34,15 @@ body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--text);
-
-  /* ✅ Même fond que html (évite les zones blanches en haut) */
   background:
     radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
     radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
     radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
     linear-gradient(180deg, var(--bg1), var(--bg0));
-
   overflow-x:hidden;
 }
 
-/* ✅ s’assure que le root couvre bien tout l’écran */
+/* ✅ root doit couvrir l’écran */
 #root{ min-height: 100vh; }
 
 body::before{
@@ -63,7 +59,7 @@ body::before{
   /* ✅ stable (ne bouge pas avec la barre Safari) */
   min-height: var(--appH, 100vh);
 
-  /* ✅ FIX iPhone PWA: respecter les safe-areas (haut + bas) */
+  /* ✅ SAFE AREA iPhone (notch + bas) */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -77,16 +73,14 @@ body::before{
   padding: 14px 14px 22px;
 }
 
-/* ✅ "Vraie app" sur mobile : plus bord-à-bord */
+/* ✅ "Vraie app" sur mobile : quasi bord-à-bord */
 @media (max-width: 520px){
-  /* ✅ plus large : réduit les marges latérales */
   .page{ padding: 4px 4px 10px; }
-
   .card-results{ padding: 10px; } /* au lieu de 14px */
   :root{ --r: 22px; }
 }
 
-/* ✅ plus large (au lieu de width:min(420px, 100%)) */
+/* ✅ plus large (desktop) + full width (mobile) */
 .shell{
   width: 100%;
   max-width: 520px;
@@ -96,12 +90,8 @@ body::before{
   gap:14px;
   min-height: 0;
 }
-
-/* ✅ Sur iPhone: autorise une largeur plus grande (moins “étroit”) */
 @media (max-width: 520px){
-  .shell{
-    max-width: 100%;
-  }
+  .shell{ max-width: 100%; }
 }
 
 /* Header */
@@ -124,7 +114,7 @@ body::before{
   gap:12px;
 }
 
-/* ✅ sur iPhone: un peu plus d’air au-dessus si notch */
+/* ✅ sur iPhone: respiration notch */
 @media (max-width: 520px){
   .topbar-inner{
     padding-top: calc(10px + env(safe-area-inset-top));
@@ -270,7 +260,7 @@ input:focus, select:focus, textarea:focus{
 /* Chips */
 .chips{ display:flex; flex-wrap:wrap; gap:8px; }
 
-/* ✅ FIX iOS: texte centré verticalement dans les chips (Fitness/Intermédiaire/Mercredi) */
+/* ✅ FIX iOS: texte centré verticalement dans les chips */
 .chip{
   font-size:12px;
   line-height: 1;
@@ -399,10 +389,19 @@ input:focus, select:focus, textarea:focus{
   min-height: 0;
 }
 
-/* ✅✅✅ CARTE: moins haute + plus “large visuellement” (grâce aux paddings réduits) */
+/* ✅ wrapper de carte (ajouté dans SwipeDeck.jsx) => plus large */
+.swipeStage{
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+@media (max-width: 520px){
+  .swipeStage{ max-width: 100%; }
+}
+
+/* ✅✅✅ CARTE: moins haute */
 .swipeCard{
-  /* avant: *0.56, max 560px -> un peu trop haut */
-  height: clamp(340px, calc(var(--appH, 100vh) * 0.50), 520px);
+  height: clamp(320px, calc(var(--appH, 100vh) * 0.46), 500px);
   width: 100%;
   overflow: hidden;
   transform: translateZ(0);
@@ -729,7 +728,7 @@ input:focus, select:focus, textarea:focus{
 .form-message.success{ color: rgba(34,197,94,.85); }
 .form-message.error{ color: rgba(239,68,68,.90); }
 
-/* Footer */
+/* Footer (desktop/tablette) */
 .footer{
   padding: 14px 14px 18px;
   border-top: 1px solid rgba(255,255,255,.08);
@@ -749,13 +748,14 @@ input:focus, select:focus, textarea:focus{
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
 
-/* ✅ Sur iPhone: footer “MatchFit © 2026” centré tout en bas, un peu plus haut */
+/* ✅ iPhone: footer centré + un peu plus haut + ne cache pas le contenu */
 @media (max-width: 520px){
   .footer{
     position: fixed;
     left: 0;
     right: 0;
     bottom: calc(env(safe-area-inset-bottom) + 12px);
+
     padding: 0;
     border-top: 0;
     background: transparent;
@@ -764,12 +764,25 @@ input:focus, select:focus, textarea:focus{
   }
 
   .footer-inner{
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
     justify-content: center;
+    align-items: center;
   }
 
-  /* optionnel: si tu as une note, on la cache sur mobile */
-  .footer-note{
-    display: none;
+  .footerLeft{
+    width: 100%;
+    text-align: center;
+    font-size: 14px;
+    opacity: 0.85;
+  }
+
+  .footer-note{ display:none; }
+
+  /* ✅ espace pour ne pas recouvrir le bas */
+  .page{
+    padding-bottom: 84px;
   }
 }
 
@@ -894,3 +907,4 @@ input:focus, select:focus, textarea:focus{
   }
   .chat-input input{ flex: 1; }
 }
+
