@@ -333,15 +333,15 @@ input:focus, select:focus, textarea:focus{
   min-height: 0; /* ✅ important iOS */
 }
 
-/* ✅✅✅ HAUTEUR STABLE (iPhone) : fallback --vh + préférence svh */
+/* ✅✅✅ CARTE RESPONSIVE (tous téléphones) */
 .swipeCard{
-  height: calc(var(--vh, 1vh) * 62);
-  min-height: 430px;
+  /* 360px min (petits phones) — 56% écran (normal) — 560px max (grands phones) */
+  height: clamp(360px, 56svh, 560px);
+  /* fallback si svh pas supporté */
+  height: clamp(360px, calc(var(--vh, 1vh) * 56), 560px);
+
   overflow: hidden;
   transform: translateZ(0);
-}
-@supports (height: 1svh){
-  .swipeCard{ height: 62svh; }
 }
 
 /* media prend la hauteur de la carte */
@@ -574,6 +574,17 @@ input:focus, select:focus, textarea:focus{
   padding-bottom: 6px;
 }
 
+.swipe-empty{
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px dashed rgba(255,255,255,.18);
+  background: rgba(255,255,255,.03);
+}
+.swipe-empty p{
+  margin: 0 0 10px;
+  color: rgba(243,244,246,.80);
+}
+
 /* Matches list */
 .liked-list{
   margin-top: 12px;
@@ -690,6 +701,7 @@ input:focus, select:focus, textarea:focus{
   -webkit-overflow-scrolling: touch;
 }
 
+/* ✅ CORRECTION mobile */
 @media (max-width: 640px){
   .modal-backdrop{
     padding: 14px;
