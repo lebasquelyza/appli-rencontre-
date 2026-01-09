@@ -20,7 +20,7 @@ export function SwipeCard({ profile }) {
     setBioOpen(false);
   }, [profile?.id]);
 
-  // ✅ si la liste de photos change, on évite un index “hors limite”
+  // ✅ évite un index hors limite si la liste de photos change
   useEffect(() => {
     setIndex((i) => Math.min(i, Math.max(0, photos.length - 1)));
   }, [photos.length]);
@@ -66,7 +66,6 @@ export function SwipeCard({ profile }) {
         onTouchEnd={onTouchEnd}
         style={{
           ...(hasPhotos ? null : bgFallback),
-          /* ✅ iOS: meilleure gestion du swipe horizontal */
           touchAction: "pan-y"
         }}
       >
