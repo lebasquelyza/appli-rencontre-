@@ -1,16 +1,15 @@
-// sportmeet-complet/src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
 
-// ✅ Enregistrement du Service Worker (PWA)
+// ✅ PWA: enregistrement du Service Worker
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js")
-      .catch((err) => console.log("SW registration failed:", err));
+    navigator.serviceWorker.register("/sw.js").catch((err) => {
+      console.log("SW registration failed:", err);
+    });
   });
 }
 
