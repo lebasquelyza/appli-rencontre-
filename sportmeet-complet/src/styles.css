@@ -41,10 +41,14 @@ body::before{
 }
 
 /* Layout */
-.app-root{ min-height:100dvh; }
+.app-root{
+  /* ✅ stable (ne bouge pas avec la barre Safari) */
+  min-height: var(--appH, 100vh);
+}
 
 .page{
-  min-height: calc(100dvh - 120px);
+  /* ✅ stable (ne bouge pas avec la barre Safari) */
+  min-height: calc(var(--appH, 100vh) - 120px);
   display:flex;
   flex-direction:column;
   justify-content:flex-start;
@@ -56,7 +60,7 @@ body::before{
   display:flex;
   flex-direction:column;
   gap:14px;
-  min-height: 0; /* ✅ important iOS */
+  min-height: 0;
 }
 
 /* Header */
@@ -330,16 +334,12 @@ input:focus, select:focus, textarea:focus{
   display:flex;
   flex-direction:column;
   gap: 10px;
-  min-height: 0; /* ✅ important iOS */
+  min-height: 0;
 }
 
-/* ✅✅✅ CARTE RESPONSIVE (tous téléphones) */
+/* ✅✅✅ CARTE: taille stable basée sur --appH (ne bouge pas sur iPhone) */
 .swipeCard{
-  /* 360px min (petits phones) — 56% écran (normal) — 560px max (grands phones) */
-  height: clamp(360px, 56svh, 560px);
-  /* fallback si svh pas supporté */
-  height: clamp(360px, calc(var(--vh, 1vh) * 56), 560px);
-
+  height: clamp(360px, calc(var(--appH, 100vh) * 0.56), 560px);
   overflow: hidden;
   transform: translateZ(0);
 }
@@ -427,7 +427,7 @@ input:focus, select:focus, textarea:focus{
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.82) 60%, rgba(0,0,0,.88) 100%);
 }
 
-/* ✅ title row */
+/* title row */
 .titleRow{
   display:flex;
   align-items:flex-start;
@@ -436,7 +436,7 @@ input:focus, select:focus, textarea:focus{
   min-width: 0;
 }
 
-/* ✅✅ SANS "..." : coupe “sec” (clip), 2 lignes max */
+/* ✅ SANS "..." */
 .h1{
   font-size: 26px;
   font-weight: 900;
@@ -448,7 +448,6 @@ input:focus, select:focus, textarea:focus{
   max-height: calc(1.15em * 2);
 }
 
-/* ✅ ville sans "..." */
 .sub{
   color: var(--muted);
   font-weight:700;
@@ -504,13 +503,11 @@ input:focus, select:focus, textarea:focus{
   max-width: 60ch;
 }
 
-/* bio clamp 2 lignes (sans ellipsis forcé : on coupe) */
 .swipeBio.clamp{
   overflow: hidden;
   max-height: calc(1.45em * 2);
 }
 
-/* bio ouverte : scroll interne */
 .swipeBio.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
@@ -533,6 +530,7 @@ input:focus, select:focus, textarea:focus{
 }
 .bioToggle:active{ transform: scale(.99); }
 
+/* Actions */
 .actions{
   display:flex;
   justify-content:space-between;
@@ -574,6 +572,7 @@ input:focus, select:focus, textarea:focus{
   padding-bottom: 6px;
 }
 
+/* Swipe empty */
 .swipe-empty{
   padding: 18px;
   border-radius: 18px;
@@ -701,7 +700,7 @@ input:focus, select:focus, textarea:focus{
   -webkit-overflow-scrolling: touch;
 }
 
-/* ✅ CORRECTION mobile */
+/* Mobile */
 @media (max-width: 640px){
   .modal-backdrop{
     padding: 14px;
