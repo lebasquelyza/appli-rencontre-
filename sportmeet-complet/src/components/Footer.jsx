@@ -8,9 +8,6 @@ export function Footer() {
     <footer className="footer" role="contentinfo">
       <div className="footer-inner">
         <span className="footerLeft">MatchFit © {year}</span>
-
-        {/* Tu peux laisser vide, mais je conseille de supprimer l'espace inutile */}
-        {/* <span className="footer-note"></span> */}
       </div>
     </footer>
   );
