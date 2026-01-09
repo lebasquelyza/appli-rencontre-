@@ -19,7 +19,6 @@
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 
-/* ✅ FIX iPhone PWA: le fond doit aussi exister sur HTML (safe-area) */
 html{
   margin:0;
   padding:0;
@@ -42,7 +41,6 @@ body{
   overflow-x:hidden;
 }
 
-/* ✅ root doit couvrir l’écran */
 #root{ min-height: 100vh; }
 
 body::before{
@@ -56,16 +54,12 @@ body::before{
 
 /* Layout */
 .app-root{
-  /* ✅ stable (ne bouge pas avec la barre Safari) */
   min-height: var(--appH, 100vh);
-
-  /* ✅ SAFE AREA iPhone (notch + bas) */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 .page{
-  /* ✅ stable (ne bouge pas avec la barre Safari) */
   min-height: calc(var(--appH, 100vh) - 120px);
   display:flex;
   flex-direction:column;
@@ -73,14 +67,12 @@ body::before{
   padding: 14px 14px 22px;
 }
 
-/* ✅ "Vraie app" sur mobile : quasi bord-à-bord */
 @media (max-width: 520px){
   .page{ padding: 4px 4px 10px; }
-  .card-results{ padding: 10px; } /* au lieu de 14px */
+  .card-results{ padding: 10px; }
   :root{ --r: 22px; }
 }
 
-/* ✅ plus large (desktop) + full width (mobile) */
 .shell{
   width: 100%;
   max-width: 520px;
@@ -114,7 +106,6 @@ body::before{
   gap:12px;
 }
 
-/* ✅ sur iPhone: respiration notch */
 @media (max-width: 520px){
   .topbar-inner{
     padding-top: calc(10px + env(safe-area-inset-top));
@@ -260,7 +251,6 @@ input:focus, select:focus, textarea:focus{
 /* Chips */
 .chips{ display:flex; flex-wrap:wrap; gap:8px; }
 
-/* ✅ FIX iOS: texte centré verticalement dans les chips */
 .chip{
   font-size:12px;
   line-height: 1;
@@ -389,7 +379,7 @@ input:focus, select:focus, textarea:focus{
   min-height: 0;
 }
 
-/* ✅ wrapper de carte (ajouté dans SwipeDeck.jsx) => plus large */
+/* ✅ plus large */
 .swipeStage{
   width: 100%;
   max-width: 560px;
@@ -399,22 +389,20 @@ input:focus, select:focus, textarea:focus{
   .swipeStage{ max-width: 100%; }
 }
 
-/* ✅✅✅ CARTE: moins haute */
+/* ✅ carte moins haute (corrige ton écran) */
 .swipeCard{
-  height: clamp(320px, calc(var(--appH, 100vh) * 0.46), 500px);
+  height: clamp(300px, calc(var(--appH, 100vh) * 0.42), 470px);
   width: 100%;
   overflow: hidden;
   transform: translateZ(0);
 }
 
-/* media prend la hauteur de la carte */
 .cardMedia{
   height: 100%;
   min-height: 0;
   background: linear-gradient(180deg, rgba(0,0,0,.00), rgba(0,0,0,.65));
 }
 
-/* base media */
 .swipeMedia{
   position: relative;
   background-repeat: no-repeat;
@@ -423,7 +411,6 @@ input:focus, select:focus, textarea:focus{
   touch-action: pan-y;
 }
 
-/* Carousel photos */
 .photo-track{
   display: flex;
   height: 100%;
@@ -441,7 +428,6 @@ input:focus, select:focus, textarea:focus{
   display: block;
 }
 
-/* Dots */
 .photo-dots{
   position: absolute;
   top: 14px;
@@ -459,7 +445,6 @@ input:focus, select:focus, textarea:focus{
 }
 .dot.active{ background: #fff; }
 
-/* voile sombre UNIQUEMENT quand photo */
 .swipeMedia.has-photo::before{
   content:"";
   position:absolute;
@@ -476,12 +461,12 @@ input:focus, select:focus, textarea:focus{
   z-index: 2;
 }
 
-/* overlay fixe */
+/* ✅ overlay plus grand (moins coupé) */
 .cardOverlay{
   position:absolute;
   left:0; right:0; bottom:0;
-  height: 34%;
-  padding: 18px;
+  height: 38%;
+  padding: 16px;
   display:flex;
   flex-direction:column;
   justify-content:flex-end;
@@ -490,7 +475,6 @@ input:focus, select:focus, textarea:focus{
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.82) 60%, rgba(0,0,0,.88) 100%);
 }
 
-/* title row */
 .titleRow{
   display:flex;
   align-items:flex-start;
@@ -499,7 +483,6 @@ input:focus, select:focus, textarea:focus{
   min-width: 0;
 }
 
-/* ✅ SANS "..." */
 .h1{
   font-size: 26px;
   font-weight: 900;
@@ -522,7 +505,6 @@ input:focus, select:focus, textarea:focus{
   max-height: calc(1.25em * 2);
 }
 
-/* chips 1 ligne */
 .chips-oneLine{
   flex-wrap: nowrap !important;
   overflow-x: auto;
@@ -533,7 +515,6 @@ input:focus, select:focus, textarea:focus{
 .chips-oneLine::-webkit-scrollbar{ display:none; }
 .chips-oneLine .chip{ flex: 0 0 auto; }
 
-/* Avatar */
 .swipeAvatar{
   position:absolute;
   top: 16px;
@@ -551,7 +532,6 @@ input:focus, select:focus, textarea:focus{
   box-shadow: 0 18px 50px rgba(0,0,0,.35);
 }
 
-/* Bio */
 .bioWrap{
   display:flex;
   flex-direction:column;
@@ -647,23 +627,6 @@ input:focus, select:focus, textarea:focus{
   color: rgba(243,244,246,.80);
 }
 
-/* Matches list */
-.liked-list{
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255,255,255,.10);
-}
-.liked-list h3{
-  margin: 0 0 10px;
-  font-size: 14px;
-  color: rgba(243,244,246,.92);
-}
-.liked-chips{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-}
-
 /* Modal */
 .modal-backdrop{
   position: fixed;
@@ -698,27 +661,6 @@ input:focus, select:focus, textarea:focus{
 .modal-header h3{ margin:0; font-size: 15px; letter-spacing:.2px; }
 .modal-body{ padding: 14px; }
 
-.modalTitle{ margin: 0 0 6px; font-size: 18px; letter-spacing:.2px; }
-
-.card-subtitle{
-  margin: 0 0 14px;
-  color: rgba(243,244,246,.72);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.form{ display:flex; flex-direction:column; gap: 12px; }
-.form-group{ display:flex; flex-direction:column; }
-
-.form-row-inline{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-@media (max-width: 420px){
-  .form-row-inline{ grid-template-columns: 1fr; }
-}
-
 .form-message{
   min-height: 18px;
   margin: 0;
@@ -748,14 +690,13 @@ input:focus, select:focus, textarea:focus{
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
 
-/* ✅ iPhone: footer centré + un peu plus haut + ne cache pas le contenu */
+/* ✅ iPhone: footer centré + plus haut */
 @media (max-width: 520px){
   .footer{
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(env(safe-area-inset-bottom) + 12px);
-
+    bottom: calc(env(safe-area-inset-bottom) + 34px);
     padding: 0;
     border-top: 0;
     background: transparent;
@@ -766,9 +707,9 @@ input:focus, select:focus, textarea:focus{
   .footer-inner{
     width: 100%;
     margin: 0 auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display:flex;
+    justify-content:center;
+    align-items:center;
   }
 
   .footerLeft{
@@ -780,9 +721,9 @@ input:focus, select:focus, textarea:focus{
 
   .footer-note{ display:none; }
 
-  /* ✅ espace pour ne pas recouvrir le bas */
+  /* ✅ laisse de la place pour le footer + home bar */
   .page{
-    padding-bottom: 84px;
+    padding-bottom: 110px;
   }
 }
 
@@ -818,93 +759,4 @@ input:focus, select:focus, textarea:focus{
 
   .modal-body--scroll{ padding-bottom: 18px; }
   .form .btn-primary.btn-block{ position: static; }
-
-  .matches-list{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    margin-top: 10px;
-  }
-
-  .match-row{
-    width: 100%;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:12px;
-    padding: 12px 12px;
-    border-radius: 18px;
-    border: 1px solid rgba(255,255,255,.10);
-    background: rgba(255,255,255,.04);
-    cursor:pointer;
-    color: inherit;
-  }
-  .match-row:hover{ background: rgba(255,255,255,.06); }
-
-  .match-row-left{
-    min-width:0;
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-  }
-
-  .match-row-title{
-    font-weight: 900;
-    letter-spacing: .2px;
-  }
-
-  .match-row-sub{
-    font-size: 12px;
-    color: rgba(243,244,246,.70);
-    white-space: nowrap;
-    overflow:hidden;
-    text-overflow: ellipsis;
-    max-width: 52ch;
-  }
-
-  .match-row-right{
-    font-size: 18px;
-    opacity: .9;
-  }
-
-  .chat-box{
-    margin-top: 10px;
-    border: 1px solid rgba(255,255,255,.10);
-    background: rgba(255,255,255,.03);
-    border-radius: 18px;
-    padding: 12px;
-    max-height: 45vh;
-    overflow: auto;
-  }
-
-  .chat-bubble{
-    border: 1px solid rgba(255,255,255,.10);
-    background: rgba(255,255,255,.04);
-    border-radius: 16px;
-    padding: 10px 10px;
-    margin-bottom: 8px;
-  }
-  .chat-bubble.mine{
-    border-color: rgba(255,77,109,.28);
-    background: rgba(255,77,109,.10);
-  }
-
-  .chat-body{
-    font-size: 13px;
-    line-height: 1.35;
-  }
-  .chat-time{
-    margin-top: 6px;
-    font-size: 11px;
-    opacity: .65;
-  }
-
-  .chat-input{
-    display:flex;
-    gap:10px;
-    align-items:center;
-    margin-top: 10px;
-  }
-  .chat-input input{ flex: 1; }
 }
-
