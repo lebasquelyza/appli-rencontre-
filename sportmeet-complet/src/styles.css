@@ -55,14 +55,22 @@ body::before{
   padding: 14px 14px 22px;
 }
 
-/* ✅ PLUS LARGE sur mobile (réduit les marges) */
+/* ✅ STYLE "VRAIE APP" sur mobile: quasi bord-à-bord */
 @media (max-width: 520px){
   .page{
-    padding: 12px 8px 18px;
+    padding: 6px 6px 12px;
   }
+
+  /* ✅ gagne encore de la largeur si la carte est dans .card-results */
+  .card-results{
+    padding: 10px; /* au lieu de 14px */
+  }
+
+  /* ✅ look plus "plein écran" */
+  :root{ --r: 22px; }
 }
 
-/* ✅ CORRECTION : plus large (au lieu de width:min(420px, 100%)) */
+/* ✅ plus large (au lieu de width:min(420px, 100%)) */
 .shell{
   width: 100%;
   max-width: 520px;
@@ -350,6 +358,7 @@ input:focus, select:focus, textarea:focus{
 /* ✅✅✅ CARTE: taille stable basée sur --appH (ne bouge pas sur iPhone) */
 .swipeCard{
   height: clamp(360px, calc(var(--appH, 100vh) * 0.56), 560px);
+  width: 100%; /* ✅ prend toute la largeur dispo */
   overflow: hidden;
   transform: translateZ(0);
 }
@@ -708,190 +717,6 @@ input:focus, select:focus, textarea:focus{
   min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-}
-
-/* ===========================
-   ✅ AJOUT MINIMAL : ProfileCard fixe + bio qui ne pousse jamais
-   =========================== */
-
-/* Même taille que la carte "Partager MatchFit" (même formule que .swipeCard) */
-.profile-swipeCard{
-  height: clamp(360px, calc(var(--appH, 100vh) * 0.56), 560px);
-  overflow: hidden;
-  transform: translateZ(0);
-}
-
-/* Background photo (si tu passes une image en style backgroundImage) */
-.profile-media{
-  position: absolute;
-  inset: 0;
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-}
-
-/* Si pas de photo => gradient simple */
-.profile-card.no-photo .profile-media{
-  background-image: linear-gradient(
-    180deg,
-    rgba(255,255,255,.08),
-    rgba(255,255,255,.04),
-    rgba(0,0,0,.25)
-  );
-}
-
-/* voile sombre UNIQUEMENT quand photo */
-.profile-card.has-photo::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.60));
-  pointer-events:none;
-  z-index: 1;
-}
-
-.profile-overlay,
-.profile-avatar-float{
-  position: relative;
-  z-index: 2;
-}
-
-/* Avatar flottant */
-.profile-avatar-float{
-  position:absolute;
-  top: 16px;
-  left: 16px;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  display:grid;
-  place-items:center;
-  font-weight: 950;
-  font-size: 22px;
-  color: #0b0c10;
-  background: rgba(255,255,255,.85);
-  border: 1px solid rgba(255,255,255,.25);
-  box-shadow: 0 18px 50px rgba(0,0,0,.35);
-}
-
-/* overlay fixe en bas => le texte ne peut jamais agrandir la carte */
-.profile-overlay{
-  position:absolute;
-  left:0; right:0; bottom:0;
-  height: 34%;
-  padding: 18px;
-  display:flex;
-  flex-direction:column;
-  justify-content:flex-end;
-  gap: 10px;
-  overflow: hidden;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.82) 60%, rgba(0,0,0,.88) 100%);
-}
-
-/* title row */
-.profile-titleRow{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:10px;
-  min-width: 0;
-}
-
-.profile-titleCol{ min-width:0; flex: 1; }
-
-.profile-h1{
-  font-size: 26px;
-  font-weight: 900;
-  line-height: 1.15;
-  min-width: 0;
-  white-space: normal;
-  overflow: hidden;
-  text-overflow: clip;
-  max-height: calc(1.15em * 2);
-}
-
-.profile-sub{
-  color: var(--muted);
-  font-weight:700;
-  font-size: 13px;
-  min-width: 0;
-  white-space: normal;
-  overflow: hidden;
-  text-overflow: clip;
-  max-height: calc(1.25em * 2);
-}
-
-/* badges/chips à droite (scroll horizontal si trop long) */
-.profile-badges{
-  display:flex;
-  gap:8px;
-  flex-shrink:0;
-  max-width: 45%;
-  overflow-x:auto;
-  overflow-y:hidden;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
-}
-.profile-badges::-webkit-scrollbar{ display:none; }
-.profile-badges .chip{ flex: 0 0 auto; }
-
-/* Bio wrap */
-.profile-bioWrap{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  min-height: 0;
-}
-
-/* ✅ Bio NE POUSSE JAMAIS : clamp visuel */
-.profile-bio{
-  margin: 0;
-  color: rgba(243,244,246,.88);
-  font-size: 13px;
-  line-height: 1.45;
-  max-width: 60ch;
-  overflow-wrap: anywhere;
-}
-
-.profile-bio.clamp{
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-
-/* Option scroll interne si tu veux (className="profile-bio open") */
-.profile-bio.open{
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  max-height: 88px;
-  padding-right: 6px;
-}
-
-.profile-availability{
-  margin: 0;
-  font-size: 12px;
-  color: rgba(243,244,246,.85);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Footer */
-.profile-footer{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
-}
-
-.profile-meta{
-  font-size: 12px;
-  color: rgba(243,244,246,.72);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 60%;
 }
 
 /* Mobile */
