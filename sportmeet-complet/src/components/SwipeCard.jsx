@@ -20,6 +20,11 @@ export function SwipeCard({ profile }) {
     setBioOpen(false);
   }, [profile?.id]);
 
+  // ✅ si la liste de photos change, on évite un index “hors limite”
+  useEffect(() => {
+    setIndex((i) => Math.min(i, Math.max(0, photos.length - 1)));
+  }, [photos.length]);
+
   const initial = profile?.name?.[0]?.toUpperCase() ?? "M";
   const hue = hashToHue(`${profile?.name}-${profile?.city}-${profile?.sport}`);
 
@@ -31,8 +36,7 @@ export function SwipeCard({ profile }) {
     `
   };
 
-  const isInBio = (target) =>
-    !!target?.closest?.(".swipeBio.open, .bioToggle");
+  const isInBio = (target) => !!target?.closest?.(".swipeBio.open, .bioToggle");
 
   const onTouchStart = (e) => {
     if (isInBio(e.target)) return;
@@ -60,7 +64,11 @@ export function SwipeCard({ profile }) {
         className={`cardMedia swipeMedia ${hasPhotos ? "has-photo" : "no-photo"}`}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        style={!hasPhotos ? bgFallback : undefined}
+        style={{
+          ...(hasPhotos ? null : bgFallback),
+          /* ✅ iOS: meilleure gestion du swipe horizontal */
+          touchAction: "pan-y"
+        }}
       >
         {hasPhotos && (
           <div className="photo-track" style={{ transform: `translateX(-${index * 100}%)` }}>
