@@ -4,7 +4,12 @@
     <meta charset="UTF-8" />
     <title>MatchFit - Rencontres entre sportifs</title>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- ✅ IMPORTANT iPhone PWA: viewport-fit=cover enlève le “blanc” lié au safe-area -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+
     <meta
       name="description"
       content="MatchFit est une application de mise en relation entre sportifs par ville, sport et niveau."
@@ -14,7 +19,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0b0c10" />
 
-    <!-- ✅ iOS (important pour ouvrir sans barre Safari après ajout à l'écran d'accueil) -->
+    <!-- ✅ iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="MatchFit" />
