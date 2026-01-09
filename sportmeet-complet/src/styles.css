@@ -55,8 +55,18 @@ body::before{
   padding: 14px 14px 22px;
 }
 
+/* ✅ PLUS LARGE sur mobile (réduit les marges) */
+@media (max-width: 520px){
+  .page{
+    padding: 12px 8px 18px;
+  }
+}
+
+/* ✅ CORRECTION : plus large (au lieu de width:min(420px, 100%)) */
 .shell{
-  width:min(420px, 100%);
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
   display:flex;
   flex-direction:column;
   gap:14px;
@@ -702,7 +712,6 @@ input:focus, select:focus, textarea:focus{
 
 /* ===========================
    ✅ AJOUT MINIMAL : ProfileCard fixe + bio qui ne pousse jamais
-   (ajouté sans toucher au reste)
    =========================== */
 
 /* Même taille que la carte "Partager MatchFit" (même formule que .swipeCard) */
@@ -834,7 +843,7 @@ input:focus, select:focus, textarea:focus{
   min-height: 0;
 }
 
-/* ✅ Bio NE POUSSE JAMAIS : clamp visuel (au lieu de slice JS) */
+/* ✅ Bio NE POUSSE JAMAIS : clamp visuel */
 .profile-bio{
   margin: 0;
   color: rgba(243,244,246,.88);
@@ -851,7 +860,7 @@ input:focus, select:focus, textarea:focus{
   overflow: hidden;
 }
 
-/* Option scroll interne si tu veux (il suffit de mettre className="profile-bio open") */
+/* Option scroll interne si tu veux (className="profile-bio open") */
 .profile-bio.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
