@@ -389,7 +389,7 @@ input:focus, select:focus, textarea:focus{
   min-height: 0;
 }
 
-/* ✅ wrapper de carte (ajouté dans SwipeDeck.jsx) => plus large */
+/* ✅ wrapper de carte => plus large */
 .swipeStage{
   width: 100%;
   max-width: 560px;
@@ -399,7 +399,7 @@ input:focus, select:focus, textarea:focus{
   .swipeStage{ max-width: 100%; }
 }
 
-/* ✅✅✅ CARTE: un peu plus haute (évite la coupe chips/bio) */
+/* ✅✅✅ CARTE */
 .swipeCard{
   height: clamp(340px, calc(var(--appH, 100vh) * 0.46), 540px);
   width: 100%;
@@ -476,7 +476,7 @@ input:focus, select:focus, textarea:focus{
   z-index: 2;
 }
 
-/* ✅ overlay plus haut (chips + bio visibles) */
+/* ✅ overlay plus haut */
 .cardOverlay{
   position:absolute;
   left:0; right:0; bottom:0;
@@ -753,18 +753,17 @@ input:focus, select:focus, textarea:focus{
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
 
-/* ✅ iPhone: footer centré + plus haut + ne cache pas le contenu */
+/* ✅ iPhone: footer centré SANS chevaucher le bouton */
 @media (max-width: 520px){
   .footer{
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(env(safe-area-inset-bottom) + 34px);
-
+    bottom: calc(env(safe-area-inset-bottom) + 10px); /* ⬅️ plus bas qu’avant */
     padding: 0;
     border-top: 0;
     background: transparent;
-    z-index: 5;
+    z-index: 3; /* ⬅️ moins agressif */
     pointer-events: none;
   }
 
@@ -780,14 +779,16 @@ input:focus, select:focus, textarea:focus{
     width: 100%;
     text-align: center;
     font-size: 14px;
-    opacity: 0.85;
+    opacity: 0.75;
+    letter-spacing: .2px;
+    text-shadow: 0 6px 22px rgba(0,0,0,.55);
   }
 
   .footer-note{ display:none; }
 
-  /* ✅ espace pour ne pas recouvrir le bas */
+  /* ✅ réserve + d’espace pour le footer (évite chevauchement bouton) */
   .page{
-    padding-bottom: 110px;
+    padding-bottom: 150px;
   }
 }
 
