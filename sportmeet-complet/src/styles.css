@@ -19,22 +19,24 @@
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 
-/* ✅ FIX iPhone PWA: PAS de dégradé sur html (safe-area) -> fond uni */
+/* ✅ Dégradé SUR HTML => couvre aussi les safe-areas (plus de bandes noires) */
 html{
   margin:0;
   padding:0;
-  background: var(--bg0);
-}
-
-body{
-  margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  color: var(--text);
   background:
     radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
     radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
     radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
     linear-gradient(180deg, var(--bg1), var(--bg0));
+  background-attachment: fixed;
+}
+
+/* ✅ Body transparent => on voit le dégradé du HTML partout */
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+  background: transparent;
   overflow-x:hidden;
 }
 
@@ -55,13 +57,14 @@ body::before{
   /* ✅ stable (ne bouge pas avec la barre Safari) */
   min-height: var(--appH, 100vh);
 
-  /* ✅ SAFE AREA iPhone (notch + bas) */
-  padding-top: env(safe-area-inset-top);
+  /* ✅ IMPORTANT: pas de padding-top ici sinon le header descend */
+  padding-top: 0;
+
+  /* ✅ garde le bottom safe-area si tu veux éviter que le bas touche la barre */
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 .page{
-  /* ✅ stable (ne bouge pas avec la barre Safari) */
   min-height: calc(var(--appH, 100vh) - 120px);
   display:flex;
   flex-direction:column;
@@ -110,10 +113,10 @@ body::before{
   gap:12px;
 }
 
-/* ✅ sur iPhone: respiration notch */
+/* ✅ Sur iPhone: on garde une petite respiration, mais sans pousser le header vers le bas */
 @media (max-width: 520px){
   .topbar-inner{
-    padding-top: calc(10px + env(safe-area-inset-top));
+    padding-top: 10px; /* ⬅️ plus de env(safe-area-inset-top) */
     padding-bottom: 10px;
     padding-left: 10px;
     padding-right: 10px;
