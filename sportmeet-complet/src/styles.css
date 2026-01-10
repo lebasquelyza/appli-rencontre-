@@ -19,15 +19,11 @@
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 
-/* ✅ FIX iPhone PWA: le fond doit aussi exister sur HTML (safe-area) */
+/* ✅ FIX iPhone PWA: PAS de dégradé sur html (safe-area) -> fond uni */
 html{
   margin:0;
   padding:0;
-  background:
-    radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
-    radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
-    radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
-    linear-gradient(180deg, var(--bg1), var(--bg0));
+  background: var(--bg0);
 }
 
 body{
@@ -759,11 +755,11 @@ input:focus, select:focus, textarea:focus{
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(env(safe-area-inset-bottom) + 10px); /* ⬅️ plus bas qu’avant */
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
     padding: 0;
     border-top: 0;
     background: transparent;
-    z-index: 3; /* ⬅️ moins agressif */
+    z-index: 3;
     pointer-events: none;
   }
 
@@ -786,7 +782,6 @@ input:focus, select:focus, textarea:focus{
 
   .footer-note{ display:none; }
 
-  /* ✅ réserve + d’espace pour le footer (évite chevauchement bouton) */
   .page{
     padding-bottom: 150px;
   }
