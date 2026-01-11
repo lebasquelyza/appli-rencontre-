@@ -472,17 +472,24 @@ input:focus, select:focus, textarea:focus{
   z-index: 2;
 }
 
-/* overlay */
+/* ✅ overlay (OPTION 1) : plus haut + scroll si besoin (ne coupe plus en bas) */
 .cardOverlay{
   position:absolute;
   left:0; right:0; bottom:0;
-  height: 44%;
+
+  /* ✅ un peu plus haut pour laisser respirer le texte */
+  height: 52%;
+
   padding: 18px;
   display:flex;
   flex-direction:column;
   justify-content:flex-end;
   gap: 10px;
-  overflow: hidden;
+
+  /* ✅ au lieu de couper, on autorise le scroll si besoin */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+
   background: linear-gradient(
     180deg,
     rgba(0,0,0,0) 0%,
@@ -490,6 +497,9 @@ input:focus, select:focus, textarea:focus{
     rgba(0,0,0,.90) 100%
   );
 }
+
+/* (optionnel) cache la scrollbar visuelle sans enlever le scroll */
+.cardOverlay::-webkit-scrollbar{ display:none; }
 
 /* title row */
 .titleRow{
@@ -908,6 +918,7 @@ input:focus, select:focus, textarea:focus{
   }
   .chat-input input{ flex: 1; }
 }
+
 /* ✅ 2 lignes max pour les dispos, sans couper moche */
 .profile-availability{
   margin-top: 8px;
@@ -923,6 +934,7 @@ input:focus, select:focus, textarea:focus{
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
 /* ✅ Dispo sous les chips: lisible, jamais coupée */
 .availability-line{
   margin-top: 8px;
@@ -936,5 +948,3 @@ input:focus, select:focus, textarea:focus{
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
-
