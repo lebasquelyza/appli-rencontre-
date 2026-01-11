@@ -1,14 +1,38 @@
 // sportmeet-complet/src/components/SwipeDeck.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SwipeCard } from "./SwipeCard";
 
-export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireAuth }) {
+export function SwipeDeck({
+  profiles,
+  onLikeProfile,
+  isAuthenticated,
+  onRequireAuth,
+
+  // ✅ NOUVEAU: vrai si l'utilisateur a déjà créé son profil
+  hasMyProfile
+}) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+
+  // ✅ petit message "gate" quand pas de profil
+  const [gateMsg, setGateMsg] = useState("");
+  const gateTimerRef = useRef(null);
+
+  const showGate = (msg) => {
+    setGateMsg(msg);
+    if (gateTimerRef.current) window.clearTimeout(gateTimerRef.current);
+    gateTimerRef.current = window.setTimeout(() => setGateMsg(""), 2200);
+  };
 
   useEffect(() => {
     setIndex(0);
   }, [profiles]);
+
+  useEffect(() => {
+    return () => {
+      if (gateTimerRef.current) window.clearTimeout(gateTimerRef.current);
+    };
+  }, []);
 
   const hasProfile = index < profiles.length;
   const currentProfile = hasProfile ? profiles[index] : null;
@@ -72,13 +96,24 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
     [currentProfile?.id]
   );
 
-  const handleLike = async () => {
-    if (isShareCard) return;
-
+  // ✅ gate centralisé pour actions (✕ / ❤ / ★)
+  const guardAction = () => {
+    if (isShareCard) return { ok: false, reason: "share" };
     if (!isAuthenticated) {
       onRequireAuth?.();
-      return;
+      return { ok: false, reason: "auth" };
     }
+    if (!hasMyProfile) {
+      showGate("Crée ton profil avant de pouvoir trouver ta/ton partenaire 💪");
+      return { ok: false, reason: "no_profile" };
+    }
+    return { ok: true };
+  };
+
+  const handleLike = async () => {
+    const gate = guardAction();
+    if (!gate.ok) return;
+
     if (!currentProfile || busy) return;
 
     setBusy(true);
@@ -91,16 +126,16 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
   };
 
   const handleSkip = () => {
+    // share card: passer direct
     if (isShareCard) {
       if (busy) return;
       next();
       return;
     }
 
-    if (!isAuthenticated) {
-      onRequireAuth?.();
-      return;
-    }
+    const gate = guardAction();
+    if (!gate.ok) return;
+
     if (busy) return;
     next();
   };
@@ -120,6 +155,9 @@ export function SwipeDeck({ profiles, onLikeProfile, isAuthenticated, onRequireA
               <SwipeCard key={currentProfile.id} profile={currentProfile} />
             )}
           </div>
+
+          {/* ✅ toast message */}
+          {gateMsg && <div className="gate-toast">{gateMsg}</div>}
 
           {!isAuthenticated && !isShareCard ? (
             <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
