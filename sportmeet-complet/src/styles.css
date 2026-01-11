@@ -923,4 +923,18 @@ input:focus, select:focus, textarea:focus{
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* ✅ Dispo sous les chips: lisible, jamais coupée */
+.availability-line{
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(243,244,246,.85);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;      /* 2 lignes max */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 
