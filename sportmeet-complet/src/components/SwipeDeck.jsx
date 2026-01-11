@@ -9,7 +9,8 @@ export function SwipeDeck({
   onRequireAuth,
 
   // ✅ NOUVEAU: vrai si l'utilisateur a déjà créé son profil
-  hasMyProfile
+  // ✅ DEFAULT: true pour ne jamais bloquer si la prop n'est pas passée
+  hasMyProfile = true
 }) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -99,14 +100,18 @@ export function SwipeDeck({
   // ✅ gate centralisé pour actions (✕ / ❤ / ★)
   const guardAction = () => {
     if (isShareCard) return { ok: false, reason: "share" };
+
     if (!isAuthenticated) {
       onRequireAuth?.();
       return { ok: false, reason: "auth" };
     }
-    if (!hasMyProfile) {
+
+    // ✅ IMPORTANT: on bloque UNIQUEMENT si on reçoit explicitement false
+    if (hasMyProfile === false) {
       showGate("Crée ton profil avant de pouvoir trouver ta/ton partenaire 💪");
       return { ok: false, reason: "no_profile" };
     }
+
     return { ok: true };
   };
 
