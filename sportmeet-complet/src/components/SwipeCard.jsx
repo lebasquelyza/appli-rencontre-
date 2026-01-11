@@ -36,7 +36,9 @@ export function SwipeCard({ profile }) {
     `
   };
 
-  const isInBio = (target) => !!target?.closest?.(".swipeBio.open, .bioToggle");
+  // ✅ IMPORTANT: on considère que toute la bio est une zone "interactive"
+  // => pas de swipe photo quand on touche la bio
+  const isInBio = (target) => !!target?.closest?.(".swipeBio, .bioToggle");
 
   const onTouchStart = (e) => {
     if (isInBio(e.target)) return;
@@ -56,10 +58,7 @@ export function SwipeCard({ profile }) {
   };
 
   const bio = (profile?.bio || "").trim();
-  const bioIsLong = bio.length > 220;
-
-  const availabilityText = (profile?.availability || "").trim();
-  const hasAvailability = Boolean(availabilityText);
+  const bioIsLong = bio.length > 160; // un peu plus sensible que 220
 
   return (
     <article className="card swipeCard">
@@ -92,7 +91,8 @@ export function SwipeCard({ profile }) {
           </div>
         )}
 
-        <div className="cardOverlay">
+        {/* ✅ quand bioOpen => l’overlay monte (via CSS .bio-open) */}
+        <div className={`cardOverlay ${bioOpen ? "bio-open" : ""}`}>
           <div className="titleRow">
             <div className="h1">
               {profile?.name}
@@ -101,29 +101,45 @@ export function SwipeCard({ profile }) {
             {profile?.city && <div className="sub">{profile.city}</div>}
           </div>
 
-          {/* ✅ Chips sport + niveau (1 ligne scroll), puis dispo en dessous (2 lignes max) */}
-          {(profile?.sport || profile?.level) && (
+          {(profile?.sport || profile?.level || profile?.availability) && (
             <div className="chips chips-oneLine">
               {profile?.sport && <span className="chip chip-accent">{profile.sport}</span>}
               {profile?.level && <span className="chip">{profile.level}</span>}
-            </div>
-          )}
-
-          {hasAvailability && (
-            <div className="availability-line" title={availabilityText}>
-              📅 {availabilityText}
+              {profile?.availability && (
+                <span className="chip chip-soft">📅 {profile.availability}</span>
+              )}
             </div>
           )}
 
           {bio && (
             <div className="bioWrap">
-              <div className={`swipeBio ${bioOpen ? "open" : "clamp"}`}>{bio}</div>
+              {/* ✅ clic sur la bio = ouvre/ferme */}
+              <div
+                className={`swipeBio ${bioOpen ? "open" : "clamp"}`}
+                role={bioIsLong ? "button" : undefined}
+                tabIndex={bioIsLong ? 0 : undefined}
+                onClick={() => {
+                  if (!bioIsLong) return;
+                  setBioOpen((v) => !v);
+                }}
+                onKeyDown={(e) => {
+                  if (!bioIsLong) return;
+                  if (e.key === "Enter" || e.key === " ") setBioOpen((v) => !v);
+                }}
+                title={bioIsLong ? "Clique pour dérouler" : undefined}
+              >
+                {bio}
+              </div>
 
+              {/* ✅ optionnel: garde le bouton "Voir +" si tu veux */}
               {bioIsLong && (
                 <button
                   type="button"
                   className="bioToggle"
-                  onClick={() => setBioOpen((v) => !v)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setBioOpen((v) => !v);
+                  }}
                 >
                   {bioOpen ? "Réduire" : "Voir +"}
                 </button>
@@ -135,3 +151,4 @@ export function SwipeCard({ profile }) {
     </article>
   );
 }
+
