@@ -20,7 +20,6 @@ export function SwipeCard({ profile }) {
     setBioOpen(false);
   }, [profile?.id]);
 
-  // ✅ évite un index hors limite si la liste de photos change
   useEffect(() => {
     setIndex((i) => Math.min(i, Math.max(0, photos.length - 1)));
   }, [photos.length]);
@@ -36,17 +35,27 @@ export function SwipeCard({ profile }) {
     `
   };
 
-  // ✅ IMPORTANT: on considère que toute la bio est une zone "interactive"
-  // => pas de swipe photo quand on touche la bio
-  const isInBio = (target) => !!target?.closest?.(".swipeBio, .bioToggle");
+  const bio = (profile?.bio || "").trim();
+
+  // ✅ seuil plus bas => évite le cas "bio coupée mais pas de bouton"
+  const showToggleBtn = bio.length > 100;
+
+  // ✅ cliquer la bio ouvre/ferme dès qu’il y a du texte
+  const toggleBio = () => {
+    if (!bio) return;
+    setBioOpen((v) => !v);
+  };
+
+  // ✅ si on touche la zone bio, on ne swipe pas les photos
+  const isInBioZone = (target) => !!target?.closest?.(".swipeBio, .bioToggle");
 
   const onTouchStart = (e) => {
-    if (isInBio(e.target)) return;
+    if (isInBioZone(e.target)) return;
     startX.current = e.touches[0].clientX;
   };
 
   const onTouchEnd = (e) => {
-    if (isInBio(e.target)) return;
+    if (isInBioZone(e.target)) return;
     if (startX.current == null) return;
 
     const dx = e.changedTouches[0].clientX - startX.current;
@@ -56,9 +65,6 @@ export function SwipeCard({ profile }) {
     }
     startX.current = null;
   };
-
-  const bio = (profile?.bio || "").trim();
-  const bioIsLong = bio.length > 160; // un peu plus sensible que 220
 
   return (
     <article className="card swipeCard">
@@ -91,7 +97,7 @@ export function SwipeCard({ profile }) {
           </div>
         )}
 
-        {/* ✅ quand bioOpen => l’overlay monte (via CSS .bio-open) */}
+        {/* ✅ si bioOpen => overlay plus grand => "déroule vers le haut" */}
         <div className={`cardOverlay ${bioOpen ? "bio-open" : ""}`}>
           <div className="titleRow">
             <div className="h1">
@@ -113,32 +119,28 @@ export function SwipeCard({ profile }) {
 
           {bio && (
             <div className="bioWrap">
-              {/* ✅ clic sur la bio = ouvre/ferme */}
+              {/* ✅ clic sur la bio => ouvre / ferme */}
               <div
                 className={`swipeBio ${bioOpen ? "open" : "clamp"}`}
-                role={bioIsLong ? "button" : undefined}
-                tabIndex={bioIsLong ? 0 : undefined}
-                onClick={() => {
-                  if (!bioIsLong) return;
-                  setBioOpen((v) => !v);
-                }}
+                role="button"
+                tabIndex={0}
+                onClick={toggleBio}
                 onKeyDown={(e) => {
-                  if (!bioIsLong) return;
-                  if (e.key === "Enter" || e.key === " ") setBioOpen((v) => !v);
+                  if (e.key === "Enter" || e.key === " ") toggleBio();
                 }}
-                title={bioIsLong ? "Clique pour dérouler" : undefined}
+                title={bioOpen ? "Clique pour réduire" : "Clique pour dérouler"}
               >
                 {bio}
               </div>
 
-              {/* ✅ optionnel: garde le bouton "Voir +" si tu veux */}
-              {bioIsLong && (
+              {/* ✅ bouton en plus (optionnel) */}
+              {showToggleBtn && (
                 <button
                   type="button"
                   className="bioToggle"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setBioOpen((v) => !v);
+                    toggleBio();
                   }}
                 >
                   {bioOpen ? "Réduire" : "Voir +"}
@@ -151,4 +153,3 @@ export function SwipeCard({ profile }) {
     </article>
   );
 }
-
