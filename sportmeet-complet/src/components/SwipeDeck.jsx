@@ -90,7 +90,7 @@ export function SwipeDeck({
       level: "",
       availability: "",
       bio:
-        "Si tu veux rencontrer plus de partenaires d’entraînement, partage à tes potes… en espérant que ta/ton gymcrush en entendent parler 😉",
+        "Si tu veux rencontrer plus de partenaires d’entraînement, partage à tes potes. En espérant que ta/ton gymcrush en entendent parler 😉",
       photo_urls: [],
       isCustom: false
     }),
