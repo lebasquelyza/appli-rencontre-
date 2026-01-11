@@ -229,6 +229,7 @@ function HomePage({
                 onLikeProfile={handleLike}
                 isAuthenticated={!!userForUI && !isSuspended}
                 onRequireAuth={() => setIsAuthModalOpen(true)}
+                hasMyProfile={!!myProfile?.id}
               />
             )}
           </section>
