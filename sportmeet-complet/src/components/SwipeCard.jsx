@@ -58,6 +58,9 @@ export function SwipeCard({ profile }) {
   const bio = (profile?.bio || "").trim();
   const bioIsLong = bio.length > 220;
 
+  const availabilityText = (profile?.availability || "").trim();
+  const hasAvailability = Boolean(availabilityText);
+
   return (
     <article className="card swipeCard">
       <div
@@ -98,13 +101,17 @@ export function SwipeCard({ profile }) {
             {profile?.city && <div className="sub">{profile.city}</div>}
           </div>
 
-          {(profile?.sport || profile?.level || profile?.availability) && (
+          {/* ✅ Chips sport + niveau (1 ligne scroll), puis dispo en dessous (2 lignes max) */}
+          {(profile?.sport || profile?.level) && (
             <div className="chips chips-oneLine">
               {profile?.sport && <span className="chip chip-accent">{profile.sport}</span>}
               {profile?.level && <span className="chip">{profile.level}</span>}
-              {profile?.availability && (
-                <span className="chip chip-soft">📅 {profile.availability}</span>
-              )}
+            </div>
+          )}
+
+          {hasAvailability && (
+            <div className="availability-line" title={availabilityText}>
+              📅 {availabilityText}
             </div>
           )}
 
