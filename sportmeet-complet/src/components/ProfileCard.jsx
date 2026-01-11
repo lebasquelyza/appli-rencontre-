@@ -3,9 +3,11 @@ import React from "react";
 
 export function ProfileCard({ profile, highlight, onContact }) {
   const initial = profile.name?.[0]?.toUpperCase() ?? "S";
-  const hasAvailability = Boolean(profile.availability && profile.availability.trim());
 
-  // Si tu as une photo dans ton profil, on l'utilise (sinon on reste en "no-photo")
+  const availabilityText = (profile.availability ?? "").trim();
+  const hasAvailability = Boolean(availabilityText);
+
+  // Photo si dispo
   const photoUrl =
     profile.photoUrl ||
     profile.photo ||
@@ -23,13 +25,10 @@ export function ProfileCard({ profile, highlight, onContact }) {
         highlight ? "profile-highlight" : "",
       ].join(" ")}
     >
-      {/* Zone "photo" / background */}
       <div className="profile-media" style={mediaStyle} />
 
-      {/* Avatar initial en haut à gauche (comme tes captures) */}
       <div className="profile-avatar-float">{initial}</div>
 
-      {/* Overlay bottom (nom, tags, bio...) */}
       <div className="profile-overlay">
         <div className="profile-titleRow">
           <div className="profile-titleCol">
@@ -40,7 +39,8 @@ export function ProfileCard({ profile, highlight, onContact }) {
             <div className="profile-sub">{profile.city}</div>
           </div>
 
-          <div className="profile-badges">
+          {/* ✅ Chips sport + niveau */}
+          <div className="profile-badges chips">
             <span className="chip chip-accent">{profile.sport}</span>
             <span className="chip">{profile.level}</span>
           </div>
@@ -49,12 +49,14 @@ export function ProfileCard({ profile, highlight, onContact }) {
         {(profile.bio || hasAvailability) && (
           <div className="profile-bioWrap">
             {profile.bio && (
-              // IMPORTANT : on ne coupe plus en JS => c'est le CSS qui clamp/scroll
               <p className="profile-bio clamp">{profile.bio}</p>
             )}
 
+            {/* ✅ Dispos en dessous = jamais coupées comme une chip */}
             {hasAvailability && (
-              <p className="profile-availability">📅 {profile.availability}</p>
+              <p className="profile-availability clamp-2" title={availabilityText}>
+                📅 {availabilityText}
+              </p>
             )}
           </div>
         )}
