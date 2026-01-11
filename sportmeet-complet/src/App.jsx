@@ -143,7 +143,10 @@ function HomePage({
   resumeLoading,
   resumeError,
   isPreviewModalOpen,
-  setIsPreviewModalOpen
+  setIsPreviewModalOpen,
+
+  // ✅ NOUVEAU: supprimer profil
+  onDeleteMyProfile
 }) {
   return (
     <>
@@ -229,6 +232,7 @@ function HomePage({
                 onLikeProfile={handleLike}
                 isAuthenticated={!!userForUI && !isSuspended}
                 onRequireAuth={() => setIsAuthModalOpen(true)}
+                // ✅ IMPORTANT: permet la logique "si pas de profil => message"
                 hasMyProfile={!!myProfile?.id}
               />
             )}
@@ -251,6 +255,17 @@ function HomePage({
                 title="Voir l’aperçu (statique, sans swipe)"
               >
                 Aperçu
+              </button>
+
+              {/* ✅ NOUVEAU: supprimer profil */}
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={onDeleteMyProfile}
+                disabled={!myProfile}
+                title="Supprimer mon profil"
+              >
+                Supprimer
               </button>
 
               <button className="btn-ghost" onClick={() => setIsProfileModalOpen(false)}>
@@ -654,6 +669,59 @@ export default function App() {
   };
 
   /* -------------------------------
+     SUPPRIMER mon profil (✅ NOUVEAU)
+  -------------------------------- */
+  const handleDeleteMyProfile = async () => {
+    if (!user || isSuspended) {
+      if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
+      else setIsAuthModalOpen(true);
+      return;
+    }
+
+    if (!myProfile?.id) {
+      setProfileToast("Aucun profil à supprimer.");
+      window.clearTimeout(handleDeleteMyProfile.__t);
+      handleDeleteMyProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
+      return;
+    }
+
+    const ok = window.confirm(
+      "⚠️ Supprimer ton profil ?\n\n- Tes infos et photos seront supprimées.\n- Cette action est irréversible."
+    );
+    if (!ok) return;
+
+    try {
+      const urls = Array.isArray(myProfile.photo_urls) ? myProfile.photo_urls : [];
+      await deleteProfilePhotosFromStorage(urls);
+
+      const { error } = await supabase.from("profiles").delete().eq("id", myProfile.id);
+
+      if (error) {
+        console.error("delete profile error:", error);
+        setProfileToast("Impossible de supprimer le profil (RLS ?).");
+        window.clearTimeout(handleDeleteMyProfile.__t);
+        handleDeleteMyProfile.__t = window.setTimeout(() => setProfileToast(""), 3500);
+        return;
+      }
+
+      setMyProfile(null);
+      await fetchProfiles();
+
+      setIsProfileModalOpen(false);
+      setIsPreviewModalOpen(false);
+
+      setProfileToast("Profil supprimé ✅");
+      window.clearTimeout(handleDeleteMyProfile.__t);
+      handleDeleteMyProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
+    } catch (e) {
+      console.error("handleDeleteMyProfile error:", e);
+      setProfileToast("Erreur lors de la suppression.");
+      window.clearTimeout(handleDeleteMyProfile.__t);
+      handleDeleteMyProfile.__t = window.setTimeout(() => setProfileToast(""), 3500);
+    }
+  };
+
+  /* -------------------------------
      SAVE profil
   -------------------------------- */
   const handleSaveProfile = async (data) => {
@@ -912,6 +980,8 @@ export default function App() {
               resumeError={resumeError}
               isPreviewModalOpen={isPreviewModalOpen}
               setIsPreviewModalOpen={setIsPreviewModalOpen}
+              // ✅ NOUVEAU
+              onDeleteMyProfile={handleDeleteMyProfile}
             />
           }
         />
