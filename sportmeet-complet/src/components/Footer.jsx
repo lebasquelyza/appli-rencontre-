@@ -19,7 +19,7 @@ export function Footer() {
           <Link to="/cookies" className="footerLink">
             Cookies
           </Link>
-          <Link to="/delete-account" className="footerLink">
+          <Link to="/account" className="footerLink">
             Supprimer compte
           </Link>
         </nav>
