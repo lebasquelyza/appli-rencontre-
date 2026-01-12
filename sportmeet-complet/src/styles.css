@@ -395,9 +395,9 @@ input:focus, select:focus, textarea:focus{
   width: 100%;
 }
 
-/* ✅✅✅ CARTE */
+/* ✅✅✅ CARTE (corrigé: moins haute) */
 .swipeCard{
-  height: clamp(340px, calc(var(--appH, 100vh) * 0.46), 540px);
+  height: clamp(300px, calc(var(--appH, 100vh) * 0.40), 480px);
   width: 100%;
   overflow: hidden;
   transform: translateZ(0);
@@ -494,9 +494,9 @@ input:focus, select:focus, textarea:focus{
   transition: height .22s ease, padding .22s ease;
 }
 
-/* ✅ quand bio OU dispo ouverte -> plus de place */
+/* ✅ quand bio OU dispo ouverte -> plus de place (corrigé) */
 .cardOverlay.bio-open{
-  height: 62%;
+  height: 74%;
   padding-top: 14px;
 }
 
@@ -585,11 +585,11 @@ input:focus, select:focus, textarea:focus{
   overflow: hidden;
 }
 
-/* ✅ ouverte = scroll */
+/* ✅ ouverte = scroll (corrigé: plus grand) */
 .swipeBio.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  max-height: 160px;
+  max-height: 240px;
   padding-right: 6px;
 }
 
@@ -635,10 +635,11 @@ input:focus, select:focus, textarea:focus{
   overflow: hidden;
 }
 
+/* ✅ ouverte = scroll (corrigé: plus grand) */
 .swipeAvail.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  max-height: 140px;
+  max-height: 220px;
   padding-right: 6px;
 }
 
@@ -979,3 +980,4 @@ input:focus, select:focus, textarea:focus{
   }
   .chat-input input{ flex: 1; }
 }
+
