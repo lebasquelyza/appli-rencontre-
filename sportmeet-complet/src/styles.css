@@ -813,18 +813,19 @@ input:focus, select:focus, textarea:focus{
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
 
-/* ✅ iPhone: footer centré + safe-area */
+/* ✅✅✅ iPhone: footer FIXED visible, mais ne recouvre plus les boutons (OPTION 2) */
 @media (max-width: 520px){
   .footer{
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(env(safe-area-inset-bottom) + 10px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
     padding: 0;
     border-top: 0;
     background: transparent;
-    z-index: 3;
-    pointer-events: none;
+
+    z-index: 0;            /* ✅ derrière les boutons */
+    pointer-events: none;  /* ✅ ne bloque pas les taps */
   }
 
   .footer-inner{
@@ -846,9 +847,14 @@ input:focus, select:focus, textarea:focus{
 
   .footer-note{ display:none; }
 
-  /* ✅ réserve d’espace pour ne pas recouvrir le contenu/bouton */
+  /* ✅ on enlève la grosse réserve qui perturbait */
   .page{
-    padding-bottom: 150px;
+    padding-bottom: 12px;
+  }
+
+  /* ✅ on crée l’espace sous les boutons à la place */
+  .actions{
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 42px);
   }
 }
 
