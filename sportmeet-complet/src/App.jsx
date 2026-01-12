@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 
 import { Header } from "./components/Header";
-import { Footer } from "./components/Footer";
 import { ProfileForm } from "./components/ProfileForm";
 import { FiltersBar } from "./components/FiltersBar";
 import { SwipeDeck } from "./components/SwipeDeck";
@@ -980,7 +979,6 @@ export default function App() {
               resumeError={resumeError}
               isPreviewModalOpen={isPreviewModalOpen}
               setIsPreviewModalOpen={setIsPreviewModalOpen}
-              // ✅ NOUVEAU
               onDeleteMyProfile={handleDeleteMyProfile}
             />
           }
@@ -1004,7 +1002,22 @@ export default function App() {
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
-      <Footer />
+      {/* ✅ Texte simple en bas, sans Footer, safe-area iPhone, ne bloque pas les boutons */}
+      <div
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 6px)",
+          textAlign: "center",
+          fontSize: 14,
+          opacity: 0.7,
+          pointerEvents: "none",
+          zIndex: 0
+        }}
+      >
+        MatchFit © {new Date().getFullYear()}
+      </div>
     </div>
   );
 }
