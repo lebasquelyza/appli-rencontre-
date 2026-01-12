@@ -1,12 +1,17 @@
-// sportmeet-complet/src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, HashRouter } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
 
-// ✅ PWA: enregistrement du Service Worker
-if ("serviceWorker" in navigator) {
+// Détecte si on est dans Capacitor (app mobile)
+const isNativeApp =
+  typeof window !== "undefined" &&
+  !!window.Capacitor &&
+  window.Capacitor.isNativePlatform?.();
+
+// Service Worker : uniquement sur le web (pas dans l'app mobile)
+if (!isNativeApp && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch((err) => {
       console.log("SW registration failed:", err);
@@ -14,10 +19,12 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+const Router = isNativeApp ? HashRouter : BrowserRouter;
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <Router>
       <App />
-    </BrowserRouter>
+    </Router>
   </React.StrictMode>
 );
