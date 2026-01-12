@@ -397,7 +397,7 @@ input:focus, select:focus, textarea:focus{
 
 /* ✅✅✅ CARTE (corrigé: moins haute) */
 .swipeCard{
-  height: clamp(320px, calc(var(--appH, 100vh) * 0.48), 520px);
+  height: clamp(360px, calc(var(--appH, 100vh) * 0.58), 640px);
   width: 100%;
   overflow: hidden;
   transform: translateZ(0);
