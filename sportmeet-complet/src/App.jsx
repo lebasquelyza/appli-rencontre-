@@ -143,8 +143,6 @@ function HomePage({
   resumeError,
   isPreviewModalOpen,
   setIsPreviewModalOpen,
-
-  // ✅ NOUVEAU: supprimer profil
   onDeleteMyProfile
 }) {
   return (
@@ -255,7 +253,6 @@ function HomePage({
                 Aperçu
               </button>
 
-              {/* ✅ NOUVEAU: supprimer profil */}
               <button
                 type="button"
                 className="btn-ghost btn-sm"
@@ -323,7 +320,6 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers }) {
   return (
     <main className="page">
       <div className="shell">
-        {/* ✅ on passe aussi superlikers */}
         <CrushesPage crushes={crushes} superlikers={superlikers} onBack={() => navigate("/")} />
       </div>
     </main>
@@ -341,7 +337,6 @@ export default function App() {
     };
 
     setAppHeight();
-
     window.addEventListener("orientationchange", setAppHeight);
 
     const onVis = () => {
@@ -386,10 +381,21 @@ export default function App() {
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState("");
 
+  // ✅ Migration / normalisation des crushes (évite "Aucun message..." sur les anciens items)
+  const normalizeCrush = (c) => ({
+    id: c?.id,
+    name: c?.name || "Match",
+    photo: c?.photo || "/logo.png",
+    lastMessage: typeof c?.lastMessage === "string" ? c.lastMessage : "",
+    message:
+      (typeof c?.message === "string" && c.message.trim()) ? c.message : "Engage la conversation ;)"
+  });
+
   // ✅ Crushes (matchs) + persistance locale
   const [crushes, setCrushes] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("crushes") || "[]");
+      const raw = JSON.parse(localStorage.getItem("crushes") || "[]");
+      return Array.isArray(raw) ? raw.map(normalizeCrush) : [];
     } catch {
       return [];
     }
@@ -397,8 +403,9 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem("crushes", JSON.stringify(crushes));
+      localStorage.setItem("crushes", JSON.stringify(crushes.map(normalizeCrush)));
     } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [crushes]);
 
   // ✅ personnes qui m'ont superlike (pour le bloc Premium)
@@ -632,7 +639,6 @@ export default function App() {
     }));
 
     const deduped = dedupeByUserLatest(mapped);
-
     const realActive = deduped.filter((p) => (p.status ?? "active") === "active");
 
     const MIN_PROFILES_TO_SHOW = 30;
@@ -730,7 +736,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     Delete photos from Supabase Storage (best-effort)
+     Delete photos from Supabase Storage
   -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
     const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
@@ -1005,7 +1011,7 @@ export default function App() {
 
     if (!profile?.id) return;
 
-    // ✅ Limite 5 superlikes / jour (client-side + DB count)
+    // ✅ Limite 5 superlikes / jour
     if (isSuper) {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -1034,10 +1040,9 @@ export default function App() {
       is_super: isSuper
     });
 
-    // si doublon, on peut upgrader en superlike (★ après ❤)
-    const msg = String(likeErr?.message || "").toLowerCase();
-    if (likeErr && msg.includes("duplicate")) {
-      if (isSuper) {
+    // ✅ doublon (unique) -> on peut upgrader en superlike
+    if (likeErr) {
+      if (likeErr.code === "23505" && isSuper) {
         const { error: upErr } = await supabase
           .from("likes")
           .update({ is_super: true })
@@ -1045,9 +1050,9 @@ export default function App() {
           .eq("liked_profile_id", profile.id);
 
         if (upErr) console.error("upgrade to superlike error:", upErr);
+      } else if (likeErr.code !== "23505") {
+        console.error("Like insert error:", likeErr);
       }
-    } else if (likeErr) {
-      console.error("Like insert error:", likeErr);
     }
 
     // 2) créer match si réciproque (RPC Supabase)
@@ -1060,28 +1065,30 @@ export default function App() {
       return;
     }
 
-    // 3) si match => ajout dans crushes + texte
+    // 3) si match => ajout dans crushes + message test
     if (isMatch) {
       setCrushes((prev) => {
         if (prev.some((c) => String(c.id) === String(profile.id))) return prev;
 
-        return [
-          {
+        const next = [
+          normalizeCrush({
             id: profile.id,
             name: profile.name,
             photo: profile.photo_urls?.[0] || "/logo.png",
-            message: "Engage la conversation ;)"
-          },
+            message: "Engage la conversation ;)" // ✅ ton message test
+          }),
           ...prev
         ];
+
+        return next;
       });
 
-      setProfileToast("🎉 C’est un match ! Engage la conversation 😉");
+      setProfileToast("🎉 C’est un match !");
       window.clearTimeout(handleLike.__t);
       handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
     }
 
-    // 4) refresh liste superlikers (si besoin)
+    // 4) refresh superlikers
     fetchSuperlikers();
   };
 
