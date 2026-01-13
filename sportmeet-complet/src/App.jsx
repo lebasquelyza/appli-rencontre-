@@ -22,7 +22,7 @@ import { Settings } from "./pages/Settings";
 // ✅ Page Configurer compte
 import { AccountSettings } from "./pages/AccountSettings";
 
-// ✅ Page Chat (à créer)
+// ✅ Page Chat (doit exister)
 import { ChatPage } from "./pages/ChatPage";
 
 const BUCKET = "profile-photos";
@@ -51,6 +51,7 @@ function randomId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+// ✅ Convertit une publicUrl Supabase en "path" storage (bucket relatif)
 function storagePathFromPublicUrl(publicUrl) {
   try {
     const u = new URL(publicUrl);
@@ -63,6 +64,7 @@ function storagePathFromPublicUrl(publicUrl) {
   }
 }
 
+// ✅ distance km
 function haversineKm(a, b) {
   const R = 6371;
   const toRad = (x) => (x * Math.PI) / 180;
@@ -78,6 +80,7 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
+// ✅ garde un seul profil par user_id (le plus récent)
 function dedupeByUserLatest(list) {
   const byUser = new Map();
   const noUser = [];
@@ -102,6 +105,7 @@ function dedupeByUserLatest(list) {
   return [...byUser.values(), ...noUser];
 }
 
+// ✅ Ajoute une carte “share” entre profils
 function withShareInterstitial(list, every = 8) {
   const out = [];
   let k = 0;
@@ -148,7 +152,10 @@ function HomePage({
     <>
       <main className="page">
         <div className="shell">
-          <section className="card card-results" style={{ padding: 8, maxWidth: 820, margin: "8px auto 0" }}>
+          <section
+            className="card card-results"
+            style={{ padding: 8, maxWidth: 820, margin: "8px auto 0" }}
+          >
             <FiltersBar filters={filters} onChange={onFiltersChange} onReset={onResetFilters} />
 
             {profileToast ? (
@@ -180,7 +187,9 @@ function HomePage({
                   <strong>Compte suspendu</strong> — tant que tu n’as pas repris ton compte, tu ne peux
                   pas utiliser l’application.
                   {myProfile?.suspension_reason ? (
-                    <div style={{ marginTop: 6, opacity: 0.9 }}>Raison : {myProfile.suspension_reason}</div>
+                    <div style={{ marginTop: 6, opacity: 0.9 }}>
+                      Raison : {myProfile.suspension_reason}
+                    </div>
                   ) : null}
                   {resumeError ? <div style={{ marginTop: 6, opacity: 0.9 }}>{resumeError}</div> : null}
                 </div>
@@ -257,7 +266,11 @@ function HomePage({
             </div>
 
             <div className="modal-body modal-body--scroll">
-              <ProfileForm loadingExisting={loadingMyProfile} existingProfile={myProfile} onSaveProfile={handleSaveProfile} />
+              <ProfileForm
+                loadingExisting={loadingMyProfile}
+                existingProfile={myProfile}
+                onSaveProfile={handleSaveProfile}
+              />
             </div>
           </div>
         </div>
@@ -318,6 +331,7 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile 
 export default function App() {
   const navigate = useNavigate();
 
+  // ✅ FIX iPhone: on verrouille la hauteur
   useEffect(() => {
     const setAppHeight = () => {
       const h = window.visualViewport?.height ?? window.innerHeight;
@@ -369,7 +383,7 @@ export default function App() {
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState("");
 
-  // ✅ Crushes (matchs) + persistance locale
+  // ✅ Crushes persistés en local
   const [crushes, setCrushes] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("crushes") || "[]");
@@ -384,7 +398,7 @@ export default function App() {
     } catch {}
   }, [crushes]);
 
-  // ✅ personnes qui m'ont superlike (pour le bloc Premium)
+  // ✅ personnes qui m'ont superlike
   const [superlikers, setSuperlikers] = useState([]);
 
   const isSuspended = !!user && myProfile?.status === "suspended";
@@ -481,14 +495,8 @@ export default function App() {
       .limit(1)
       .maybeSingle();
 
-    if (error) {
-      console.error("fetchMyProfile error:", error);
-      setMyProfile(null);
-      setLoadingMyProfile(false);
-      return;
-    }
-
-    if (!data) {
+    if (error || !data) {
+      if (error) console.error("fetchMyProfile error:", error);
       setMyProfile(null);
       setLoadingMyProfile(false);
       return;
@@ -584,7 +592,10 @@ export default function App() {
     setLoadingProfiles(true);
     setProfilesError(null);
 
-    const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Supabase fetch profiles error:", error);
@@ -619,6 +630,7 @@ export default function App() {
     const demoSlice = seedProfiles.slice(0, need);
 
     const finalList = [...realActive, ...demoSlice];
+
     setProfiles(finalList.length ? finalList : seedProfiles);
     setLoadingProfiles(false);
   };
@@ -634,7 +646,9 @@ export default function App() {
   useEffect(() => {
     const channel = supabase
       .channel("profiles-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => fetchProfiles())
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+        fetchProfiles();
+      })
       .subscribe();
 
     return () => {
@@ -644,7 +658,7 @@ export default function App() {
   }, []);
 
   /* -------------------------------
-     REPRENDRE
+     REPRENDRE: réactiver le compte
   -------------------------------- */
   const handleResumeAccount = async () => {
     setResumeError("");
@@ -654,7 +668,11 @@ export default function App() {
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ status: "active", suspended_at: null, suspension_reason: null })
+        .update({
+          status: "active",
+          suspended_at: null,
+          suspension_reason: null
+        })
         .eq("id", myProfile.id);
 
       if (error) {
@@ -675,7 +693,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     Upload photos
+     Upload photos -> URLs publiques
   -------------------------------- */
   const uploadProfilePhotos = async (profileId, files) => {
     const urls = [];
@@ -685,10 +703,9 @@ export default function App() {
       const ext = safeFileExt(file);
       const path = `profiles/${profileId}/${randomId()}-${i + 1}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
-        cacheControl: "3600",
-        upsert: false
-      });
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { cacheControl: "3600", upsert: false });
 
       if (uploadError) {
         console.error("Supabase upload error:", uploadError);
@@ -702,6 +719,9 @@ export default function App() {
     return urls;
   };
 
+  /* -------------------------------
+     Delete photos from Supabase Storage (best-effort)
+  -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
     const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
     if (paths.length === 0) return;
@@ -896,7 +916,8 @@ export default function App() {
      Filtres
   -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
-  const handleResetFilters = () => setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
+  const handleResetFilters = () =>
+    setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -936,7 +957,11 @@ export default function App() {
         const coords = await geocodeCity(p.city);
         if (!coords) continue;
 
-        const d = haversineKm({ lat: myLoc.lat, lon: myLoc.lon }, { lat: coords.lat, lon: coords.lon });
+        const d = haversineKm(
+          { lat: myLoc.lat, lon: myLoc.lon },
+          { lat: coords.lat, lon: coords.lon }
+        );
+
         if (d <= radiusKm) kept.push(p);
       }
 
@@ -951,6 +976,7 @@ export default function App() {
 
   /* -------------------------------
      Like/Swipe ✅ LIKE + SUPERLIKE + LIMIT 5/JOUR + MATCH
+     (SwipeDeck peut appeler handleLike(profile) ou handleLike(profile, {isSuper:true})
   -------------------------------- */
   const handleLike = async (profile, opts = {}) => {
     const isSuper = !!opts.isSuper;
@@ -970,7 +996,7 @@ export default function App() {
 
     if (!profile?.id) return;
 
-    // ✅ Limite 5 superlikes / jour
+    // ✅ Limite 5 superlikes / jour (DB count)
     if (isSuper) {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -992,13 +1018,14 @@ export default function App() {
       }
     }
 
-    // 1) enregistrer le like/superlike
+    // 1) enregistrer like/superlike
     const { error: likeErr } = await supabase.from("likes").insert({
       liker_id: user.id,
       liked_profile_id: profile.id,
       is_super: isSuper
     });
 
+    // doublon -> upgrade possible
     const msg = String(likeErr?.message || "").toLowerCase();
     if (likeErr && msg.includes("duplicate")) {
       if (isSuper) {
@@ -1014,7 +1041,7 @@ export default function App() {
       console.error("Like insert error:", likeErr);
     }
 
-    // 2) créer match si réciproque
+    // 2) créer match si réciproque (RPC)
     const { data: isMatch, error: rpcErr } = await supabase.rpc("create_match_if_mutual", {
       p_liked_profile_id: profile.id
     });
@@ -1024,7 +1051,7 @@ export default function App() {
       return;
     }
 
-    // 3) si match => ajout dans crushes + texte
+    // 3) si match => ajout dans crushes + preview message
     if (isMatch) {
       setCrushes((prev) => {
         if (prev.some((c) => String(c.id) === String(profile.id))) return prev;
@@ -1035,7 +1062,8 @@ export default function App() {
             name: profile.name,
             photo: profile.photo_urls?.[0] || myProfile?.photo_urls?.[0] || "/logo.png",
             message: "Engage la conversation ;)",
-            match_id: null // ⚠️ on mettra le vrai match_id quand ton RPC le renvoie
+            // ⚠️ quand ton RPC renverra match_id, on le mettra ici
+            match_id: null
           },
           ...prev
         ];
@@ -1046,6 +1074,7 @@ export default function App() {
       handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
     }
 
+    // 4) refresh superlikers
     fetchSuperlikers();
   };
 
@@ -1123,13 +1152,17 @@ export default function App() {
           }
         />
 
-        {/* ✅ Chat page (page complète) */}
+        {/* ✅ Chat full page */}
         <Route path="/chat/:matchId" element={<ChatPage />} />
 
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
 
-        <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
+        <Route
+          path="/settings"
+          element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
+        />
+
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
