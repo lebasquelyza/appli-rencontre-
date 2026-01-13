@@ -8,8 +8,6 @@ export function SwipeDeck({
   isAuthenticated,
   onRequireAuth,
 
-  // ✅ NOUVEAU: vrai si l'utilisateur a déjà créé son profil
-  // ✅ DEFAULT: true pour ne jamais bloquer si la prop n'est pas passée
   hasMyProfile = true
 }) {
   const [index, setIndex] = useState(0);
@@ -19,8 +17,8 @@ export function SwipeDeck({
   const [gateMsg, setGateMsg] = useState("");
   const gateTimerRef = useRef(null);
 
-  // ✅ NOUVEAU: modal "carte agrandie"
-  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  // ✅ NEW: modal preview (agrandir une carte)
+  const [openPreview, setOpenPreview] = useState(false);
 
   const showGate = (msg) => {
     setGateMsg(msg);
@@ -30,6 +28,7 @@ export function SwipeDeck({
 
   useEffect(() => {
     setIndex(0);
+    setOpenPreview(false);
   }, [profiles]);
 
   useEffect(() => {
@@ -87,6 +86,7 @@ export function SwipeDeck({
       id: currentProfile?.id || "__share",
       name: "Partage MatchFit 💪",
       age: null,
+      height: null,
       gender: null,
       city: "",
       sport: "",
@@ -109,7 +109,6 @@ export function SwipeDeck({
       return { ok: false, reason: "auth" };
     }
 
-    // ✅ IMPORTANT: on bloque UNIQUEMENT si on reçoit explicitement false
     if (hasMyProfile === false) {
       showGate("Crée ton profil avant de pouvoir trouver ta/ton partenaire 💪");
       return { ok: false, reason: "no_profile" };
@@ -168,33 +167,68 @@ export function SwipeDeck({
 
   const hasAny = Array.isArray(profiles) && profiles.length > 0;
 
-  // ✅ NOUVEAU: ouverture du zoom au clic sur la carte
-  const openZoom = () => {
-    if (!currentProfile) return;
-    if (isShareCard) return;
-    setIsZoomOpen(true);
+  // ✅ ouvrir modal preview
+  const openCardPreview = () => {
+    if (!currentProfile || isShareCard) return;
+    setOpenPreview(true);
   };
 
-  const closeZoom = () => setIsZoomOpen(false);
-
-  // ✅ évite d’ouvrir le zoom quand on clique sur boutons / zone actions
-  const onStageClick = (e) => {
-    // si clic sur un bouton (actions, toggle bio/dispo, etc.) => pas de zoom
-    if (e?.target?.closest?.("button, .actions, .bioToggle, .availToggle")) return;
-    openZoom();
-  };
+  const closeCardPreview = () => setOpenPreview(false);
 
   return (
     <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
-          <div className="swipeStage" onClick={onStageClick}>
+          <div className="swipeStage">
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
             ) : (
-              <SwipeCard key={currentProfile.id} profile={currentProfile} />
+              <SwipeCard
+                key={currentProfile.id}
+                profile={currentProfile}
+                onOpen={openCardPreview}
+              />
             )}
           </div>
+
+          {/* ✅ modal preview agrandi + background dégradé */}
+          {openPreview && currentProfile && !isShareCard && (
+            <div
+              className="modal-backdrop"
+              onClick={closeCardPreview}
+              style={{
+                background:
+                  "linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.92))",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                zIndex: 9999
+              }}
+            >
+              <div
+                className="modal-card modal-card--sheet"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: "min(820px, 96vw)",
+                  maxHeight: "calc(var(--appH, 100vh) - 40px)",
+                  overflow: "hidden"
+                }}
+              >
+                <div className="modal-header">
+                  <h3 style={{ marginRight: "auto" }}>Profil</h3>
+                  <button className="btn-ghost" onClick={closeCardPreview}>
+                    Fermer
+                  </button>
+                </div>
+
+                <div className="modal-body" style={{ paddingTop: 10 }}>
+                  <div style={{ maxWidth: 760, margin: "0 auto" }}>
+                    {/* IMPORTANT: pas de onOpen ici => pas de boucle */}
+                    <SwipeCard profile={currentProfile} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ✅ toast message */}
           {gateMsg && <div className="gate-toast">{gateMsg}</div>}
@@ -204,7 +238,11 @@ export function SwipeDeck({
               <p className="form-message" style={{ margin: 0 }}>
                 Connecte-toi pour liker ou passer des profils.
               </p>
-              <button type="button" className="btn-primary btn-sm" onClick={() => onRequireAuth?.()}>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                onClick={() => onRequireAuth?.()}
+              >
                 Se connecter
               </button>
             </div>
@@ -225,10 +263,7 @@ export function SwipeDeck({
               <button
                 type="button"
                 className="swBtn swBtnBad"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSkip();
-                }}
+                onClick={handleSkip}
                 disabled={busy}
                 aria-label="Passer"
                 title="Passer"
@@ -239,10 +274,7 @@ export function SwipeDeck({
               <button
                 type="button"
                 className="swBtn swBtnPrimary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleLike();
-                }}
+                onClick={handleLike}
                 disabled={busy}
                 aria-label="Liker"
                 title="Liker"
@@ -253,40 +285,13 @@ export function SwipeDeck({
               <button
                 type="button"
                 className="swBtn swBtnGood"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSuperLike();
-                }}
+                onClick={handleSuperLike}
                 disabled={busy}
                 aria-label="Super like"
                 title="Super like"
               >
                 ★
               </button>
-            </div>
-          )}
-
-          {/* ✅ NOUVEAU: MODAL ZOOM */}
-          {isZoomOpen && !isShareCard && (
-            <div className="modal-backdrop" onClick={closeZoom} style={{ zIndex: 50 }}>
-              <div
-                className="modal-card modal-card--sheet"
-                onClick={(e) => e.stopPropagation()}
-                style={{ maxWidth: 720 }}
-              >
-                <div className="modal-header" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <h3 style={{ marginRight: "auto" }}>Profil</h3>
-                  <button className="btn-ghost" onClick={closeZoom}>
-                    Fermer
-                  </button>
-                </div>
-
-                <div className="modal-body" style={{ paddingTop: 10 }}>
-                  <div style={{ maxWidth: 620, margin: "0 auto" }}>
-                    <SwipeCard profile={currentProfile} />
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </>
