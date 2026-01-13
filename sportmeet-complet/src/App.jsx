@@ -957,6 +957,7 @@ export default function App() {
           user_id: currentUser.id,
           name: data.name,
           age: ageNum,
+          height: heightNum,
           gender: genderValue,
           status: "active",
           city: data.city,
@@ -980,6 +981,7 @@ export default function App() {
         .update({
           name: data.name,
           age: ageNum,
+          height: heightNum,
           gender: genderValue,
           city: data.city,
           sport: data.sport,
