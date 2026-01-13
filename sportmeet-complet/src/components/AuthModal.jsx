@@ -19,7 +19,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
 
   const [isAuthed, setIsAuthed] = useState(false);
 
-  // ✅ NEW: proposer renvoi mail de confirmation
+  // ✅ proposer renvoi mail de confirmation
   const [canResendConfirm, setCanResendConfirm] = useState(false);
 
   const isResetMode = mode === "reset";
@@ -99,7 +99,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     }
   };
 
-  // ✅ NEW: renvoyer email de confirmation
+  // ✅ renvoyer email de confirmation
   const handleResendConfirmation = async () => {
     const cleanEmail = (email || "").trim().toLowerCase();
     if (!cleanEmail) {
@@ -164,10 +164,12 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
         });
         if (error) throw error;
 
+        // ✅ TEXTE DEMANDÉ
         // Quand email confirmation activée: user créé MAIS pas de session
         if (data?.user && !data?.session) {
           setIsError(false);
-          setMsg("Compte créé ✅ Vérifie ton email pour confirmer, puis connecte-toi.");
+          setMsg("Rend toi dans tes mail pour confirmer ton compte");
+          setCanResendConfirm(true); // propose renvoi si besoin
         } else {
           // selon config, il peut être connecté direct
           setIsError(false);
@@ -175,8 +177,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
           setTimeout(() => onClose?.(), 450);
         }
 
-        // on repasse en signin
-        setMode("signin");
+        // ✅ IMPORTANT: on reste en "signup" pour ne pas effacer le message via useEffect([mode])
         setPassword("");
         return;
       }
@@ -403,8 +404,21 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 {mode === "signup" ? "J’ai déjà un compte" : "Créer un compte"}
               </button>
 
-              {/* ✅ NEW: renvoyer confirmation (affiché quand utile) */}
-              {mode === "signin" && canResendConfirm && (
+              {/* ✅ Bouton pratique : aller à la connexion après signup */}
+              {mode === "signup" && msg && !isError && (
+                <button
+                  type="button"
+                  className="btn-ghost btn-block"
+                  onClick={() => setMode("signin")}
+                  disabled={loading}
+                  style={{ marginTop: 8 }}
+                >
+                  Aller à la connexion
+                </button>
+              )}
+
+              {/* ✅ renvoyer confirmation (affiché quand utile) */}
+              {canResendConfirm && (
                 <button
                   type="button"
                   className="btn-ghost btn-block"
@@ -436,4 +450,3 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     </div>
   );
 }
-
