@@ -7,7 +7,6 @@ export function SwipeDeck({
   onLikeProfile,
   isAuthenticated,
   onRequireAuth,
-
   hasMyProfile = true
 }) {
   const [index, setIndex] = useState(0);
@@ -17,8 +16,8 @@ export function SwipeDeck({
   const [gateMsg, setGateMsg] = useState("");
   const gateTimerRef = useRef(null);
 
-  // ✅ NEW: modal preview (agrandir une carte)
-  const [openPreview, setOpenPreview] = useState(false);
+  // ✅ NOUVEAU: modal "zoom" sur une carte (fond applis flou)
+  const [zoomOpen, setZoomOpen] = useState(false);
 
   const showGate = (msg) => {
     setGateMsg(msg);
@@ -28,7 +27,7 @@ export function SwipeDeck({
 
   useEffect(() => {
     setIndex(0);
-    setOpenPreview(false);
+    setZoomOpen(false);
   }, [profiles]);
 
   useEffect(() => {
@@ -86,7 +85,6 @@ export function SwipeDeck({
       id: currentProfile?.id || "__share",
       name: "Partage MatchFit 💪",
       age: null,
-      height: null,
       gender: null,
       city: "",
       sport: "",
@@ -100,7 +98,6 @@ export function SwipeDeck({
     [currentProfile?.id]
   );
 
-  // ✅ gate centralisé pour actions (✕ / ❤ / ★)
   const guardAction = () => {
     if (isShareCard) return { ok: false, reason: "share" };
 
@@ -167,13 +164,28 @@ export function SwipeDeck({
 
   const hasAny = Array.isArray(profiles) && profiles.length > 0;
 
-  // ✅ ouvrir modal preview
-  const openCardPreview = () => {
+  // ✅ ouverture/fermeture zoom
+  const openZoom = () => {
     if (!currentProfile || isShareCard) return;
-    setOpenPreview(true);
+    setZoomOpen(true);
+    // bloquer scroll derrière
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
   };
 
-  const closeCardPreview = () => setOpenPreview(false);
+  const closeZoom = () => {
+    setZoomOpen(false);
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") closeZoom();
+    };
+    if (zoomOpen) window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoomOpen]);
 
   return (
     <div className="swipe-container" data-swipe-deck>
@@ -183,54 +195,58 @@ export function SwipeDeck({
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
             ) : (
-              <SwipeCard
-                key={currentProfile.id}
-                profile={currentProfile}
-                onOpen={openCardPreview}
-              />
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={openZoom}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") openZoom();
+                }}
+                style={{ cursor: "pointer" }}
+                title="Cliquer pour agrandir"
+              >
+                <SwipeCard key={currentProfile.id} profile={currentProfile} />
+              </div>
             )}
           </div>
 
-          {/* ✅ modal preview agrandi + background dégradé */}
-          {openPreview && currentProfile && !isShareCard && (
+          {/* ✅ MODAL ZOOM: fond appli flou */}
+          {zoomOpen && !isShareCard && (
             <div
-              className="modal-backdrop"
-              onClick={closeCardPreview}
+              className="zoomBackdrop"
+              onClick={closeZoom}
               style={{
-                background:
-                  "linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.92))",
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                background: "rgba(0,0,0,.55)",
                 backdropFilter: "blur(10px)",
                 WebkitBackdropFilter: "blur(10px)",
-                zIndex: 9999
+                display: "grid",
+                placeItems: "center",
+                padding: 12
               }}
             >
               <div
-                className="modal-card modal-card--sheet"
+                className="zoomCardShell"
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   width: "min(820px, 96vw)",
-                  maxHeight: "calc(var(--appH, 100vh) - 40px)",
-                  overflow: "hidden"
+                  maxHeight: "calc(var(--appH, 100vh) - 24px)",
+                  overflow: "auto"
                 }}
               >
-                <div className="modal-header">
-                  <h3 style={{ marginRight: "auto" }}>Profil</h3>
-                  <button className="btn-ghost" onClick={closeCardPreview}>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                  <button type="button" className="btn-ghost btn-sm" onClick={closeZoom}>
                     Fermer
                   </button>
                 </div>
 
-                <div className="modal-body" style={{ paddingTop: 10 }}>
-                  <div style={{ maxWidth: 760, margin: "0 auto" }}>
-                    {/* IMPORTANT: pas de onOpen ici => pas de boucle */}
-                    <SwipeCard profile={currentProfile} />
-                  </div>
-                </div>
+                <SwipeCard profile={currentProfile} />
               </div>
             </div>
           )}
 
-          {/* ✅ toast message */}
           {gateMsg && <div className="gate-toast">{gateMsg}</div>}
 
           {!isAuthenticated && !isShareCard ? (
@@ -238,11 +254,7 @@ export function SwipeDeck({
               <p className="form-message" style={{ margin: 0 }}>
                 Connecte-toi pour liker ou passer des profils.
               </p>
-              <button
-                type="button"
-                className="btn-primary btn-sm"
-                onClick={() => onRequireAuth?.()}
-              >
+              <button type="button" className="btn-primary btn-sm" onClick={() => onRequireAuth?.()}>
                 Se connecter
               </button>
             </div>
