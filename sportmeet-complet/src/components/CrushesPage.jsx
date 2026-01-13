@@ -1,104 +1,170 @@
 // sportmeet-complet/src/components/CrushesPage.jsx
-import React, { useEffect, useMemo, useState } from "react";
-
-function chatKey(id) {
-  return `chat_messages_${id}`;
-}
-
-function readChat(id) {
-  try {
-    const raw = localStorage.getItem(chatKey(id));
-    const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveChat(id, messages) {
-  try {
-    localStorage.setItem(chatKey(id), JSON.stringify(messages || []));
-  } catch {}
-}
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", onBack }) {
-  // ✅ Démo Paul si aucun crush (pour preview)
+  // ✅ Démo Paul si aucun crush (preview UI)
   const demoCrush = useMemo(
     () => ({
       id: "__demo_paul",
       name: "Paul",
-      photo: "", // on laisse vide => fallback sur ta photo client
-      message: "Salut 👋 Ça te dit une séance cette semaine ? 💪"
+      photo: "",
+      message: "Salut 👋 Ça te dit une séance cette semaine ? 💪",
+      match_id: null // pas de match réel -> chat local uniquement
     }),
     []
   );
 
   const list = crushes.length === 0 ? [demoCrush] : crushes;
 
-  // ✅ Chat UI
-  const [activeChat, setActiveChat] = useState(null); // {id,name,photo}
+  const [activeChat, setActiveChat] = useState(null); // {id,name,photo,match_id,isDemo}
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
 
-  // ✅ fallback image = photo du crush -> sinon photo client -> sinon logo
+  const [me, setMe] = useState(null);
+
+  const scrollRef = useRef(null);
+  const subRef = useRef(null);
+
   const getAvatar = (c) => c?.photo || myPhotoUrl || "/logo.png";
 
-  // Ouvrir chat
-  const openChat = (c) => {
-    const chat = { id: c.id, name: c.name, photo: getAvatar(c) };
-    setActiveChat(chat);
+  // auth uid
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!mounted) return;
+      setMe(data?.user ?? null);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-    const stored = readChat(c.id);
+  const openChat = async (c) => {
+    const isDemo = c.id === "__demo_paul" || !c.match_id;
+    setActiveChat({
+      id: c.id,
+      name: c.name,
+      photo: getAvatar(c),
+      match_id: c.match_id || null,
+      isDemo
+    });
 
-    // si démo Paul : seed un premier message si aucun historique
-    if (!stored || stored.length === 0) {
-      const seeded = [
+    setDraft("");
+
+    // cleanup ancien realtime
+    if (subRef.current) {
+      supabase.removeChannel(subRef.current);
+      subRef.current = null;
+    }
+
+    // DEMO = local
+    if (isDemo) {
+      setMessages([
         {
-          id: `${Date.now()}-p1`,
-          from: "them",
-          text: c.message || "Salut 👋",
-          ts: Date.now()
+          id: "demo-1",
+          sender_id: "them",
+          body: c.message || "Salut 👋",
+          created_at: new Date().toISOString()
         }
-      ];
-      setMessages(seeded);
-      saveChat(c.id, seeded);
+      ]);
       return;
     }
 
-    setMessages(stored);
+    // 1) fetch messages du match
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, match_id, sender_id, body, created_at")
+      .eq("match_id", c.match_id)
+      .order("created_at", { ascending: true })
+      .limit(200);
+
+    if (error) {
+      console.error("fetch messages error:", error);
+      setMessages([]);
+      return;
+    }
+
+    setMessages(data || []);
+
+    // 2) realtime sur ce match
+    const channel = supabase
+      .channel(`messages:${c.match_id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `match_id=eq.${c.match_id}` },
+        (payload) => {
+          const row = payload.new;
+          setMessages((prev) => {
+            // anti-doublon
+            if (prev.some((m) => m.id === row.id)) return prev;
+            return [...prev, row];
+          });
+        }
+      )
+      .subscribe();
+
+    subRef.current = channel;
   };
 
   const closeChat = () => {
     setActiveChat(null);
     setMessages([]);
     setDraft("");
+    if (subRef.current) {
+      supabase.removeChannel(subRef.current);
+      subRef.current = null;
+    }
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!activeChat) return;
     const text = (draft || "").trim();
     if (!text) return;
 
-    const next = [
-      ...messages,
-      {
-        id: `${Date.now()}-me`,
-        from: "me",
-        text,
-        ts: Date.now()
-      }
-    ];
+    // Demo: ajoute localement
+    if (activeChat.isDemo || !activeChat.match_id) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `demo-${Date.now()}`,
+          sender_id: "me",
+          body: text,
+          created_at: new Date().toISOString()
+        }
+      ]);
+      setDraft("");
+      return;
+    }
 
-    setMessages(next);
-    saveChat(activeChat.id, next);
+    if (!me?.id) return;
+
+    const { error } = await supabase.from("messages").insert({
+      match_id: activeChat.match_id,
+      sender_id: me.id,
+      body: text
+    });
+
+    if (error) {
+      console.error("send message error:", error);
+      return;
+    }
+
     setDraft("");
   };
 
-  // scroll en bas quand nouveau message
+  // scroll bas
   useEffect(() => {
-    const el = document.getElementById("chat-scroll");
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, activeChat?.id]);
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, activeChat?.match_id, activeChat?.id]);
+
+  // cleanup
+  useEffect(() => {
+    return () => {
+      if (subRef.current) supabase.removeChannel(subRef.current);
+    };
+  }, []);
 
   return (
     <div className="card" style={{ padding: 16 }}>
@@ -113,7 +179,7 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
         </button>
       </div>
 
-      {/* ✅ Première carte Premium: SUPERLIKES */}
+      {/* Premium superlikes */}
       <div className="card" style={{ marginTop: 14, padding: 14, borderRadius: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ flex: 1 }}>
@@ -144,12 +210,6 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
                       </div>
                     </div>
                   ))}
-
-                  {superlikers.length > 8 ? (
-                    <div style={{ fontSize: 14, opacity: 0.85, alignSelf: "center" }}>
-                      +{superlikers.length - 8}
-                    </div>
-                  ) : null}
                 </div>
               )}
             </div>
@@ -161,7 +221,7 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
         </div>
       </div>
 
-      {/* ✅ Messages */}
+      {/* Messages list */}
       <div style={{ marginTop: 14 }}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>Messages</div>
 
@@ -173,22 +233,12 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {list.map((c) => {
-            const preview =
-              c.lastMessage?.trim?.() ||
-              c.message?.trim?.() ||
-              "Engage la conversation ;)";
-
+            const preview = c.lastMessage?.trim?.() || c.message?.trim?.() || "Engage la conversation ;)";
             return (
               <div
                 key={c.id}
                 className="card"
-                style={{
-                  padding: 12,
-                  borderRadius: 14,
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "center"
-                }}
+                style={{ padding: 12, borderRadius: 14, display: "flex", gap: 12, alignItems: "center" }}
               >
                 <img
                   src={getAvatar(c)}
@@ -210,7 +260,7 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
         </div>
       </div>
 
-      {/* ✅ Zone chat */}
+      {/* Chat box */}
       {activeChat ? (
         <div className="card" style={{ marginTop: 14, padding: 12, borderRadius: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -221,7 +271,9 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
             />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800 }}>{activeChat.name}</div>
-              <div style={{ opacity: 0.75, fontSize: 13 }}>Messagerie</div>
+              <div style={{ opacity: 0.75, fontSize: 13 }}>
+                {activeChat.isDemo ? "Démo" : "Messagerie (temps réel)"}
+              </div>
             </div>
             <button type="button" className="btn-ghost btn-sm" onClick={closeChat}>
               Fermer
@@ -229,7 +281,7 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
           </div>
 
           <div
-            id="chat-scroll"
+            ref={scrollRef}
             style={{
               height: 260,
               overflowY: "auto",
@@ -241,20 +293,25 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
               border: "1px solid rgba(255,255,255,0.08)"
             }}
           >
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                style={{
-                  alignSelf: m.from === "me" ? "flex-end" : "flex-start",
-                  maxWidth: "80%",
-                  padding: "10px 12px",
-                  borderRadius: 14,
-                  background: m.from === "me" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)"
-                }}
-              >
-                <div style={{ fontSize: 14, lineHeight: 1.35 }}>{m.text}</div>
-              </div>
-            ))}
+            {messages.map((m) => {
+              const isMine = me?.id && m.sender_id === me.id;
+              const align = isMine ? "flex-end" : "flex-start";
+              const bg = isMine ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)";
+              return (
+                <div
+                  key={m.id}
+                  style={{
+                    alignSelf: m.sender_id === "me" ? "flex-end" : m.sender_id === "them" ? "flex-start" : align,
+                    maxWidth: "80%",
+                    padding: "10px 12px",
+                    borderRadius: 14,
+                    background: bg
+                  }}
+                >
+                  <div style={{ fontSize: 14, lineHeight: 1.35 }}>{m.body}</div>
+                </div>
+              );
+            })}
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
