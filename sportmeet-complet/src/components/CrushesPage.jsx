@@ -2,7 +2,13 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", onBack }) {
+export function CrushesPage({
+  crushes = [],
+  superlikers = [],
+  myPhotoUrl = "",
+  onBack,
+  onForgetMatch
+}) {
   const navigate = useNavigate();
 
   // ✅ Démo Paul si aucun crush (preview UI)
@@ -32,13 +38,26 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
         crush: {
           id: c.id,
           name: c.name,
+          city: c.city,
+          sport: c.sport,
           photo_urls: c.photo_urls || [],
-          message: c.message || "Salut 👋",
+          message: c.message || c.last_message_body || "Salut 👋",
           match_id: matchId
         },
         myPhotoUrl
       }
     });
+  };
+
+  const forget = (c) => {
+    if (!onForgetMatch) return;
+
+    const ok = window.confirm(
+      "Oublier ce match ?\n\n- Il disparaîtra et ne reviendra plus.\n- Vous ne pourrez plus vous écrire."
+    );
+    if (!ok) return;
+
+    onForgetMatch(c);
   };
 
   return (
@@ -117,9 +136,11 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
               c.message?.trim?.() ||
               "Engage la conversation 👋";
 
+            const isDemo = c.id === "__demo_paul";
+
             return (
               <div
-                key={c.id}
+                key={c.match_id || c.id}
                 className="card"
                 style={{
                   padding: 12,
@@ -135,14 +156,30 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
                   style={{ width: 54, height: 54, borderRadius: 12, objectFit: "cover" }}
                 />
 
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700 }}>{c.name}</div>
-                  <div style={{ opacity: 0.8, marginTop: 2, fontSize: 14 }}>{preview}</div>
+                  <div style={{ opacity: 0.8, marginTop: 2, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {preview}
+                  </div>
                 </div>
 
-                <button type="button" className="btn-ghost btn-sm" onClick={() => openChat(c)}>
-                  Ouvrir
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button type="button" className="btn-ghost btn-sm" onClick={() => openChat(c)}>
+                    Ouvrir
+                  </button>
+
+                  {!isDemo ? (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      title="Oublier ce match"
+                      onClick={() => forget(c)}
+                      aria-label="Oublier ce match"
+                    >
+                      ✕
+                    </button>
+                  ) : null}
+                </div>
               </div>
             );
           })}
