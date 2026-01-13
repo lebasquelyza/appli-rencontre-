@@ -6,7 +6,7 @@ import { Header } from "./components/Header";
 import { ProfileForm } from "./components/ProfileForm";
 import { FiltersBar } from "./components/FiltersBar";
 import { SwipeDeck } from "./components/SwipeDeck";
-import { SwipeCard } from "./components/SwipeCard"; // ✅ Aperçu statique
+import { SwipeCard } from "./components/SwipeCard";
 import { AuthModal } from "./components/AuthModal";
 import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
@@ -21,6 +21,9 @@ import { Settings } from "./pages/Settings";
 
 // ✅ Page Configurer compte
 import { AccountSettings } from "./pages/AccountSettings";
+
+// ✅ Page Chat (à créer)
+import { ChatPage } from "./pages/ChatPage";
 
 const BUCKET = "profile-photos";
 
@@ -48,7 +51,6 @@ function randomId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-// ✅ Convertit une publicUrl Supabase en "path" storage (bucket relatif)
 function storagePathFromPublicUrl(publicUrl) {
   try {
     const u = new URL(publicUrl);
@@ -61,7 +63,6 @@ function storagePathFromPublicUrl(publicUrl) {
   }
 }
 
-// ✅ distance km
 function haversineKm(a, b) {
   const R = 6371;
   const toRad = (x) => (x * Math.PI) / 180;
@@ -77,7 +78,6 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-// ✅ garde un seul profil par user_id (le plus récent)
 function dedupeByUserLatest(list) {
   const byUser = new Map();
   const noUser = [];
@@ -102,7 +102,6 @@ function dedupeByUserLatest(list) {
   return [...byUser.values(), ...noUser];
 }
 
-// ✅ Ajoute une carte “share” entre profils
 function withShareInterstitial(list, every = 8) {
   const out = [];
   let k = 0;
@@ -149,14 +148,7 @@ function HomePage({
     <>
       <main className="page">
         <div className="shell">
-          <section
-            className="card card-results"
-            style={{
-              padding: 8,
-              maxWidth: 820,
-              margin: "8px auto 0"
-            }}
-          >
+          <section className="card card-results" style={{ padding: 8, maxWidth: 820, margin: "8px auto 0" }}>
             <FiltersBar filters={filters} onChange={onFiltersChange} onReset={onResetFilters} />
 
             {profileToast ? (
@@ -185,16 +177,12 @@ function HomePage({
                 }}
               >
                 <div style={{ lineHeight: 1.35 }}>
-                  <strong>Compte suspendu</strong> — tant que tu n’as pas repris ton compte, tu ne
-                  peux pas utiliser l’application.
+                  <strong>Compte suspendu</strong> — tant que tu n’as pas repris ton compte, tu ne peux
+                  pas utiliser l’application.
                   {myProfile?.suspension_reason ? (
-                    <div style={{ marginTop: 6, opacity: 0.9 }}>
-                      Raison : {myProfile.suspension_reason}
-                    </div>
+                    <div style={{ marginTop: 6, opacity: 0.9 }}>Raison : {myProfile.suspension_reason}</div>
                   ) : null}
-                  {resumeError ? (
-                    <div style={{ marginTop: 6, opacity: 0.9 }}>{resumeError}</div>
-                  ) : null}
+                  {resumeError ? <div style={{ marginTop: 6, opacity: 0.9 }}>{resumeError}</div> : null}
                 </div>
 
                 <button
@@ -269,11 +257,7 @@ function HomePage({
             </div>
 
             <div className="modal-body modal-body--scroll">
-              <ProfileForm
-                loadingExisting={loadingMyProfile}
-                existingProfile={myProfile}
-                onSaveProfile={handleSaveProfile}
-              />
+              <ProfileForm loadingExisting={loadingMyProfile} existingProfile={myProfile} onSaveProfile={handleSaveProfile} />
             </div>
           </div>
         </div>
@@ -307,7 +291,7 @@ function HomePage({
   );
 }
 
-function CrushesFullPage({ user, onRequireAuth, crushes, superlikers }) {
+function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile }) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -320,7 +304,12 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers }) {
   return (
     <main className="page">
       <div className="shell">
-        <CrushesPage crushes={crushes} superlikers={superlikers} onBack={() => navigate("/")} />
+        <CrushesPage
+          crushes={crushes}
+          superlikers={superlikers}
+          myPhotoUrl={myProfile?.photo_urls?.[0] || ""}
+          onBack={() => navigate("/")}
+        />
       </div>
     </main>
   );
@@ -329,7 +318,6 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers }) {
 export default function App() {
   const navigate = useNavigate();
 
-  // ✅ FIX DEFINITIF iPhone
   useEffect(() => {
     const setAppHeight = () => {
       const h = window.visualViewport?.height ?? window.innerHeight;
@@ -381,21 +369,10 @@ export default function App() {
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState("");
 
-  // ✅ Migration / normalisation des crushes (évite "Aucun message..." sur les anciens items)
-  const normalizeCrush = (c) => ({
-    id: c?.id,
-    name: c?.name || "Match",
-    photo: c?.photo || "/logo.png",
-    lastMessage: typeof c?.lastMessage === "string" ? c.lastMessage : "",
-    message:
-      (typeof c?.message === "string" && c.message.trim()) ? c.message : "Engage la conversation ;)"
-  });
-
   // ✅ Crushes (matchs) + persistance locale
   const [crushes, setCrushes] = useState(() => {
     try {
-      const raw = JSON.parse(localStorage.getItem("crushes") || "[]");
-      return Array.isArray(raw) ? raw.map(normalizeCrush) : [];
+      return JSON.parse(localStorage.getItem("crushes") || "[]");
     } catch {
       return [];
     }
@@ -403,9 +380,8 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem("crushes", JSON.stringify(crushes.map(normalizeCrush)));
+      localStorage.setItem("crushes", JSON.stringify(crushes));
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [crushes]);
 
   // ✅ personnes qui m'ont superlike (pour le bloc Premium)
@@ -608,10 +584,7 @@ export default function App() {
     setLoadingProfiles(true);
     setProfilesError(null);
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
 
     if (error) {
       console.error("Supabase fetch profiles error:", error);
@@ -646,7 +619,6 @@ export default function App() {
     const demoSlice = seedProfiles.slice(0, need);
 
     const finalList = [...realActive, ...demoSlice];
-
     setProfiles(finalList.length ? finalList : seedProfiles);
     setLoadingProfiles(false);
   };
@@ -657,14 +629,12 @@ export default function App() {
   }, []);
 
   /* -------------------------------
-     Realtime
+     Realtime profiles
   -------------------------------- */
   useEffect(() => {
     const channel = supabase
       .channel("profiles-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
-        fetchProfiles();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => fetchProfiles())
       .subscribe();
 
     return () => {
@@ -684,11 +654,7 @@ export default function App() {
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({
-          status: "active",
-          suspended_at: null,
-          suspension_reason: null
-        })
+        .update({ status: "active", suspended_at: null, suspension_reason: null })
         .eq("id", myProfile.id);
 
       if (error) {
@@ -719,9 +685,10 @@ export default function App() {
       const ext = safeFileExt(file);
       const path = `profiles/${profileId}/${randomId()}-${i + 1}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, { cacheControl: "3600", upsert: false });
+      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
+        cacheControl: "3600",
+        upsert: false
+      });
 
       if (uploadError) {
         console.error("Supabase upload error:", uploadError);
@@ -735,9 +702,6 @@ export default function App() {
     return urls;
   };
 
-  /* -------------------------------
-     Delete photos from Supabase Storage
-  -------------------------------- */
   const deleteProfilePhotosFromStorage = async (publicUrls) => {
     const paths = (publicUrls || []).map(storagePathFromPublicUrl).filter(Boolean);
     if (paths.length === 0) return;
@@ -932,8 +896,7 @@ export default function App() {
      Filtres
   -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
-  const handleResetFilters = () =>
-    setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
+  const handleResetFilters = () => setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -973,11 +936,7 @@ export default function App() {
         const coords = await geocodeCity(p.city);
         if (!coords) continue;
 
-        const d = haversineKm(
-          { lat: myLoc.lat, lon: myLoc.lon },
-          { lat: coords.lat, lon: coords.lon }
-        );
-
+        const d = haversineKm({ lat: myLoc.lat, lon: myLoc.lon }, { lat: coords.lat, lon: coords.lon });
         if (d <= radiusKm) kept.push(p);
       }
 
@@ -1040,9 +999,9 @@ export default function App() {
       is_super: isSuper
     });
 
-    // ✅ doublon (unique) -> on peut upgrader en superlike
-    if (likeErr) {
-      if (likeErr.code === "23505" && isSuper) {
+    const msg = String(likeErr?.message || "").toLowerCase();
+    if (likeErr && msg.includes("duplicate")) {
+      if (isSuper) {
         const { error: upErr } = await supabase
           .from("likes")
           .update({ is_super: true })
@@ -1050,12 +1009,12 @@ export default function App() {
           .eq("liked_profile_id", profile.id);
 
         if (upErr) console.error("upgrade to superlike error:", upErr);
-      } else if (likeErr.code !== "23505") {
-        console.error("Like insert error:", likeErr);
       }
+    } else if (likeErr) {
+      console.error("Like insert error:", likeErr);
     }
 
-    // 2) créer match si réciproque (RPC Supabase)
+    // 2) créer match si réciproque
     const { data: isMatch, error: rpcErr } = await supabase.rpc("create_match_if_mutual", {
       p_liked_profile_id: profile.id
     });
@@ -1065,30 +1024,28 @@ export default function App() {
       return;
     }
 
-    // 3) si match => ajout dans crushes + message test
+    // 3) si match => ajout dans crushes + texte
     if (isMatch) {
       setCrushes((prev) => {
         if (prev.some((c) => String(c.id) === String(profile.id))) return prev;
 
-        const next = [
-          normalizeCrush({
+        return [
+          {
             id: profile.id,
             name: profile.name,
-            photo: profile.photo_urls?.[0] || "/logo.png",
-            message: "Engage la conversation ;)" // ✅ ton message test
-          }),
+            photo: profile.photo_urls?.[0] || myProfile?.photo_urls?.[0] || "/logo.png",
+            message: "Engage la conversation ;)",
+            match_id: null // ⚠️ on mettra le vrai match_id quand ton RPC le renvoie
+          },
           ...prev
         ];
-
-        return next;
       });
 
-      setProfileToast("🎉 C’est un match !");
+      setProfileToast("🎉 C’est un match ! Engage la conversation 😉");
       window.clearTimeout(handleLike.__t);
       handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
     }
 
-    // 4) refresh superlikers
     fetchSuperlikers();
   };
 
@@ -1161,18 +1118,18 @@ export default function App() {
               onRequireAuth={() => setIsAuthModalOpen(true)}
               crushes={crushes}
               superlikers={superlikers}
+              myProfile={myProfile}
             />
           }
         />
 
+        {/* ✅ Chat page (page complète) */}
+        <Route path="/chat/:matchId" element={<ChatPage />} />
+
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
 
-        <Route
-          path="/settings"
-          element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
-        />
-
+        <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
