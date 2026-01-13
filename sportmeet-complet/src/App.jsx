@@ -1,5 +1,5 @@
 // sportmeet-complet/src/App.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 
 import { Header } from "./components/Header";
@@ -129,6 +129,33 @@ function withShareInterstitial(list, every = 8) {
   return out;
 }
 
+/**
+ * ✅ NEW: normalise un profil au format “deck”,
+ * pour que l’APERÇU rende EXACTEMENT comme une vraie carte de swipe.
+ */
+function normalizeProfileForCard(p) {
+  if (!p) return null;
+  return {
+    id: p.id,
+    user_id: p.user_id ?? null,
+    name: p.name,
+    age: p.age ?? null,
+    height: p.height ?? null,
+    gender: p.gender ?? null,
+    status: p.status ?? "active",
+    suspended_at: p.suspended_at ?? null,
+    suspension_reason: p.suspension_reason ?? null,
+    city: p.city || "",
+    sport: p.sport || "",
+    level: p.level || "",
+    availability: p.availability || "",
+    bio: p.bio || "",
+    photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
+    isCustom: true,
+    createdAt: p.createdAt ?? p.created_at ?? null
+  };
+}
+
 function HomePage({
   filters,
   onFiltersChange,
@@ -155,6 +182,9 @@ function HomePage({
   setIsPreviewModalOpen,
   onDeleteMyProfile
 }) {
+  // ✅ NEW: profil pour l’aperçu = même format que les cartes du deck
+  const myProfileForCard = useMemo(() => normalizeProfileForCard(myProfile), [myProfile]);
+
   return (
     <>
       <main className="page">
@@ -309,11 +339,12 @@ function HomePage({
             </div>
 
             <div className="modal-body" style={{ paddingTop: 10 }}>
-              {!myProfile ? (
+              {!myProfileForCard ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
                 <div style={{ maxWidth: 760, margin: "0 auto" }}>
-                  <SwipeCard profile={myProfile} />
+                  {/* ✅ IMPORTANT: profil normalisé => rendu identique aux cartes du deck */}
+                  <SwipeCard profile={myProfileForCard} />
                 </div>
               )}
             </div>
