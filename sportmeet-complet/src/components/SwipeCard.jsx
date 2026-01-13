@@ -7,7 +7,7 @@ function hashToHue(str = "") {
   return h;
 }
 
-export function SwipeCard({ profile }) {
+export function SwipeCard({ profile, onOpen }) {
   const photos = Array.isArray(profile?.photo_urls) ? profile.photo_urls : [];
   const hasPhotos = photos.length > 0;
 
@@ -64,7 +64,7 @@ export function SwipeCard({ profile }) {
     setAvailOpen((v) => !v);
   };
 
-  // ✅ si on touche bio/dispo => pas de swipe photo
+  // ✅ si on touche bio/dispo => pas de swipe photo / pas d’open modal
   const isInTextZone = (target) =>
     !!target?.closest?.(".swipeBio, .bioToggle, .swipeAvail, .availToggle");
 
@@ -85,6 +85,13 @@ export function SwipeCard({ profile }) {
     startX.current = null;
   };
 
+  // ✅ click => open modal (si onOpen fourni)
+  const onClickCard = (e) => {
+    if (!onOpen) return;
+    if (isInTextZone(e.target)) return;
+    onOpen();
+  };
+
   // ✅ si bio OU dispo open => on agrandit l’overlay (déroule vers le haut)
   const overlayOpen = bioOpen || availOpen;
 
@@ -94,9 +101,11 @@ export function SwipeCard({ profile }) {
         className={`cardMedia swipeMedia ${hasPhotos ? "has-photo" : "no-photo"}`}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
+        onClick={onClickCard}
         style={{
           ...(hasPhotos ? null : bgFallback),
-          touchAction: "pan-y"
+          touchAction: "pan-y",
+          cursor: onOpen ? "pointer" : "default"
         }}
       >
         {hasPhotos && (
@@ -144,7 +153,10 @@ export function SwipeCard({ profile }) {
                 className={`swipeAvail ${availOpen ? "open" : "clamp"}`}
                 role="button"
                 tabIndex={0}
-                onClick={toggleAvail}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleAvail();
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") toggleAvail();
                 }}
@@ -175,7 +187,10 @@ export function SwipeCard({ profile }) {
                 className={`swipeBio ${bioOpen ? "open" : "clamp"}`}
                 role="button"
                 tabIndex={0}
-                onClick={toggleBio}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleBio();
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") toggleBio();
                 }}
