@@ -154,7 +154,7 @@ export function Header({
           </button>
 
           <button type="button" className="btn-ghost btn-sm" onClick={handleCrushesClick}>
-            Mes crush
+            Messages
           </button>
 
           {/* ✅ Compte */}
