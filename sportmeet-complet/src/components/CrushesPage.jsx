@@ -9,26 +9,32 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
   const demoCrush = {
     id: "__demo_paul",
     name: "Paul",
-    photo: "", // on force fallback sur photo client
+    photo_urls: [],
     message: "Salut 👋 Ça te dit une séance cette semaine ? 💪",
-    match_id: "demo" // ✅ chat démo
+    match_id: "demo"
   };
 
   const list = crushes.length === 0 ? [demoCrush] : crushes;
 
-  const getAvatar = (c) => c?.photo || myPhotoUrl || "/logo.png";
+  // ✅ avatar du crush = photo du crush, jamais myPhotoUrl
+  const getAvatar = (c) => c?.photo_urls?.[0] || c?.photo || "/logo.png";
 
   const openChat = (c) => {
-    const matchId = c?.match_id || (c?.id === "__demo_paul" ? "demo" : "demo");
+    const matchId = c?.id === "__demo_paul" ? "demo" : c?.match_id;
+
+    if (!matchId) {
+      alert("Chat indisponible : match_id manquant.");
+      return;
+    }
 
     navigate(`/chat/${matchId}`, {
       state: {
         crush: {
           id: c.id,
           name: c.name,
-          photo: getAvatar(c),
+          photo_urls: c.photo_urls || [],
           message: c.message || "Salut 👋",
-          match_id: c.match_id || null
+          match_id: matchId
         },
         myPhotoUrl
       }
@@ -69,7 +75,7 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
                       title={`${p.name} t’a superlike ⭐`}
                     >
                       <img
-                        src={p.photo || myPhotoUrl || "/logo.png"}
+                        src={p.photo_urls?.[0] || p.photo || "/logo.png"}
                         alt={p.name}
                         style={{ width: 34, height: 34, borderRadius: 10, objectFit: "cover" }}
                       />
@@ -105,7 +111,12 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {list.map((c) => {
-            const preview = c.lastMessage?.trim?.() || c.message?.trim?.() || "Engage la conversation ;)";
+            const preview =
+              c.last_message_body?.trim?.() ||
+              c.lastMessage?.trim?.() ||
+              c.message?.trim?.() ||
+              "Engage la conversation 👋";
+
             return (
               <div
                 key={c.id}
