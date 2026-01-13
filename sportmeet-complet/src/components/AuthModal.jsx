@@ -159,7 +159,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
           email: cleanEmail,
           password,
           options: {
-            emailRedirectTo: window.location.origin
+            emailRedirectTo: window.location.origin/confirmed`
           }
         });
         if (error) throw error;
