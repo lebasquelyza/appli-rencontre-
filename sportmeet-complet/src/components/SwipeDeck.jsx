@@ -123,7 +123,12 @@ export function SwipeDeck({
 
     setBusy(true);
     try {
-      await onLikeProfile?.(currentProfile, { isSuper: false });
+      // ✅ onLikeProfile doit retourner true/false
+      const ok = await onLikeProfile?.(currentProfile, { isSuper: false });
+
+      // ✅ si refus => ne pas bouger la carte
+      if (ok === false) return;
+
       next();
     } finally {
       setBusy(false);
@@ -138,7 +143,12 @@ export function SwipeDeck({
 
     setBusy(true);
     try {
-      await onLikeProfile?.(currentProfile, { isSuper: true });
+      // ✅ onLikeProfile doit retourner true/false
+      const ok = await onLikeProfile?.(currentProfile, { isSuper: true });
+
+      // ✅ limite atteinte => ok === false => rien ne bouge
+      if (ok === false) return;
+
       next();
     } finally {
       setBusy(false);
