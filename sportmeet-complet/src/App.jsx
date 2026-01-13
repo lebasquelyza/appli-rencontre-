@@ -267,11 +267,7 @@ function HomePage({
             </div>
 
             <div className="modal-body modal-body--scroll">
-              <ProfileForm
-                loadingExisting={loadingMyProfile}
-                existingProfile={myProfile}
-                onSaveProfile={handleSaveProfile}
-              />
+              <ProfileForm loadingExisting={loadingMyProfile} existingProfile={myProfile} onSaveProfile={handleSaveProfile} />
             </div>
           </div>
         </div>
@@ -332,26 +328,6 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile,
 
 export default function App() {
   const navigate = useNavigate();
-
-  // ✅ FIX: gérer les liens de confirmation email Supabase (PKCE: ?code=...)
-  // Sans ça, certains flows de confirmation peuvent laisser la session/état incohérent.
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const code = url.searchParams.get("code");
-    if (!code) return;
-
-    (async () => {
-      const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
-      if (error) console.error("exchangeCodeForSession error:", error);
-
-      // nettoyer l'URL (enlève ?code=...)
-      try {
-        window.history.replaceState({}, document.title, url.origin + url.pathname);
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
 
   // ✅ FIX iPhone: on verrouille la hauteur
   useEffect(() => {
@@ -937,6 +913,185 @@ export default function App() {
   };
 
   /* -------------------------------
+     SAVE profil
+  -------------------------------- */
+  const handleSaveProfile = async (data) => {
+    if (isSuspended) throw new Error("SUSPENDED_ACCOUNT");
+
+    const wasEdit = !!myProfile?.id;
+
+    const photos = Array.isArray(data.photos) ? data.photos : [];
+    const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
+    const hasNewPhotos = photos.length > 0;
+
+    const { data: authData } = await supabase.auth.getUser();
+    const currentUser = authData?.user ?? null;
+
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      throw new Error("AUTH_REQUIRED");
+    }
+
+    if (!data.name || !data.city || !data.sport || !data.level) throw new Error("MISSING_FIELDS");
+
+    const ageNum = Number(data.age);
+    if (!Number.isFinite(ageNum)) throw new Error("AGE_REQUIRED");
+    if (ageNum < 16) throw new Error("UNDER_16_BLOCKED");
+
+    const genderValue =
+      data.gender === "female" || data.gender === "male" || data.gender === "other" ? data.gender : null;
+
+    if (!myProfile && !hasNewPhotos) throw new Error("PHOTO_REQUIRED");
+
+    const totalPhotosCount = (myProfile ? keptPhotoUrls.length : 0) + photos.length;
+    if (totalPhotosCount > 5) throw new Error("MAX_5_PHOTOS");
+
+    let profileId = myProfile?.id ?? null;
+
+    if (!profileId) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("profiles")
+        .insert({
+          user_id: currentUser.id,
+          name: data.name,
+          age: ageNum,
+          gender: genderValue,
+          status: "active",
+          city: data.city,
+          sport: data.sport,
+          level: data.level,
+          availability: data.availability || "",
+          bio: data.bio || ""
+        })
+        .select("*")
+        .single();
+
+      if (insertError) {
+        console.error("insert profile error:", insertError);
+        throw insertError;
+      }
+
+      profileId = inserted.id;
+    } else {
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          name: data.name,
+          age: ageNum,
+          gender: genderValue,
+          city: data.city,
+          sport: data.sport,
+          level: data.level,
+          availability: data.availability || "",
+          bio: data.bio || ""
+        })
+        .eq("id", profileId);
+
+      if (updateError) {
+        console.error("update profile error:", updateError);
+        throw updateError;
+      }
+    }
+
+    if (!myProfile) {
+      const uploaded = await uploadProfilePhotos(profileId, photos);
+
+      const { error: updatePhotosErr } = await supabase.from("profiles").update({ photo_urls: uploaded }).eq("id", profileId);
+
+      if (updatePhotosErr) {
+        console.error("update photo_urls error:", updatePhotosErr);
+        throw updatePhotosErr;
+      }
+    } else {
+      const previousUrls = Array.isArray(myProfile?.photo_urls) ? myProfile.photo_urls : [];
+      const removedUrls = previousUrls.filter((u) => !keptPhotoUrls.includes(u));
+
+      let nextUrls = keptPhotoUrls;
+
+      if (hasNewPhotos) {
+        const uploaded = await uploadProfilePhotos(profileId, photos);
+        nextUrls = [...keptPhotoUrls, ...uploaded];
+      }
+
+      const { error: updatePhotosErr } = await supabase.from("profiles").update({ photo_urls: nextUrls }).eq("id", profileId);
+
+      if (updatePhotosErr) {
+        console.error("update photo_urls error:", updatePhotosErr);
+        throw updatePhotosErr;
+      }
+
+      await deleteProfilePhotosFromStorage(removedUrls);
+    }
+
+    await fetchMyProfile();
+    await fetchProfiles();
+    await fetchCrushes();
+
+    setProfileToast(wasEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
+    window.clearTimeout(handleSaveProfile.__t);
+    handleSaveProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
+
+    setIsProfileModalOpen(false);
+  };
+
+  /* -------------------------------
+     Filtres
+  -------------------------------- */
+  const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
+  const handleResetFilters = () => setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      const cityQuery = (filters.city || "").toLowerCase().trim();
+      const radiusKm = Number(filters.radiusKm || 0);
+      const myLoc = filters.myLocation;
+
+      const base = profiles.filter((p) => {
+        if (user && p.user_id === user.id) return false;
+
+        if (filters.sport) {
+          if (filters.sport === "Autre") {
+            if (STANDARD_SPORTS.includes(p.sport)) return false;
+          } else if (p.sport !== filters.sport) return false;
+        }
+
+        if (filters.level && p.level !== filters.level) return false;
+        if (cityQuery && !p.city.toLowerCase().includes(cityQuery)) return false;
+
+        return true;
+      });
+
+      if (!radiusKm || radiusKm <= 0) {
+        if (!cancelled) setFilteredProfiles(withShareInterstitial(base, 8));
+        return;
+      }
+
+      if (!myLoc) {
+        if (!cancelled) setFilteredProfiles(withShareInterstitial(base, 8));
+        return;
+      }
+
+      const kept = [];
+      for (const p of base) {
+        const coords = await geocodeCity(p.city);
+        if (!coords) continue;
+
+        const d = haversineKm({ lat: myLoc.lat, lon: myLoc.lon }, { lat: coords.lat, lon: coords.lon });
+        if (d <= radiusKm) kept.push(p);
+      }
+
+      if (!cancelled) setFilteredProfiles(withShareInterstitial(kept, 8));
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* -------------------------------
      Like/Swipe ✅ LIKE + SUPERLIKE + LIMIT 5/JOUR + MATCH
   -------------------------------- */
   const handleLike = async (profile, opts = {}) => {
@@ -957,7 +1112,7 @@ export default function App() {
 
     if (!profile?.id) return false;
 
-    // ✅ Limite 5 superlikes / jour (DB count)
+    // ✅ Limite 5 superlikes / jour
     if (isSuper) {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -987,7 +1142,6 @@ export default function App() {
       is_super: isSuper
     });
 
-    // doublon -> upgrade possible
     const msg = String(likeErr?.message || "").toLowerCase();
     if (likeErr && msg.includes("duplicate")) {
       if (isSuper) {
@@ -1001,9 +1155,11 @@ export default function App() {
       }
     } else if (likeErr) {
       console.error("Like insert error:", likeErr);
+      // si tu veux bloquer la carte en cas d'erreur :
+      // return false;
     }
 
-    // 2) créer match si réciproque (RPC => retourne matched + match_id)
+    // 2) match si réciproque
     const { data, error: rpcErr } = await supabase.rpc("create_match_if_mutual", {
       p_liked_profile_id: profile.id
     });
@@ -1018,7 +1174,6 @@ export default function App() {
     if (row?.matched) {
       await fetchCrushes();
 
-      // ✅ effet "bombe" (le client ferme puis clique sur "Messages")
       setMatchBoom({
         open: true,
         name: profile?.name || "Match",
@@ -1064,8 +1219,8 @@ export default function App() {
           element={
             <HomePage
               filters={filters}
-              onFiltersChange={(partial) => setFilters((prev) => ({ ...prev, ...partial }))}
-              onResetFilters={() => setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null })}
+              onFiltersChange={handleFiltersChange}
+              onResetFilters={handleResetFilters}
               profilesError={profilesError}
               loadingProfiles={loadingProfiles}
               filteredProfiles={filteredProfiles}
@@ -1074,7 +1229,7 @@ export default function App() {
               isSuspended={isSuspended}
               loadingMyProfile={loadingMyProfile}
               myProfile={myProfile}
-              handleSaveProfile={() => {}}
+              handleSaveProfile={handleSaveProfile}
               isProfileModalOpen={isProfileModalOpen}
               setIsProfileModalOpen={setIsProfileModalOpen}
               isAuthModalOpen={isAuthModalOpen}
@@ -1115,6 +1270,7 @@ export default function App() {
         <Route path="/subscription" element={<Subscription user={userForUI} />} />
       </Routes>
 
+      {/* ✅ Modal Match (effet bombe) */}
       <MatchBoomModal
         open={matchBoom.open}
         matchName={matchBoom.name}
