@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 const emptyForm = {
   name: "",
   age: "",
+  height: "", // ✅ NEW: taille obligatoire (cm)
   gender: "",
   city: "",
   sport: "",
@@ -142,6 +143,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
     const initial = {
       name: existingProfile.name || "",
       age: existingProfile.age ?? "",
+      height: existingProfile.height ?? "", // ✅ NEW
       gender: existingProfile.gender ?? "",
       city: existingProfile.city || "",
       sport: existingProfile.sport || "",
@@ -185,6 +187,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
     const current = JSON.stringify({
       name: form.name,
       age: form.age,
+      height: form.height, // ✅ NEW
       gender: form.gender,
       city: form.city,
       sport: form.sport,
@@ -346,9 +349,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
 
     setPhotoPreviews((prev) => {
       const toAdd = accepted.map((file) => ({
-        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()
-          .toString(16)
-          .slice(2)}`,
+        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(16).slice(2)}`,
         file,
         url: URL.createObjectURL(file)
       }));
@@ -396,6 +397,17 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
       return;
     }
 
+    // ✅ Taille obligatoire (cm)
+    const heightNum = form.height === "" ? NaN : Number(form.height);
+    if (!Number.isFinite(heightNum)) {
+      setSubmitError("Merci d’indiquer ta taille.");
+      return;
+    }
+    if (heightNum < 80 || heightNum > 250) {
+      setSubmitError("Merci d’indiquer une taille valide (en cm).");
+      return;
+    }
+
     // ✅ 1 photo obligatoire (TOTAL)
     const totalPhotosCount = keptPhotoUrls.length + photos.length;
     if (totalPhotosCount < 1) {
@@ -420,6 +432,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
       await onSaveProfile({
         ...form,
         age: form.age ? Number(form.age) : null,
+        height: form.height ? Number(form.height) : null, // ✅ NEW
         gender: form.gender || null,
 
         // ✅ position exacte / ville choisie
@@ -439,8 +452,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
 
       const msg = err?.message || "";
       if (msg === "AUTH_REQUIRED") setSubmitError("Connecte-toi pour enregistrer ton profil.");
-      else if (msg === "MISSING_FIELDS")
-        setSubmitError("Merci de remplir tous les champs obligatoires.");
+      else if (msg === "MISSING_FIELDS") setSubmitError("Merci de remplir tous les champs obligatoires.");
       else if (msg === "PHOTO_REQUIRED") setSubmitError("Ajoute au moins une photo.");
       else if (msg === "AGE_REQUIRED") setSubmitError("Merci d’indiquer ton âge.");
       else if (msg === "UNDER_16_BLOCKED") setSubmitError("Tu dois avoir 16 ans ou plus.");
@@ -469,6 +481,22 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
           onChange={handleChange}
         />
         {ageError && <div style={{ marginTop: 8, color: "tomato" }}>{ageError}</div>}
+      </div>
+
+      {/* ✅ NEW: Taille obligatoire */}
+      <div className="form-group">
+        <label>Taille (cm) *</label>
+        <input
+          name="height"
+          type="number"
+          min="80"
+          max="250"
+          inputMode="numeric"
+          value={form.height}
+          onChange={handleChange}
+          required
+          placeholder="ex: 175"
+        />
       </div>
 
       {/* ✅ Bouton Sexe (Femme / Homme / Autres) */}
@@ -502,27 +530,15 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
         {/* ✅ sous-champ (sans coordonnées) */}
         {!cityConfirmed ? (
           <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
-            {cityLoading
-              ? "Recherche de la ville…"
-              : "Sélectionne la bonne ville dans la liste pour confirmer (ou utilise 📍)."}
+            {cityLoading ? "Recherche de la ville…" : "Sélectionne la bonne ville dans la liste pour confirmer (ou utilise 📍)."}
           </small>
         ) : cityConfirmStatus ? (
-          <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
-            {cityConfirmStatus}
-          </small>
+          <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>{cityConfirmStatus}</small>
         ) : null}
 
         {/* ✅ suggestions (Ville, Département, Pays) */}
         {citySuggestions.length > 0 && !cityConfirmed && (
-          <div
-            className="card"
-            style={{
-              marginTop: 8,
-              padding: 8,
-              display: "grid",
-              gap: 6
-            }}
-          >
+          <div className="card" style={{ marginTop: 8, padding: 8, display: "grid", gap: 6 }}>
             {citySuggestions.map((s) => (
               <button
                 key={s.place_id}
@@ -537,9 +553,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
           </div>
         )}
 
-        {geoStatus ? (
-          <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>{geoStatus}</small>
-        ) : null}
+        {geoStatus ? <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>{geoStatus}</small> : null}
       </div>
 
       <div className="form-group">
@@ -547,9 +561,15 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
         <input name="sport" value={form.sport} onChange={handleChange} />
       </div>
 
+      {/* ✅ Niveau en select (Débutant / Avancé / Expert) */}
       <div className="form-group">
         <label>Niveau *</label>
-        <input name="level" value={form.level} onChange={handleChange} />
+        <select name="level" value={form.level} onChange={handleChange} required>
+          <option value="">Sélectionner…</option>
+          <option value="Débutant">Débutant</option>
+          <option value="Avancé">Avancé</option>
+          <option value="Expert">Expert</option>
+        </select>
       </div>
 
       <div className="form-group">
@@ -568,14 +588,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
           Ajouter une photo ({keptPhotoUrls.length + photos.length}/5)
         </button>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={handlePhotosSelected}
-        />
+        <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={handlePhotosSelected} />
 
         {/* ✅ Aperçus: existantes + nouvelles */}
         {(keptPhotoUrls.length > 0 || photoPreviews.length > 0) && (
@@ -592,11 +605,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
                   border: "1px solid rgba(0,0,0,0.12)"
                 }}
               >
-                <img
-                  src={url}
-                  alt={`Photo existante ${idx + 1}`}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
+                <img src={url} alt={`Photo existante ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                 <button
                   type="button"
                   onClick={() => removeKeptPhotoAt(idx)}
@@ -636,11 +645,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
                   border: "1px solid rgba(0,0,0,0.12)"
                 }}
               >
-                <img
-                  src={p.url}
-                  alt={`Nouvelle photo ${idx + 1}`}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
+                <img src={p.url} alt={`Nouvelle photo ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                 <button
                   type="button"
                   onClick={() => removeNewPhotoAt(idx)}
@@ -673,19 +678,13 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
         {photoError ? (
           <div style={{ marginTop: 8, color: "tomato" }}>{photoError}</div>
         ) : (
-          <small style={{ display: "block", marginTop: 8, opacity: 0.85 }}>
-            1 photo minimum, 5 maximum.
-          </small>
+          <small style={{ display: "block", marginTop: 8, opacity: 0.85 }}>1 photo minimum, 5 maximum.</small>
         )}
       </div>
 
       {submitError ? <div style={{ marginTop: 10, color: "tomato" }}>{submitError}</div> : null}
 
-      <button
-        className="btn-primary btn-block"
-        type="submit"
-        disabled={loadingExisting || submitLoading || !cityConfirmed}
-      >
+      <button className="btn-primary btn-block" type="submit" disabled={loadingExisting || submitLoading || !cityConfirmed}>
         {submitLoading ? "Enregistrement..." : "Enregistrer"}
       </button>
     </form>
