@@ -152,10 +152,7 @@ function HomePage({
     <>
       <main className="page">
         <div className="shell">
-          <section
-            className="card card-results"
-            style={{ padding: 8, maxWidth: 820, margin: "8px auto 0" }}
-          >
+          <section className="card card-results" style={{ padding: 8, maxWidth: 820, margin: "8px auto 0" }}>
             <FiltersBar filters={filters} onChange={onFiltersChange} onReset={onResetFilters} />
 
             {profileToast ? (
@@ -184,12 +181,10 @@ function HomePage({
                 }}
               >
                 <div style={{ lineHeight: 1.35 }}>
-                  <strong>Compte suspendu</strong> — tant que tu n’as pas repris ton compte, tu ne peux
-                  pas utiliser l’application.
+                  <strong>Compte suspendu</strong> — tant que tu n’as pas repris ton compte, tu ne peux pas utiliser
+                  l’application.
                   {myProfile?.suspension_reason ? (
-                    <div style={{ marginTop: 6, opacity: 0.9 }}>
-                      Raison : {myProfile.suspension_reason}
-                    </div>
+                    <div style={{ marginTop: 6, opacity: 0.9 }}>Raison : {myProfile.suspension_reason}</div>
                   ) : null}
                   {resumeError ? <div style={{ marginTop: 6, opacity: 0.9 }}>{resumeError}</div> : null}
                 </div>
@@ -266,11 +261,7 @@ function HomePage({
             </div>
 
             <div className="modal-body modal-body--scroll">
-              <ProfileForm
-                loadingExisting={loadingMyProfile}
-                existingProfile={myProfile}
-                onSaveProfile={handleSaveProfile}
-              />
+              <ProfileForm loadingExisting={loadingMyProfile} existingProfile={myProfile} onSaveProfile={handleSaveProfile} />
             </div>
           </div>
         </div>
@@ -304,7 +295,7 @@ function HomePage({
   );
 }
 
-function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile, onForgetMatch }) {
+function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile, onHideMatch }) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -322,7 +313,7 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile,
           superlikers={superlikers}
           myPhotoUrl={myProfile?.photo_urls?.[0] || ""}
           onBack={() => navigate("/")}
-          onForgetMatch={onForgetMatch}
+          onHideMatch={onHideMatch}
         />
       </div>
     </main>
@@ -520,7 +511,7 @@ export default function App() {
   }, [user?.id]);
 
   /* -------------------------------
-     Fetch CRUSHES (vraie inbox) + filtre blocks
+     Fetch CRUSHES (vraie inbox) + filtre hidden_matches
   -------------------------------- */
   const fetchCrushes = async () => {
     if (!user) {
@@ -528,14 +519,18 @@ export default function App() {
       return;
     }
 
-    // ✅ récupérer mes blocks (pour ne plus afficher)
-    const { data: blocksRows, error: bErr } = await supabase
-      .from("blocks")
-      .select("blocked_user_id")
-      .eq("blocker_id", user.id);
+    // ✅ matches masqués par moi
+    const { data: hiddenRows, error: hErr } = await supabase
+      .from("hidden_matches")
+      .select("match_id")
+      .eq("user_id", user.id);
 
-    if (bErr) console.error("blocks fetch error:", bErr);
-    const blockedSet = new Set((blocksRows || []).map((x) => x.blocked_user_id).filter(Boolean));
+    if (hErr) console.error("hidden_matches fetch error:", hErr);
+    const hiddenSet = new Set(
+      (hiddenRows || [])
+        .map((x) => Number(x.match_id))
+        .filter((n) => Number.isFinite(n))
+    );
 
     const { data: matchesRows, error: mErr } = await supabase
       .from("matches")
@@ -550,19 +545,18 @@ export default function App() {
       return;
     }
 
-    const matchesList = matchesRows || [];
+    const matchesList = (matchesRows || []).filter((m) => !hiddenSet.has(Number(m.id)));
     if (matchesList.length === 0) {
       setCrushes([]);
       return;
     }
 
-    const otherUserIdsAll = matchesList
+    const otherUserIds = matchesList
       .map((m) => (m.user1_id === user.id ? m.user2_id : m.user1_id))
       .filter(Boolean);
 
-    const otherUserIds = otherUserIdsAll.filter((id) => !blockedSet.has(id));
-
-    if (otherUserIds.length === 0) {
+    const uniqOther = Array.from(new Set(otherUserIds));
+    if (uniqOther.length === 0) {
       setCrushes([]);
       return;
     }
@@ -570,7 +564,7 @@ export default function App() {
     const { data: profs, error: pErr } = await supabase
       .from("profiles")
       .select("id, user_id, name, city, sport, photo_urls, created_at, status")
-      .in("user_id", otherUserIds)
+      .in("user_id", uniqOther)
       .order("created_at", { ascending: false });
 
     if (pErr) {
@@ -605,15 +599,13 @@ export default function App() {
     const next = matchesList
       .map((m) => {
         const otherUserId = m.user1_id === user.id ? m.user2_id : m.user1_id;
-        if (!otherUserId || blockedSet.has(otherUserId)) return null;
-
-        const prof = byUser.get(otherUserId);
+        const prof = otherUserId ? byUser.get(otherUserId) : null;
         const last = lastByMatch.get(m.id);
 
         return {
           id: `match-${m.id}`,
           match_id: m.id, // ✅ bigint
-          user_id: otherUserId, // ✅ utile pour oublier (block)
+          user_id: otherUserId, // (utile si tu ajoutes “profil”)
           name: prof?.name || "Match",
           city: prof?.city || "",
           sport: prof?.sport || "",
@@ -633,31 +625,30 @@ export default function App() {
   }, [user?.id]);
 
   /* -------------------------------
-     Oublier un match (BLOCK)
+     Masquer un match (hidden_matches)
   -------------------------------- */
-  const forgetMatch = async (c) => {
+  const hideMatch = async (c) => {
     if (!user?.id) return;
-    if (!c?.user_id) return;
+    if (!c?.match_id) return;
 
-    const { error } = await supabase.from("blocks").insert({
-      blocker_id: user.id,
-      blocked_user_id: c.user_id
+    const { error } = await supabase.from("hidden_matches").insert({
+      user_id: user.id,
+      match_id: Number(c.match_id)
     });
 
-    // si déjà bloqué, on refresh quand même
     const msg = String(error?.message || "").toLowerCase();
     if (error && !msg.includes("duplicate")) {
-      console.error("block error:", error);
-      setProfileToast("Impossible d'oublier ce match (RLS ?).");
-      window.clearTimeout(forgetMatch.__t);
-      forgetMatch.__t = window.setTimeout(() => setProfileToast(""), 3000);
+      console.error("hideMatch error:", error);
+      setProfileToast("Impossible de masquer ce match (RLS ?).");
+      window.clearTimeout(hideMatch.__t);
+      hideMatch.__t = window.setTimeout(() => setProfileToast(""), 3000);
       return;
     }
 
     await fetchCrushes();
-    setProfileToast("Match oublié ✅");
-    window.clearTimeout(forgetMatch.__t);
-    forgetMatch.__t = window.setTimeout(() => setProfileToast(""), 2500);
+    setProfileToast("Match masqué ✅");
+    window.clearTimeout(hideMatch.__t);
+    hideMatch.__t = window.setTimeout(() => setProfileToast(""), 2500);
   };
 
   /* -------------------------------
@@ -723,10 +714,7 @@ export default function App() {
     setLoadingProfiles(true);
     setProfilesError(null);
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
 
     if (error) {
       console.error("Supabase fetch profiles error:", error);
@@ -835,9 +823,10 @@ export default function App() {
       const ext = safeFileExt(file);
       const path = `profiles/${profileId}/${randomId()}-${i + 1}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, { cacheControl: "3600", upsert: false });
+      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
+        cacheControl: "3600",
+        upsert: false
+      });
 
       if (uploadError) {
         console.error("Supabase upload error:", uploadError);
@@ -943,9 +932,7 @@ export default function App() {
     if (ageNum < 16) throw new Error("UNDER_16_BLOCKED");
 
     const genderValue =
-      data.gender === "female" || data.gender === "male" || data.gender === "other"
-        ? data.gender
-        : null;
+      data.gender === "female" || data.gender === "male" || data.gender === "other" ? data.gender : null;
 
     if (!myProfile && !hasNewPhotos) throw new Error("PHOTO_REQUIRED");
 
@@ -1002,10 +989,7 @@ export default function App() {
     if (!myProfile) {
       const uploaded = await uploadProfilePhotos(profileId, photos);
 
-      const { error: updatePhotosErr } = await supabase
-        .from("profiles")
-        .update({ photo_urls: uploaded })
-        .eq("id", profileId);
+      const { error: updatePhotosErr } = await supabase.from("profiles").update({ photo_urls: uploaded }).eq("id", profileId);
 
       if (updatePhotosErr) {
         console.error("update photo_urls error:", updatePhotosErr);
@@ -1022,10 +1006,7 @@ export default function App() {
         nextUrls = [...keptPhotoUrls, ...uploaded];
       }
 
-      const { error: updatePhotosErr } = await supabase
-        .from("profiles")
-        .update({ photo_urls: nextUrls })
-        .eq("id", profileId);
+      const { error: updatePhotosErr } = await supabase.from("profiles").update({ photo_urls: nextUrls }).eq("id", profileId);
 
       if (updatePhotosErr) {
         console.error("update photo_urls error:", updatePhotosErr);
@@ -1050,8 +1031,7 @@ export default function App() {
      Filtres
   -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
-  const handleResetFilters = () =>
-    setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
+  const handleResetFilters = () => setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -1091,11 +1071,7 @@ export default function App() {
         const coords = await geocodeCity(p.city);
         if (!coords) continue;
 
-        const d = haversineKm(
-          { lat: myLoc.lat, lon: myLoc.lon },
-          { lat: coords.lat, lon: coords.lon }
-        );
-
+        const d = haversineKm({ lat: myLoc.lat, lon: myLoc.lon }, { lat: coords.lat, lon: coords.lon });
         if (d <= radiusKm) kept.push(p);
       }
 
@@ -1192,9 +1168,6 @@ export default function App() {
       setProfileToast("🎉 C’est un match ! Engage la conversation 😉");
       window.clearTimeout(handleLike.__t);
       handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
-
-      // Optionnel: ouvrir direct le chat
-      // if (row?.match_id) navigate(`/chat/${row.match_id}`);
     }
 
     // 3) refresh superlikers
@@ -1271,19 +1244,17 @@ export default function App() {
               crushes={crushes}
               superlikers={superlikers}
               myProfile={myProfile}
-              onForgetMatch={forgetMatch}
+              onHideMatch={hideMatch}
             />
           }
         />
 
-        {/* ✅ Chat full page */}
         <Route path="/chat/:matchId" element={<ChatPage />} />
 
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
 
         <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
-
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
