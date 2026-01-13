@@ -19,6 +19,9 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
 
   const [isAuthed, setIsAuthed] = useState(false);
 
+  // ✅ NEW: proposer renvoi mail de confirmation
+  const [canResendConfirm, setCanResendConfirm] = useState(false);
+
   const isResetMode = mode === "reset";
 
   // Détecte si on arrive via un lien "recovery" (reset password)
@@ -41,6 +44,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
   useEffect(() => {
     setMsg(null);
     setIsError(false);
+    setCanResendConfirm(false);
   }, [mode]);
 
   useEffect(() => {
@@ -75,6 +79,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     setLoading(true);
     setMsg(null);
     setIsError(false);
+    setCanResendConfirm(false);
 
     try {
       // ⚠️ mieux: envoyer vers / (on détecte ensuite recovery via hash)
@@ -94,11 +99,44 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     }
   };
 
+  // ✅ NEW: renvoyer email de confirmation
+  const handleResendConfirmation = async () => {
+    const cleanEmail = (email || "").trim().toLowerCase();
+    if (!cleanEmail) {
+      setIsError(true);
+      setMsg("Entre ton email pour renvoyer la confirmation.");
+      return;
+    }
+
+    setLoading(true);
+    setMsg(null);
+    setIsError(false);
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: cleanEmail
+      });
+      if (error) throw error;
+
+      setIsError(false);
+      setMsg("Email de confirmation renvoyé 📩");
+      setCanResendConfirm(false);
+    } catch (err) {
+      console.error("RESEND CONFIRM ERROR:", err);
+      setIsError(true);
+      setMsg(err?.message || "Impossible de renvoyer l’email de confirmation.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submitSigninSignup = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMsg(null);
     setIsError(false);
+    setCanResendConfirm(false);
 
     try {
       const cleanEmail = (email || "").trim().toLowerCase();
@@ -116,21 +154,28 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
       }
 
       if (mode === "signup") {
+        // ✅ IMPORTANT: redirection après clic sur l’email de confirmation
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
-          password
+          password,
+          options: {
+            emailRedirectTo: window.location.origin
+          }
         });
         if (error) throw error;
 
+        // Quand email confirmation activée: user créé MAIS pas de session
         if (data?.user && !data?.session) {
           setIsError(false);
           setMsg("Compte créé ✅ Vérifie ton email pour confirmer, puis connecte-toi.");
         } else {
+          // selon config, il peut être connecté direct
           setIsError(false);
           setMsg("Compte créé ✅ Tu es connecté.");
           setTimeout(() => onClose?.(), 450);
         }
 
+        // on repasse en signin
         setMode("signin");
         setPassword("");
         return;
@@ -141,7 +186,20 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
         email: cleanEmail,
         password
       });
-      if (error) throw error;
+
+      if (error) {
+        const m = String(error?.message || "").toLowerCase();
+
+        // ✅ cas email non confirmé
+        if (m.includes("confirm") || m.includes("confirmed") || m.includes("verify") || m.includes("verified")) {
+          setIsError(true);
+          setMsg("⚠️ Tu dois confirmer ton email avant de te connecter.");
+          setCanResendConfirm(true);
+          return;
+        }
+
+        throw error;
+      }
 
       setIsError(false);
       setMsg("Connecté ✅");
@@ -155,8 +213,16 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
         err?.details ||
         (typeof err === "string" ? err : null);
 
+      const text = String(full || "Erreur d’authentification.");
+
+      // ✅ si l’erreur parle de confirmation, on propose le renvoi
+      const low = text.toLowerCase();
+      if (low.includes("confirm") || low.includes("confirmed") || low.includes("verify") || low.includes("verified")) {
+        setCanResendConfirm(true);
+      }
+
       setIsError(true);
-      setMsg(full || "Erreur d’authentification.");
+      setMsg(text);
     } finally {
       setLoading(false);
     }
@@ -167,6 +233,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     setLoading(true);
     setMsg(null);
     setIsError(false);
+    setCanResendConfirm(false);
 
     try {
       if (!newPassword || newPassword.length < 6) {
@@ -209,6 +276,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     setLoading(true);
     setMsg(null);
     setIsError(false);
+    setCanResendConfirm(false);
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -228,11 +296,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
       <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>
-            {mode === "signup"
-              ? "Créer un compte"
-              : mode === "reset"
-              ? "Nouveau mot de passe"
-              : "Connexion"}
+            {mode === "signup" ? "Créer un compte" : mode === "reset" ? "Nouveau mot de passe" : "Connexion"}
           </h3>
           <button className="btn-ghost" onClick={() => onClose?.()}>
             Fermer
@@ -271,9 +335,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 {loading ? "..." : "Mettre à jour le mot de passe"}
               </button>
 
-              <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>
-                {msg}
-              </p>
+              <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>{msg}</p>
             </form>
           ) : (
             /* ✅ SIGNIN / SIGNUP */
@@ -341,6 +403,19 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 {mode === "signup" ? "J’ai déjà un compte" : "Créer un compte"}
               </button>
 
+              {/* ✅ NEW: renvoyer confirmation (affiché quand utile) */}
+              {mode === "signin" && canResendConfirm && (
+                <button
+                  type="button"
+                  className="btn-ghost btn-block"
+                  onClick={handleResendConfirmation}
+                  disabled={loading}
+                  style={{ marginTop: 8 }}
+                >
+                  Renvoyer l’email de confirmation
+                </button>
+              )}
+
               {isAuthed && (
                 <button
                   type="button"
@@ -353,9 +428,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 </button>
               )}
 
-              <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>
-                {msg}
-              </p>
+              <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>{msg}</p>
             </form>
           )}
         </div>
@@ -363,3 +436,4 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
     </div>
   );
 }
+
