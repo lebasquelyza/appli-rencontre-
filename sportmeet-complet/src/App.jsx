@@ -11,6 +11,8 @@ import { AuthModal } from "./components/AuthModal";
 import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
+import { Confirmed } from "./pages/Confirmed";
+
 
 // ✅ effet "bombe" match (modal centre)
 import { MatchBoomModal } from "./components/MatchBoomModal";
