@@ -46,7 +46,7 @@ export function SwipeCard({ profile }) {
   const bio = (profile?.bio || "").trim();
   const availability = (profile?.availability || "").trim();
 
-  // ✅ taille (cm) => chip
+  // ✅ taille (cm) => chip uniquement
   const heightNum = Number(profile?.height);
   const heightLabel = Number.isFinite(heightNum) && heightNum > 0 ? `${heightNum} cm` : "";
 
