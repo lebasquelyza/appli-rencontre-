@@ -231,7 +231,6 @@ function HomePage({
                 onLikeProfile={handleLike}
                 isAuthenticated={!!userForUI && !isSuspended}
                 onRequireAuth={() => setIsAuthModalOpen(true)}
-                // ✅ IMPORTANT: permet la logique "si pas de profil => message"
                 hasMyProfile={!!myProfile?.id}
               />
             )}
@@ -311,7 +310,7 @@ function HomePage({
   );
 }
 
-function CrushesFullPage({ user, onRequireAuth, crushes }) {
+function CrushesFullPage({ user, onRequireAuth, crushes, superlikers }) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -324,7 +323,8 @@ function CrushesFullPage({ user, onRequireAuth, crushes }) {
   return (
     <main className="page">
       <div className="shell">
-        <CrushesPage crushes={crushes} onBack={() => navigate("/")} />
+        {/* ✅ on passe aussi superlikers */}
+        <CrushesPage crushes={crushes} superlikers={superlikers} onBack={() => navigate("/")} />
       </div>
     </main>
   );
@@ -333,8 +333,7 @@ function CrushesFullPage({ user, onRequireAuth, crushes }) {
 export default function App() {
   const navigate = useNavigate();
 
-  // ✅ FIX DEFINITIF iPhone: on “verrouille” la hauteur de l’app
-  // IMPORTANT: pas de resize => sinon Safari barre d’adresse fait bouger tout.
+  // ✅ FIX DEFINITIF iPhone
   useEffect(() => {
     const setAppHeight = () => {
       const h = window.visualViewport?.height ?? window.innerHeight;
@@ -401,6 +400,9 @@ export default function App() {
       localStorage.setItem("crushes", JSON.stringify(crushes));
     } catch {}
   }, [crushes]);
+
+  // ✅ personnes qui m'ont superlike (pour le bloc Premium)
+  const [superlikers, setSuperlikers] = useState([]);
 
   const isSuspended = !!user && myProfile?.status === "suspended";
   const userForUI = isSuspended ? null : user;
@@ -479,7 +481,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     Fetch mon profil (lié à user_id)
+     Fetch mon profil
   -------------------------------- */
   const fetchMyProfile = async () => {
     if (!user) {
@@ -537,7 +539,63 @@ export default function App() {
   }, [user?.id]);
 
   /* -------------------------------
-     Fetch tous les profils (✅ réels + démos si pas assez)
+     Fetch qui m'a superlike
+  -------------------------------- */
+  const fetchSuperlikers = async () => {
+    if (!user || !myProfile?.id) {
+      setSuperlikers([]);
+      return;
+    }
+
+    const { data: likesData, error: likesErr } = await supabase
+      .from("likes")
+      .select("liker_id, created_at")
+      .eq("liked_profile_id", myProfile.id)
+      .eq("is_super", true)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (likesErr) {
+      console.error("fetchSuperlikers likes error:", likesErr);
+      setSuperlikers([]);
+      return;
+    }
+
+    const likerIds = Array.from(new Set((likesData || []).map((x) => x.liker_id).filter(Boolean)));
+    if (likerIds.length === 0) {
+      setSuperlikers([]);
+      return;
+    }
+
+    const { data: profs, error: profErr } = await supabase
+      .from("profiles")
+      .select("id, user_id, name, photo_urls, created_at")
+      .in("user_id", likerIds)
+      .order("created_at", { ascending: false });
+
+    if (profErr) {
+      console.error("fetchSuperlikers profiles error:", profErr);
+      setSuperlikers([]);
+      return;
+    }
+
+    setSuperlikers(
+      (profs || []).map((p) => ({
+        id: p.id,
+        user_id: p.user_id,
+        name: p.name,
+        photo: Array.isArray(p.photo_urls) ? p.photo_urls[0] : null
+      }))
+    );
+  };
+
+  useEffect(() => {
+    fetchSuperlikers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, myProfile?.id]);
+
+  /* -------------------------------
+     Fetch tous les profils
   -------------------------------- */
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
@@ -610,7 +668,7 @@ export default function App() {
   }, []);
 
   /* -------------------------------
-     REPRENDRE: réactiver le compte
+     REPRENDRE
   -------------------------------- */
   const handleResumeAccount = async () => {
     setResumeError("");
@@ -645,7 +703,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     Upload photos -> URLs publiques
+     Upload photos
   -------------------------------- */
   const uploadProfilePhotos = async (profileId, files) => {
     const urls = [];
@@ -683,7 +741,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     SUPPRIMER mon profil (✅ NOUVEAU)
+     SUPPRIMER mon profil
   -------------------------------- */
   const handleDeleteMyProfile = async () => {
     if (!user || isSuspended) {
@@ -927,9 +985,11 @@ export default function App() {
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* -------------------------------
-     Like/Swipe ✅ MATCH + CRUSH
+     Like/Swipe ✅ LIKE + SUPERLIKE + LIMIT 5/JOUR + MATCH
   -------------------------------- */
-  const handleLike = async (profile) => {
+  const handleLike = async (profile, opts = {}) => {
+    const isSuper = !!opts.isSuper;
+
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
       else setIsAuthModalOpen(true);
@@ -945,15 +1005,49 @@ export default function App() {
 
     if (!profile?.id) return;
 
-    // 1) enregistrer le like
+    // ✅ Limite 5 superlikes / jour (client-side + DB count)
+    if (isSuper) {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const { count, error: cntErr } = await supabase
+        .from("likes")
+        .select("id", { count: "exact", head: true })
+        .eq("liker_id", user.id)
+        .eq("is_super", true)
+        .gte("created_at", startOfToday.toISOString());
+
+      if (cntErr) console.error("superlike count error:", cntErr);
+
+      if ((count || 0) >= 5) {
+        setProfileToast("Limite atteinte : 5 superlikes par jour ⭐");
+        window.clearTimeout(handleLike.__t);
+        handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
+        return;
+      }
+    }
+
+    // 1) enregistrer le like/superlike
     const { error: likeErr } = await supabase.from("likes").insert({
       liker_id: user.id,
-      liked_profile_id: profile.id
+      liked_profile_id: profile.id,
+      is_super: isSuper
     });
 
-    // si doublon, ok ; sinon on log
-    if (likeErr && !String(likeErr.message || "").toLowerCase().includes("duplicate")) {
-      console.error("Like error:", likeErr);
+    // si doublon, on peut upgrader en superlike (★ après ❤)
+    const msg = String(likeErr?.message || "").toLowerCase();
+    if (likeErr && msg.includes("duplicate")) {
+      if (isSuper) {
+        const { error: upErr } = await supabase
+          .from("likes")
+          .update({ is_super: true })
+          .eq("liker_id", user.id)
+          .eq("liked_profile_id", profile.id);
+
+        if (upErr) console.error("upgrade to superlike error:", upErr);
+      }
+    } else if (likeErr) {
+      console.error("Like insert error:", likeErr);
     }
 
     // 2) créer match si réciproque (RPC Supabase)
@@ -986,6 +1080,9 @@ export default function App() {
       window.clearTimeout(handleLike.__t);
       handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
     }
+
+    // 4) refresh liste superlikers (si besoin)
+    fetchSuperlikers();
   };
 
   const openProfileModal = () => {
@@ -1056,6 +1153,7 @@ export default function App() {
               user={userForUI}
               onRequireAuth={() => setIsAuthModalOpen(true)}
               crushes={crushes}
+              superlikers={superlikers}
             />
           }
         />
@@ -1071,7 +1169,6 @@ export default function App() {
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
-      {/* ✅ Texte simple en bas, sans Footer, safe-area iPhone, ne bloque pas les boutons */}
       <div
         style={{
           position: "fixed",
