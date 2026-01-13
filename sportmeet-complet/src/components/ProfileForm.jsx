@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 const emptyForm = {
   name: "",
   age: "",
-  height: "", // ✅ NEW: taille obligatoire (cm)
+  height: "", // ✅ taille obligatoire (cm)
   gender: "",
   city: "",
   sport: "",
@@ -90,10 +90,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
   }
 
   function formatCityLabel(s) {
-    return (
-      formatCityLabelFromAddress(s?.address || {}) ||
-      (s?.display_name ? String(s.display_name) : "")
-    );
+    return formatCityLabelFromAddress(s?.address || {}) || (s?.display_name ? String(s.display_name) : "");
   }
 
   /* -------------------------------
@@ -432,7 +429,7 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
       await onSaveProfile({
         ...form,
         age: form.age ? Number(form.age) : null,
-        height: form.height ? Number(form.height) : null, // ✅ NEW
+        height: form.height ? Number(form.height) : null,
         gender: form.gender || null,
 
         // ✅ position exacte / ville choisie
@@ -451,13 +448,22 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
       console.error(err);
 
       const msg = err?.message || "";
+      const supa =
+        err?.message ||
+        err?.error_description ||
+        err?.details ||
+        err?.hint ||
+        (typeof err === "string" ? err : "");
+
       if (msg === "AUTH_REQUIRED") setSubmitError("Connecte-toi pour enregistrer ton profil.");
       else if (msg === "MISSING_FIELDS") setSubmitError("Merci de remplir tous les champs obligatoires.");
       else if (msg === "PHOTO_REQUIRED") setSubmitError("Ajoute au moins une photo.");
       else if (msg === "AGE_REQUIRED") setSubmitError("Merci d’indiquer ton âge.");
       else if (msg === "UNDER_16_BLOCKED") setSubmitError("Tu dois avoir 16 ans ou plus.");
       else if (msg === "MAX_5_PHOTOS") setSubmitError("Maximum 5 photos.");
-      else setSubmitError("Impossible d’enregistrer pour le moment. Réessaie.");
+      else if (msg === "HEIGHT_REQUIRED") setSubmitError("Merci d’indiquer ta taille.");
+      else if (msg === "HEIGHT_INVALID") setSubmitError("Merci d’indiquer une taille valide (80 à 250 cm).");
+      else setSubmitError(String(supa || "Impossible d’enregistrer pour le moment. Réessaie."));
     } finally {
       setSubmitLoading(false);
     }
@@ -472,18 +478,11 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
 
       <div className="form-group">
         <label>Âge *</label>
-        <input
-          name="age"
-          type="number"
-          min="0"
-          inputMode="numeric"
-          value={form.age}
-          onChange={handleChange}
-        />
+        <input name="age" type="number" min="0" inputMode="numeric" value={form.age} onChange={handleChange} />
         {ageError && <div style={{ marginTop: 8, color: "tomato" }}>{ageError}</div>}
       </div>
 
-      {/* ✅ NEW: Taille obligatoire */}
+      {/* ✅ Taille obligatoire */}
       <div className="form-group">
         <label>Taille (cm) *</label>
         <input
@@ -527,7 +526,6 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
           </button>
         </div>
 
-        {/* ✅ sous-champ (sans coordonnées) */}
         {!cityConfirmed ? (
           <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>
             {cityLoading ? "Recherche de la ville…" : "Sélectionne la bonne ville dans la liste pour confirmer (ou utilise 📍)."}
@@ -536,7 +534,6 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
           <small style={{ display: "block", marginTop: 6, opacity: 0.85 }}>{cityConfirmStatus}</small>
         ) : null}
 
-        {/* ✅ suggestions (Ville, Département, Pays) */}
         {citySuggestions.length > 0 && !cityConfirmed && (
           <div className="card" style={{ marginTop: 8, padding: 8, display: "grid", gap: 6 }}>
             {citySuggestions.map((s) => (
@@ -561,7 +558,6 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
         <input name="sport" value={form.sport} onChange={handleChange} />
       </div>
 
-      {/* ✅ Niveau en select (Débutant / Avancé / Expert) */}
       <div className="form-group">
         <label>Niveau *</label>
         <select name="level" value={form.level} onChange={handleChange} required>
@@ -590,7 +586,6 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
 
         <input ref={fileInputRef} type="file" accept="image/*" multiple hidden onChange={handlePhotosSelected} />
 
-        {/* ✅ Aperçus: existantes + nouvelles */}
         {(keptPhotoUrls.length > 0 || photoPreviews.length > 0) && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
             {keptPhotoUrls.map((url, idx) => (
@@ -605,7 +600,11 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
                   border: "1px solid rgba(0,0,0,0.12)"
                 }}
               >
-                <img src={url} alt={`Photo existante ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                <img
+                  src={url}
+                  alt={`Photo existante ${idx + 1}`}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
                 <button
                   type="button"
                   onClick={() => removeKeptPhotoAt(idx)}
@@ -645,7 +644,11 @@ export function ProfileForm({ existingProfile, loadingExisting, onSaveProfile, o
                   border: "1px solid rgba(0,0,0,0.12)"
                 }}
               >
-                <img src={p.url} alt={`Nouvelle photo ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                <img
+                  src={p.url}
+                  alt={`Nouvelle photo ${idx + 1}`}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
                 <button
                   type="button"
                   onClick={() => removeNewPhotoAt(idx)}
