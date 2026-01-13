@@ -12,6 +12,9 @@ import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 
+// ✅ NEW: effet "bombe" match (modal centre)
+import { MatchBoomModal } from "./components/MatchBoomModal";
+
 // ✅ Pages légales
 import { Terms } from "./pages/Terms";
 import { Cookies } from "./pages/Cookies";
@@ -380,6 +383,9 @@ export default function App() {
 
   // ✅ personnes qui m'ont superlike
   const [superlikers, setSuperlikers] = useState([]);
+
+  // ✅ NEW: modal "boom" quand match (au milieu de page)
+  const [matchBoom, setMatchBoom] = useState({ open: false, name: "", photoUrl: "" });
 
   const isSuspended = !!user && myProfile?.status === "suspended";
   const userForUI = isSuspended ? null : user;
@@ -1165,9 +1171,12 @@ export default function App() {
     if (row?.matched) {
       await fetchCrushes();
 
-      setProfileToast("🎉 C’est un match ! Engage la conversation 😉");
-      window.clearTimeout(handleLike.__t);
-      handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
+      // ✅ NEW: effet "bombe" au milieu (le client ferme puis clique sur "Messages")
+      setMatchBoom({
+        open: true,
+        name: profile?.name || "Match",
+        photoUrl: (profile?.photo_urls && profile.photo_urls[0]) || profile?.photo || ""
+      });
     }
 
     // 3) refresh superlikers
@@ -1257,6 +1266,14 @@ export default function App() {
         <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
+
+      {/* ✅ NEW: Modal Match (effet bombe) - on ne redirige pas, on dit au client de cliquer sur "Messages" */}
+      <MatchBoomModal
+        open={matchBoom.open}
+        matchName={matchBoom.name}
+        photoUrl={matchBoom.photoUrl}
+        onClose={() => setMatchBoom({ open: false, name: "", photoUrl: "" })}
+      />
 
       <div
         style={{
