@@ -7,6 +7,9 @@ export function SwipeDeck({
   onLikeProfile,
   isAuthenticated,
   onRequireAuth,
+
+  // ✅ NOUVEAU: vrai si l'utilisateur a déjà créé son profil
+  // ✅ DEFAULT: true pour ne jamais bloquer si la prop n'est pas passée
   hasMyProfile = true
 }) {
   const [index, setIndex] = useState(0);
@@ -16,8 +19,9 @@ export function SwipeDeck({
   const [gateMsg, setGateMsg] = useState("");
   const gateTimerRef = useRef(null);
 
-  // ✅ NOUVEAU: modal "zoom" sur une carte (fond applis flou)
+  // ✅ NEW: zoom (profil en grand) — le flou n'existe QUE quand zoomOpen = true
   const [zoomOpen, setZoomOpen] = useState(false);
+  const [zoomProfile, setZoomProfile] = useState(null);
 
   const showGate = (msg) => {
     setGateMsg(msg);
@@ -27,7 +31,6 @@ export function SwipeDeck({
 
   useEffect(() => {
     setIndex(0);
-    setZoomOpen(false);
   }, [profiles]);
 
   useEffect(() => {
@@ -98,6 +101,7 @@ export function SwipeDeck({
     [currentProfile?.id]
   );
 
+  // ✅ gate centralisé pour actions (✕ / ❤ / ★)
   const guardAction = () => {
     if (isShareCard) return { ok: false, reason: "share" };
 
@@ -106,6 +110,7 @@ export function SwipeDeck({
       return { ok: false, reason: "auth" };
     }
 
+    // ✅ IMPORTANT: on bloque UNIQUEMENT si on reçoit explicitement false
     if (hasMyProfile === false) {
       showGate("Crée ton profil avant de pouvoir trouver ta/ton partenaire 💪");
       return { ok: false, reason: "no_profile" };
@@ -164,89 +169,49 @@ export function SwipeDeck({
 
   const hasAny = Array.isArray(profiles) && profiles.length > 0;
 
-  // ✅ ouverture/fermeture zoom
-  const openZoom = () => {
-    if (!currentProfile || isShareCard) return;
+  // ✅ NEW: ouvrir le profil en grand (SANS changer le reste)
+  const openZoom = (p) => {
+    if (!p || p.__type === "share") return;
+    setZoomProfile(p);
     setZoomOpen(true);
-    // bloquer scroll derrière
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
   };
 
   const closeZoom = () => {
     setZoomOpen(false);
-    document.documentElement.style.overflow = "";
-    document.body.style.overflow = "";
+    setZoomProfile(null);
   };
 
+  // ✅ NEW: empêcher le scroll derrière quand zoom ouvert
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") closeZoom();
+    if (!zoomOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
     };
-    if (zoomOpen) window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
   }, [zoomOpen]);
 
   return (
     <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
-          <div className="swipeStage">
+          <div
+            className="swipeStage"
+            // ✅ NEW: clic sur la carte => zoom (mais uniquement si pas share card)
+            onClick={() => {
+              if (isShareCard) return;
+              openZoom(currentProfile);
+            }}
+            style={{ cursor: isShareCard ? "default" : "zoom-in" }}
+          >
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
             ) : (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={openZoom}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") openZoom();
-                }}
-                style={{ cursor: "pointer" }}
-                title="Cliquer pour agrandir"
-              >
-                <SwipeCard key={currentProfile.id} profile={currentProfile} />
-              </div>
+              <SwipeCard key={currentProfile.id} profile={currentProfile} />
             )}
           </div>
 
-          {/* ✅ MODAL ZOOM: fond appli flou */}
-          {zoomOpen && !isShareCard && (
-            <div
-              className="zoomBackdrop"
-              onClick={closeZoom}
-              style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 9999,
-                background: "rgba(0,0,0,.55)",
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
-                display: "grid",
-                placeItems: "center",
-                padding: 12
-              }}
-            >
-              <div
-                className="zoomCardShell"
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  width: "min(820px, 96vw)",
-                  maxHeight: "calc(var(--appH, 100vh) - 24px)",
-                  overflow: "auto"
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-                  <button type="button" className="btn-ghost btn-sm" onClick={closeZoom}>
-                    Fermer
-                  </button>
-                </div>
-
-                <SwipeCard profile={currentProfile} />
-              </div>
-            </div>
-          )}
-
+          {/* ✅ toast message */}
           {gateMsg && <div className="gate-toast">{gateMsg}</div>}
 
           {!isAuthenticated && !isShareCard ? (
@@ -254,24 +219,53 @@ export function SwipeDeck({
               <p className="form-message" style={{ margin: 0 }}>
                 Connecte-toi pour liker ou passer des profils.
               </p>
-              <button type="button" className="btn-primary btn-sm" onClick={() => onRequireAuth?.()}>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRequireAuth?.();
+                }}
+              >
                 Se connecter
               </button>
             </div>
           ) : isShareCard ? (
             <div className="actions" style={{ justifyContent: "center", gap: 10 }}>
-              <button type="button" className="btn-primary" onClick={handleShare}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleShare();
+                }}
+              >
                 Partager
               </button>
-              <button type="button" className="btn-ghost" onClick={handleCopy}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy();
+                }}
+              >
                 Copier le lien
               </button>
-              <button type="button" className="btn-ghost" onClick={next} title="Continuer">
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  next();
+                }}
+                title="Continuer"
+              >
                 Continuer
               </button>
             </div>
           ) : (
-            <div className="actions">
+            <div className="actions" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
                 className="swBtn swBtnBad"
@@ -304,6 +298,40 @@ export function SwipeDeck({
               >
                 ★
               </button>
+            </div>
+          )}
+
+          {/* ✅ NEW: ZOOM OVERLAY — flou uniquement ici */}
+          {zoomOpen && zoomProfile && (
+            <div
+              onClick={closeZoom}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                background: "rgba(0,0,0,0.35)",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                display: "grid",
+                placeItems: "center",
+                padding: 14
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: "min(520px, 100%)"
+                }}
+              >
+                <div style={{ marginBottom: 10, display: "flex", justifyContent: "flex-end" }}>
+                  <button type="button" className="btn-ghost" onClick={closeZoom}>
+                    Fermer
+                  </button>
+                </div>
+
+                {/* carte en grand */}
+                <SwipeCard profile={zoomProfile} />
+              </div>
             </div>
           )}
         </>
