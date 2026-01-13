@@ -1266,6 +1266,7 @@ export default function App() {
 
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
+        <Route path="/confirmed" element={<Confirmed onOpenAuth={() => setIsAuthModalOpen(true)} />} />
 
         <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
