@@ -739,6 +739,7 @@ export default function App() {
       user_id: p.user_id ?? null,
       name: p.name,
       age: p.age ?? null,
+      height: p.height ?? null,
       gender: p.gender ?? null,
       status: p.status ?? "active",
       city: p.city,
