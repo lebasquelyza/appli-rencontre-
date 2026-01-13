@@ -5,14 +5,13 @@ import { supabase } from "../lib/supabase";
 
 export function ChatPage() {
   const navigate = useNavigate();
-  const { matchId } = useParams(); // ex: "demo" ou uuid
+  const { matchId } = useParams(); // "demo" ou uuid
   const location = useLocation();
 
-  // on reçoit le crush via navigate(..., { state: { crush, myPhotoUrl } })
   const crush = location.state?.crush || null;
   const myPhotoUrl = location.state?.myPhotoUrl || "";
 
-  const isDemo = matchId === "demo" || !matchId;
+  const isDemo = matchId === "demo";
 
   const [me, setMe] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -60,7 +59,12 @@ export function ChatPage() {
         return;
       }
 
-      // fetch
+      // vrai match id requis
+      if (!matchId) {
+        setMessages([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("messages")
         .select("id, match_id, sender_id, body, created_at")
@@ -76,7 +80,6 @@ export function ChatPage() {
 
       setMessages(data || []);
 
-      // realtime insert
       const channel = supabase
         .channel(`messages:${matchId}`)
         .on(
@@ -93,10 +96,8 @@ export function ChatPage() {
     };
 
     run();
-
     return cleanup;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId]);
+  }, [matchId, isDemo, crush?.message]);
 
   // autoscroll
   useEffect(() => {
@@ -117,7 +118,7 @@ export function ChatPage() {
       return;
     }
 
-    if (!me?.id) return;
+    if (!me?.id || !matchId) return;
 
     const { error } = await supabase.from("messages").insert({
       match_id: matchId,
@@ -142,11 +143,7 @@ export function ChatPage() {
               Retour
             </button>
 
-            <img
-              src={avatar}
-              alt={title}
-              style={{ width: 42, height: 42, borderRadius: 12, objectFit: "cover" }}
-            />
+            <img src={avatar} alt={title} style={{ width: 42, height: 42, borderRadius: 12, objectFit: "cover" }} />
 
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800 }}>{title}</div>
