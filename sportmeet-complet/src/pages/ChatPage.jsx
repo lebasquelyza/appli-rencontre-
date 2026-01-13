@@ -1,5 +1,5 @@
 // sportmeet-complet/src/pages/ChatPage.jsx
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -11,11 +11,10 @@ export function ChatPage() {
   const isDemo = matchId === "demo";
   const matchIdNum = useMemo(() => (isDemo ? null : Number(matchId)), [isDemo, matchId]);
 
+  const stateCrush = location.state?.crush || null;
+
   const [me, setMe] = useState(null);
-
-  // crush peut venir du state, mais on va le sécuriser via DB
-  const [crush, setCrush] = useState(location.state?.crush || null);
-
+  const [crush, setCrush] = useState(stateCrush); // on sécurise via DB si absent
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
 
@@ -23,9 +22,9 @@ export function ChatPage() {
   const channelRef = useRef(null);
 
   const title = crush?.name || "Messages";
-  const avatar = crush?.photo_urls?.[0] || crush?.photo || "/logo.png"; // support ancien format + nouveau
+  const avatar = crush?.photo_urls?.[0] || crush?.photo || "/logo.png";
 
-  // 1) user
+  // user
   useEffect(() => {
     let mounted = true;
     supabase.auth.getUser().then(({ data }) => {
@@ -37,17 +36,16 @@ export function ChatPage() {
     };
   }, []);
 
-  // 2) charger le profil "other" si absent (refresh, lien direct…)
+  // ✅ si on arrive via refresh/lien direct: récupérer le crush depuis DB
   useEffect(() => {
     const run = async () => {
       if (isDemo) return;
       if (!me?.id) return;
       if (!matchIdNum || Number.isNaN(matchIdNum)) return;
 
-      // si on a déjà un crush avec un name -> ok
+      // si on a déjà un crush avec un nom -> ok
       if (crush?.name) return;
 
-      // match -> determine otherUserId -> fetch profile
       const { data: matchRow, error: matchErr } = await supabase
         .from("matches")
         .select("id, user1_id, user2_id")
@@ -61,25 +59,34 @@ export function ChatPage() {
 
       const otherUserId = matchRow.user1_id === me.id ? matchRow.user2_id : matchRow.user1_id;
 
-      const { data: profileRow, error: profErr } = await supabase
+      const { data: profRow, error: profErr } = await supabase
         .from("profiles")
-        .select("id, name, photo_urls, user_id")
+        .select("id, user_id, name, photo_urls, created_at")
         .eq("user_id", otherUserId)
-        .single();
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (profErr) {
         console.error("fetch profile error:", profErr);
         return;
       }
 
-      setCrush(profileRow);
+      if (profRow) {
+        setCrush({
+          id: profRow.id,
+          user_id: profRow.user_id,
+          name: profRow.name,
+          photo_urls: Array.isArray(profRow.photo_urls) ? profRow.photo_urls : []
+        });
+      }
     };
 
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, me?.id, matchIdNum]);
 
-  // 3) load + realtime messages
+  // load + realtime
   useEffect(() => {
     const cleanup = () => {
       if (channelRef.current) {
@@ -96,7 +103,7 @@ export function ChatPage() {
           {
             id: "demo-1",
             sender_id: "them",
-            body: "Salut 👋 Ça te dit une séance cette semaine ? 💪",
+            body: stateCrush?.message || "Salut 👋 Ça te dit une séance cette semaine ? 💪",
             created_at: new Date().toISOString()
           }
         ]);
@@ -127,12 +134,7 @@ export function ChatPage() {
         .channel(`messages:${matchIdNum}`)
         .on(
           "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-            filter: `match_id=eq.${matchIdNum}`
-          },
+          { event: "INSERT", schema: "public", table: "messages", filter: `match_id=eq.${matchIdNum}` },
           (payload) => {
             const row = payload.new;
             setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
@@ -145,9 +147,9 @@ export function ChatPage() {
 
     run();
     return cleanup;
-  }, [isDemo, matchIdNum]);
+  }, [isDemo, matchIdNum, stateCrush?.message]);
 
-  // 4) autoscroll
+  // autoscroll
   useEffect(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -168,9 +170,15 @@ export function ChatPage() {
 
     if (!me?.id || !matchIdNum || Number.isNaN(matchIdNum)) return;
 
-    // ✅ option: envoi optimiste (rend le chat "vrai")
+    // ✅ envoi optimiste (effet "vrai chat")
     const tempId = `temp-${Date.now()}`;
-    const optimistic = { id: tempId, match_id: matchIdNum, sender_id: me.id, body: text, created_at: new Date().toISOString() };
+    const optimistic = {
+      id: tempId,
+      match_id: matchIdNum,
+      sender_id: me.id,
+      body: text,
+      created_at: new Date().toISOString()
+    };
     setMessages((prev) => [...prev, optimistic]);
 
     const { error } = await supabase.from("messages").insert({
@@ -181,7 +189,6 @@ export function ChatPage() {
 
     if (error) {
       console.error("send message error:", error);
-      // rollback simple
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       return;
     }
