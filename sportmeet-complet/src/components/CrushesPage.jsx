@@ -5,11 +5,11 @@ import { useNavigate } from "react-router-dom";
 export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", onBack }) {
   const navigate = useNavigate();
 
-  // ✅ Démo Paul si aucun crush (pour preview UI)
+  // ✅ Démo Paul si aucun crush (preview UI)
   const demoCrush = {
     id: "__demo_paul",
     name: "Paul",
-    photo: myPhotoUrl || "/logo.png", // ✅ photo client en fallback
+    photo: "", // on force fallback sur photo client
     message: "Salut 👋 Ça te dit une séance cette semaine ? 💪",
     match_id: "demo" // ✅ chat démo
   };
@@ -27,7 +27,8 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
           id: c.id,
           name: c.name,
           photo: getAvatar(c),
-          message: c.message || "Salut 👋"
+          message: c.message || "Salut 👋",
+          match_id: c.match_id || null
         },
         myPhotoUrl
       }
@@ -47,7 +48,7 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
         </button>
       </div>
 
-      {/* ✅ Première carte Premium: SUPERLIKES */}
+      {/* ✅ Premium superlikes */}
       <div className="card" style={{ marginTop: 14, padding: 14, borderRadius: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ flex: 1 }}>
@@ -78,7 +79,6 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
                       </div>
                     </div>
                   ))}
-
                   {superlikers.length > 8 ? (
                     <div style={{ fontSize: 14, opacity: 0.85, alignSelf: "center" }}>
                       +{superlikers.length - 8}
@@ -105,11 +105,7 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {list.map((c) => {
-            const preview =
-              c.lastMessage?.trim?.() ||
-              c.message?.trim?.() ||
-              "Engage la conversation ;)";
-
+            const preview = c.lastMessage?.trim?.() || c.message?.trim?.() || "Engage la conversation ;)";
             return (
               <div
                 key={c.id}
@@ -144,4 +140,3 @@ export function CrushesPage({ crushes = [], superlikers = [], myPhotoUrl = "", o
     </div>
   );
 }
-
