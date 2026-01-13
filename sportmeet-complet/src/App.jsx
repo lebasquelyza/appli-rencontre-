@@ -1099,17 +1099,17 @@ export default function App() {
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
       else setIsAuthModalOpen(true);
-      return;
+      return false;
     }
 
     if (!myProfile?.id) {
       setProfileToast("Crée ton profil avant de swiper 🙂");
       window.clearTimeout(handleLike.__t);
       handleLike.__t = window.setTimeout(() => setProfileToast(""), 2500);
-      return;
+      return false;
     }
 
-    if (!profile?.id) return;
+    if (!profile?.id) return false;
 
     // ✅ Limite 5 superlikes / jour (DB count)
     if (isSuper) {
@@ -1126,10 +1126,11 @@ export default function App() {
       if (cntErr) console.error("superlike count error:", cntErr);
 
       if ((count || 0) >= 5) {
+        // ✅ IMPORTANT : on refuse le superlike => la carte NE BOUGE PAS
         setProfileToast("Limite atteinte : 5 superlikes par jour ⭐");
         window.clearTimeout(handleLike.__t);
         handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
-        return;
+        return false;
       }
     }
 
@@ -1154,6 +1155,8 @@ export default function App() {
       }
     } else if (likeErr) {
       console.error("Like insert error:", likeErr);
+      // tu peux décider de bloquer le swipe en cas d'erreur:
+      // return false;
     }
 
     // 2) créer match si réciproque (RPC => retourne matched + match_id)
@@ -1163,7 +1166,8 @@ export default function App() {
 
     if (rpcErr) {
       console.error("Match RPC error:", rpcErr);
-      return;
+      // on accepte quand même le swipe (sinon UX frustrante)
+      return true;
     }
 
     const row = Array.isArray(data) ? data[0] : data;
@@ -1181,6 +1185,8 @@ export default function App() {
 
     // 3) refresh superlikers
     fetchSuperlikers();
+
+    return true;
   };
 
   const openProfileModal = () => {
@@ -1267,7 +1273,7 @@ export default function App() {
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
 
-      {/* ✅ NEW: Modal Match (effet bombe) - on ne redirige pas, on dit au client de cliquer sur "Messages" */}
+      {/* ✅ NEW: Modal Match (effet bombe) - on ne redirige pas */}
       <MatchBoomModal
         open={matchBoom.open}
         matchName={matchBoom.name}
