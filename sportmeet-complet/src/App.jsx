@@ -13,7 +13,6 @@ import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 import { Confirmed } from "./pages/Confirmed";
 
-
 // ✅ effet "bombe" match (modal centre)
 import { MatchBoomModal } from "./components/MatchBoomModal";
 
@@ -942,6 +941,11 @@ export default function App() {
     if (!Number.isFinite(ageNum)) throw new Error("AGE_REQUIRED");
     if (ageNum < 16) throw new Error("UNDER_16_BLOCKED");
 
+    // ✅ AJOUT: Height + validation (corrige le bug heightNum non défini)
+    const heightNum = Number(data.height);
+    if (!Number.isFinite(heightNum)) throw new Error("HEIGHT_REQUIRED");
+    if (heightNum < 80 || heightNum > 250) throw new Error("HEIGHT_INVALID");
+
     const genderValue =
       data.gender === "female" || data.gender === "male" || data.gender === "other" ? data.gender : null;
 
@@ -959,7 +963,7 @@ export default function App() {
           user_id: currentUser.id,
           name: data.name,
           age: ageNum,
-          height: heightNum,
+          height: heightNum, // ✅ FIX
           gender: genderValue,
           status: "active",
           city: data.city,
@@ -983,7 +987,7 @@ export default function App() {
         .update({
           name: data.name,
           age: ageNum,
-          height: heightNum,
+          height: heightNum, // ✅ FIX
           gender: genderValue,
           city: data.city,
           sport: data.sport,
@@ -1133,7 +1137,6 @@ export default function App() {
       if (cntErr) console.error("superlike count error:", cntErr);
 
       if ((count || 0) >= 5) {
-        // ✅ IMPORTANT : pas de swipe quand limite atteinte
         setProfileToast("Limite atteinte : 5 superlikes par jour ⭐");
         window.clearTimeout(handleLike.__t);
         handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
@@ -1161,8 +1164,6 @@ export default function App() {
       }
     } else if (likeErr) {
       console.error("Like insert error:", likeErr);
-      // si tu veux bloquer la carte en cas d'erreur :
-      // return false;
     }
 
     // 2) match si réciproque
