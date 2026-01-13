@@ -123,7 +123,22 @@ export function SwipeDeck({
 
     setBusy(true);
     try {
-      await onLikeProfile?.(currentProfile);
+      await onLikeProfile?.(currentProfile, { isSuper: false });
+      next();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSuperLike = async () => {
+    const gate = guardAction();
+    if (!gate.ok) return;
+
+    if (!currentProfile || busy) return;
+
+    setBusy(true);
+    try {
+      await onLikeProfile?.(currentProfile, { isSuper: true });
       next();
     } finally {
       setBusy(false);
@@ -216,10 +231,10 @@ export function SwipeDeck({
               <button
                 type="button"
                 className="swBtn swBtnGood"
-                onClick={handleLike}
+                onClick={handleSuperLike}
                 disabled={busy}
-                aria-label="Super like (like)"
-                title="Super like (like)"
+                aria-label="Super like"
+                title="Super like"
               >
                 ★
               </button>
