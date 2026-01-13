@@ -12,7 +12,7 @@ import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 
-// ✅ NEW: effet "bombe" match (modal centre)
+// ✅ effet "bombe" match (modal centre)
 import { MatchBoomModal } from "./components/MatchBoomModal";
 
 // ✅ Pages légales
@@ -24,6 +24,9 @@ import { Settings } from "./pages/Settings";
 
 // ✅ Page Configurer compte
 import { AccountSettings } from "./pages/AccountSettings";
+
+// ✅ Page Abonnement
+import { Subscription } from "./pages/Subscription";
 
 // ✅ Page Chat
 import { ChatPage } from "./pages/ChatPage";
@@ -384,7 +387,7 @@ export default function App() {
   // ✅ personnes qui m'ont superlike
   const [superlikers, setSuperlikers] = useState([]);
 
-  // ✅ NEW: modal "boom" quand match (au milieu de page)
+  // ✅ modal "boom" quand match
   const [matchBoom, setMatchBoom] = useState({ open: false, name: "", photoUrl: "" });
 
   const isSuspended = !!user && myProfile?.status === "suspended";
@@ -517,7 +520,7 @@ export default function App() {
   }, [user?.id]);
 
   /* -------------------------------
-     Fetch CRUSHES (vraie inbox) + filtre hidden_matches
+     Fetch CRUSHES + hidden_matches
   -------------------------------- */
   const fetchCrushes = async () => {
     if (!user) {
@@ -525,7 +528,6 @@ export default function App() {
       return;
     }
 
-    // ✅ matches masqués par moi
     const { data: hiddenRows, error: hErr } = await supabase
       .from("hidden_matches")
       .select("match_id")
@@ -579,11 +581,10 @@ export default function App() {
       return;
     }
 
-    // map user_id -> dernier profil
     const byUser = new Map();
     for (const p of profs || []) {
       if (!p.user_id) continue;
-      if (!byUser.has(p.user_id)) byUser.set(p.user_id, p); // déjà trié desc
+      if (!byUser.has(p.user_id)) byUser.set(p.user_id, p);
     }
 
     const ids = matchesList.map((m) => m.id);
@@ -610,8 +611,8 @@ export default function App() {
 
         return {
           id: `match-${m.id}`,
-          match_id: m.id, // ✅ bigint
-          user_id: otherUserId, // (utile si tu ajoutes “profil”)
+          match_id: m.id,
+          user_id: otherUserId,
           name: prof?.name || "Match",
           city: prof?.city || "",
           sport: prof?.sport || "",
@@ -631,7 +632,7 @@ export default function App() {
   }, [user?.id]);
 
   /* -------------------------------
-     Masquer un match (hidden_matches)
+     Masquer un match
   -------------------------------- */
   const hideMatch = async (c) => {
     if (!user?.id) return;
@@ -658,7 +659,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     Fetch qui m'a superlike
+     Fetch superlikers
   -------------------------------- */
   const fetchSuperlikers = async () => {
     if (!user || !myProfile?.id) {
@@ -1111,7 +1112,7 @@ export default function App() {
 
     if (!profile?.id) return false;
 
-    // ✅ Limite 5 superlikes / jour (DB count)
+    // ✅ Limite 5 superlikes / jour
     if (isSuper) {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -1126,7 +1127,7 @@ export default function App() {
       if (cntErr) console.error("superlike count error:", cntErr);
 
       if ((count || 0) >= 5) {
-        // ✅ IMPORTANT : on refuse le superlike => la carte NE BOUGE PAS
+        // ✅ IMPORTANT : pas de swipe quand limite atteinte
         setProfileToast("Limite atteinte : 5 superlikes par jour ⭐");
         window.clearTimeout(handleLike.__t);
         handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
@@ -1141,7 +1142,6 @@ export default function App() {
       is_super: isSuper
     });
 
-    // doublon -> upgrade possible
     const msg = String(likeErr?.message || "").toLowerCase();
     if (likeErr && msg.includes("duplicate")) {
       if (isSuper) {
@@ -1155,18 +1155,17 @@ export default function App() {
       }
     } else if (likeErr) {
       console.error("Like insert error:", likeErr);
-      // tu peux décider de bloquer le swipe en cas d'erreur:
+      // si tu veux bloquer la carte en cas d'erreur :
       // return false;
     }
 
-    // 2) créer match si réciproque (RPC => retourne matched + match_id)
+    // 2) match si réciproque
     const { data, error: rpcErr } = await supabase.rpc("create_match_if_mutual", {
       p_liked_profile_id: profile.id
     });
 
     if (rpcErr) {
       console.error("Match RPC error:", rpcErr);
-      // on accepte quand même le swipe (sinon UX frustrante)
       return true;
     }
 
@@ -1175,7 +1174,6 @@ export default function App() {
     if (row?.matched) {
       await fetchCrushes();
 
-      // ✅ NEW: effet "bombe" au milieu (le client ferme puis clique sur "Messages")
       setMatchBoom({
         open: true,
         name: profile?.name || "Match",
@@ -1183,9 +1181,7 @@ export default function App() {
       });
     }
 
-    // 3) refresh superlikers
     fetchSuperlikers();
-
     return true;
   };
 
@@ -1271,9 +1267,12 @@ export default function App() {
 
         <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
+
+        {/* ✅ Page Abonnement */}
+        <Route path="/subscription" element={<Subscription user={userForUI} />} />
       </Routes>
 
-      {/* ✅ NEW: Modal Match (effet bombe) - on ne redirige pas */}
+      {/* ✅ Modal Match (effet bombe) */}
       <MatchBoomModal
         open={matchBoom.open}
         matchName={matchBoom.name}
