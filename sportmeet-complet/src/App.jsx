@@ -1267,8 +1267,6 @@ export default function App() {
 
         <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
-
-        {/* ✅ Page Abonnement */}
         <Route path="/subscription" element={<Subscription user={userForUI} />} />
       </Routes>
 
