@@ -383,7 +383,7 @@ export default function App() {
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState("");
 
-  // ✅ CRUSHES = source de vérité = DB (matches/messages), pas localStorage
+  // ✅ Inbox DB (matches/messages)
   const [crushes, setCrushes] = useState([]);
 
   // ✅ personnes qui m'ont superlike
@@ -462,7 +462,7 @@ export default function App() {
     setMyProfile(null);
     setIsProfileModalOpen(false);
     setIsPreviewModalOpen(false);
-    setCrushes([]); // ✅ reset inbox
+    setCrushes([]);
     navigate("/", { replace: true });
   };
 
@@ -520,9 +520,6 @@ export default function App() {
 
   /* -------------------------------
      Fetch CRUSHES (vraie inbox)
-     - matches.id = bigint
-     - messages.match_id = bigint
-     - profiles.user_id = uuid auth
   -------------------------------- */
   const fetchCrushes = async () => {
     if (!user) {
@@ -565,11 +562,10 @@ export default function App() {
       return;
     }
 
-    // map: user_id -> profile le plus récent (déjà trié desc)
     const byUser = new Map();
     for (const p of profs || []) {
       if (!p.user_id) continue;
-      if (!byUser.has(p.user_id)) byUser.set(p.user_id, p);
+      if (!byUser.has(p.user_id)) byUser.set(p.user_id, p); // déjà trié desc
     }
 
     const ids = matchesList.map((m) => m.id);
@@ -594,8 +590,8 @@ export default function App() {
       const last = lastByMatch.get(m.id);
 
       return {
-        id: `match-${m.id}`, // clé react stable
-        match_id: m.id, // ✅ bigint -> utilisé dans /chat/:matchId
+        id: `match-${m.id}`,
+        match_id: m.id, // ✅ bigint
         user_id: otherUserId,
         name: prof?.name || "Match",
         photo_urls: Array.isArray(prof?.photo_urls) ? prof.photo_urls : [],
@@ -766,7 +762,7 @@ export default function App() {
 
       await fetchMyProfile();
       await fetchProfiles();
-      await fetchCrushes(); // ✅ inbox refresh
+      await fetchCrushes();
 
       setProfileToast("Compte repris ✅");
       window.clearTimeout(handleResumeAccount.__t);
@@ -852,7 +848,7 @@ export default function App() {
 
       setMyProfile(null);
       await fetchProfiles();
-      await fetchCrushes(); // ✅ inbox refresh
+      await fetchCrushes();
 
       setIsProfileModalOpen(false);
       setIsPreviewModalOpen(false);
@@ -989,7 +985,7 @@ export default function App() {
 
     await fetchMyProfile();
     await fetchProfiles();
-    await fetchCrushes(); // ✅ inbox refresh
+    await fetchCrushes();
 
     setProfileToast(wasEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
     window.clearTimeout(handleSaveProfile.__t);
@@ -1126,8 +1122,8 @@ export default function App() {
       console.error("Like insert error:", likeErr);
     }
 
-    // 2) créer match si réciproque (RPC)
-    const { data: isMatch, error: rpcErr } = await supabase.rpc("create_match_if_mutual", {
+    // 2) créer match si réciproque (RPC => retourne matched + match_id)
+    const { data, error: rpcErr } = await supabase.rpc("create_match_if_mutual", {
       p_liked_profile_id: profile.id
     });
 
@@ -1136,16 +1132,20 @@ export default function App() {
       return;
     }
 
-    // 3) si match => refresh inbox DB (vrai match_id)
-    if (isMatch) {
+    const row = Array.isArray(data) ? data[0] : data;
+
+    if (row?.matched) {
       await fetchCrushes();
 
       setProfileToast("🎉 C’est un match ! Engage la conversation 😉");
       window.clearTimeout(handleLike.__t);
       handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
+
+      // Optionnel: ouvrir direct le chat
+      // if (row?.match_id) navigate(`/chat/${row.match_id}`);
     }
 
-    // 4) refresh superlikers
+    // 3) refresh superlikers
     fetchSuperlikers();
   };
 
