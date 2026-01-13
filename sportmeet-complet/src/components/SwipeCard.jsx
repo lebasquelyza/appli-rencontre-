@@ -120,6 +120,7 @@ export function SwipeCard({ profile }) {
             <div className="h1">
               {profile?.name}
               {profile?.age ? `, ${profile.age}` : ""}
+              {profile?.height ? ` • ${profile.height} cm` : ""}
             </div>
             {profile?.city && <div className="sub">{profile.city}</div>}
           </div>
