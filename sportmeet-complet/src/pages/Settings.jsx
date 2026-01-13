@@ -22,6 +22,10 @@ export function Settings({ user }) {
   const [newPass, setNewPass] = useState("");
   const [newPass2, setNewPass2] = useState("");
 
+  // ✅ Matchs masqués
+  const [hiddenMatches, setHiddenMatches] = useState([]);
+  const [loadingHiddenMatches, setLoadingHiddenMatches] = useState(false);
+
   useEffect(() => {
     setEmail(user?.email || "");
   }, [user?.email]);
@@ -96,6 +100,126 @@ export function Settings({ user }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ Fetch "matchs masqués" (hidden_matches -> matches -> profiles)
+  const fetchHiddenMatches = async () => {
+    if (!user) {
+      setHiddenMatches([]);
+      return;
+    }
+
+    setLoadingHiddenMatches(true);
+    try {
+      // 1) hidden_matches
+      const { data: hiddenRows, error: hErr } = await supabase
+        .from("hidden_matches")
+        .select("match_id, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (hErr) {
+        console.error("Settings hidden_matches error:", hErr);
+        setHiddenMatches([]);
+        return;
+      }
+
+      const ids = (hiddenRows || [])
+        .map((r) => Number(r.match_id))
+        .filter((n) => Number.isFinite(n));
+
+      if (ids.length === 0) {
+        setHiddenMatches([]);
+        return;
+      }
+
+      // 2) matches
+      const { data: matchesRows, error: mErr } = await supabase
+        .from("matches")
+        .select("id, user1_id, user2_id, created_at")
+        .in("id", ids);
+
+      if (mErr) {
+        console.error("Settings matches fetch error:", mErr);
+        setHiddenMatches([]);
+        return;
+      }
+
+      const matchById = new Map((matchesRows || []).map((m) => [Number(m.id), m]));
+
+      const otherUserIds = (matchesRows || [])
+        .map((m) => (m.user1_id === user.id ? m.user2_id : m.user1_id))
+        .filter(Boolean);
+
+      const uniqOther = Array.from(new Set(otherUserIds));
+
+      // 3) profiles des autres users (dernier profil)
+      const byUser = new Map();
+      if (uniqOther.length > 0) {
+        const { data: profs, error: pErr } = await supabase
+          .from("profiles")
+          .select("user_id, name, city, sport, photo_urls, created_at")
+          .in("user_id", uniqOther)
+          .order("created_at", { ascending: false });
+
+        if (pErr) {
+          console.error("Settings profiles fetch error:", pErr);
+        } else {
+          for (const p of profs || []) {
+            if (!byUser.has(p.user_id)) byUser.set(p.user_id, p); // trié desc => le plus récent
+          }
+        }
+      }
+
+      // 4) construire liste affichable (dans l’ordre de hidden_matches)
+      const finalList = ids
+        .map((mid) => {
+          const m = matchById.get(mid);
+          if (!m) return null;
+
+          const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id;
+          const prof = otherId ? byUser.get(otherId) : null;
+
+          return {
+            match_id: mid,
+            other_user_id: otherId || null,
+            name: prof?.name || "Utilisateur",
+            city: prof?.city || "",
+            sport: prof?.sport || "",
+            photo: prof?.photo_urls?.[0] || "/logo.png"
+          };
+        })
+        .filter(Boolean);
+
+      setHiddenMatches(finalList);
+    } finally {
+      setLoadingHiddenMatches(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHiddenMatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // ✅ Ré-afficher un match = delete dans hidden_matches
+  const unhideMatch = async (matchId) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("hidden_matches")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("match_id", Number(matchId));
+
+    if (error) {
+      console.error("unhideMatch error:", error);
+      return setBanner("Impossible de ré-afficher ce match (RLS ?).", true);
+    }
+
+    setBanner("Match ré-affiché ✅");
+    fetchHiddenMatches();
   };
 
   const displayName = (name || "").trim() || "Non renseigné";
@@ -240,6 +364,57 @@ export function Settings({ user }) {
               <button className="btn-primary" onClick={() => navigate("/account")} disabled={!user}>
                 Configurer
               </button>
+            </div>
+
+            {/* ✅ Matchs masqués */}
+            <div className="card" style={{ padding: 14 }}>
+              <h3 style={{ marginTop: 0 }}>Matchs masqués</h3>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>
+                Les matchs que tu as masqués via la croix ✕ dans “Mes crush”.
+              </p>
+
+              {!user ? (
+                <p className="form-message" style={{ marginTop: 10 }}>
+                  Connecte-toi pour voir tes matchs masqués.
+                </p>
+              ) : loadingHiddenMatches ? (
+                <small style={{ display: "block", marginTop: 10, opacity: 0.75 }}>Chargement…</small>
+              ) : hiddenMatches.length === 0 ? (
+                <div style={{ marginTop: 10, opacity: 0.8, fontSize: 14 }}>Aucun match masqué.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                  {hiddenMatches.map((m) => (
+                    <div
+                      key={m.match_id}
+                      className="card"
+                      style={{
+                        padding: 12,
+                        borderRadius: 14,
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "center"
+                      }}
+                    >
+                      <img
+                        src={m.photo}
+                        alt={m.name}
+                        style={{ width: 46, height: 46, borderRadius: 12, objectFit: "cover" }}
+                      />
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700 }}>{m.name}</div>
+                        <div style={{ opacity: 0.8, fontSize: 14 }}>
+                          {[m.city, m.sport].filter(Boolean).join(" • ")}
+                        </div>
+                      </div>
+
+                      <button className="btn-ghost btn-sm" onClick={() => unhideMatch(m.match_id)}>
+                        Ré-afficher
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* ✅ Conditions */}
