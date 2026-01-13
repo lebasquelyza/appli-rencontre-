@@ -14,6 +14,9 @@
   --bad:#ef4444;
 
   --r: 28px;
+
+  /* ✅✅✅ NOUVEAU : hauteur unique pour TOUTES les cartes du deck (Explorer + Partager) */
+  --deckCardH: clamp(330px, calc(var(--appH, 100vh) * 0.52), 580px);
 }
 
 *{ box-sizing:border-box; }
@@ -395,9 +398,15 @@ input:focus, select:focus, textarea:focus{
   width: 100%;
 }
 
-/* ✅✅✅ CARTE (corrigé: moins haute) */
+/* ✅✅✅ NOUVEAU : le "slot" de la carte = hauteur unique pour Explorer + Partager */
+.swipeStage{
+  width: 100%;
+  height: var(--deckCardH);
+}
+
+/* ✅✅✅ CARTE (prend la hauteur du slot) */
 .swipeCard{
-  height: clamp(340px, calc(var(--appH, 100vh) * 0.54), 640px);
+  height: 100%;
   width: 100%;
   overflow: hidden;
   transform: translateZ(0);
@@ -494,7 +503,7 @@ input:focus, select:focus, textarea:focus{
   transition: height .22s ease, padding .22s ease;
 }
 
-/* ✅ quand bio OU dispo ouverte -> plus de place (corrigé) */
+/* ✅ quand bio OU dispo ouverte -> plus de place */
 .cardOverlay.bio-open{
   height: 74%;
   padding-top: 14px;
@@ -585,7 +594,7 @@ input:focus, select:focus, textarea:focus{
   overflow: hidden;
 }
 
-/* ✅ ouverte = scroll (corrigé: plus grand) */
+/* ✅ ouverte = scroll */
 .swipeBio.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
@@ -635,7 +644,6 @@ input:focus, select:focus, textarea:focus{
   overflow: hidden;
 }
 
-/* ✅ ouverte = scroll (corrigé: plus grand) */
 .swipeAvail.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
@@ -814,7 +822,7 @@ input:focus, select:focus, textarea:focus{
 .footerLeft{ color: rgba(243,244,246,.85); }
 .footer-note{ color: rgba(243,244,246,.55); font-size: 12px; }
 
-/* ✅ iPhone: footer centré + safe-area (COMME AVANT) + sans recouvrir */
+/* ✅ iPhone: footer centré + safe-area */
 @media (max-width: 520px){
   .footer{
     position: fixed;
@@ -824,8 +832,7 @@ input:focus, select:focus, textarea:focus{
     padding: 0;
     border-top: 0;
     background: transparent;
-
-    z-index: 0;            /* ✅ derrière => ne recouvre plus */
+    z-index: 3;
     pointer-events: none;
   }
 
@@ -848,14 +855,9 @@ input:focus, select:focus, textarea:focus{
 
   .footer-note{ display:none; }
 
-  /* ✅ EXACTEMENT ton ancien comportement */
+  /* ✅ réserve d’espace pour ne pas recouvrir le contenu/bouton */
   .page{
     padding-bottom: 150px;
-  }
-
-  /* ✅ sécurité : remonte les boutons quand ils existent */
-  .actions{
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 42px);
   }
 }
 
@@ -980,4 +982,3 @@ input:focus, select:focus, textarea:focus{
   }
   .chat-input input{ flex: 1; }
 }
-
