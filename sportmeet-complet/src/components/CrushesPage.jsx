@@ -114,7 +114,8 @@ export function CrushesPage({
             </div>
           </div>
 
-          <button type="button" className="btn-primary btn-sm" onClick={() => alert("Premium bientôt 🙂")}>
+          {/* ✅ ICI : redirection vers la page Abonnement */}
+          <button type="button" className="btn-primary btn-sm" onClick={() => navigate("/subscription")}>
             Passer Premium
           </button>
         </div>
