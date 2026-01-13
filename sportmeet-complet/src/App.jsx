@@ -499,6 +499,7 @@ export default function App() {
       user_id: data.user_id,
       name: data.name,
       age: data.age ?? null,
+      height: data.height ?? null,
       gender: data.gender ?? null,
       status: data.status ?? "active",
       suspended_at: data.suspended_at ?? null,
