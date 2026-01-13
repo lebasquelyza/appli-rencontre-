@@ -304,7 +304,7 @@ function HomePage({
   );
 }
 
-function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile }) {
+function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile, onForgetMatch }) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -322,6 +322,7 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile 
           superlikers={superlikers}
           myPhotoUrl={myProfile?.photo_urls?.[0] || ""}
           onBack={() => navigate("/")}
+          onForgetMatch={onForgetMatch}
         />
       </div>
     </main>
@@ -519,13 +520,22 @@ export default function App() {
   }, [user?.id]);
 
   /* -------------------------------
-     Fetch CRUSHES (vraie inbox)
+     Fetch CRUSHES (vraie inbox) + filtre blocks
   -------------------------------- */
   const fetchCrushes = async () => {
     if (!user) {
       setCrushes([]);
       return;
     }
+
+    // ✅ récupérer mes blocks (pour ne plus afficher)
+    const { data: blocksRows, error: bErr } = await supabase
+      .from("blocks")
+      .select("blocked_user_id")
+      .eq("blocker_id", user.id);
+
+    if (bErr) console.error("blocks fetch error:", bErr);
+    const blockedSet = new Set((blocksRows || []).map((x) => x.blocked_user_id).filter(Boolean));
 
     const { data: matchesRows, error: mErr } = await supabase
       .from("matches")
@@ -546,13 +556,20 @@ export default function App() {
       return;
     }
 
-    const otherUserIds = matchesList
+    const otherUserIdsAll = matchesList
       .map((m) => (m.user1_id === user.id ? m.user2_id : m.user1_id))
       .filter(Boolean);
 
+    const otherUserIds = otherUserIdsAll.filter((id) => !blockedSet.has(id));
+
+    if (otherUserIds.length === 0) {
+      setCrushes([]);
+      return;
+    }
+
     const { data: profs, error: pErr } = await supabase
       .from("profiles")
-      .select("id, user_id, name, photo_urls, created_at, status")
+      .select("id, user_id, name, city, sport, photo_urls, created_at, status")
       .in("user_id", otherUserIds)
       .order("created_at", { ascending: false });
 
@@ -562,6 +579,7 @@ export default function App() {
       return;
     }
 
+    // map user_id -> dernier profil
     const byUser = new Map();
     for (const p of profs || []) {
       if (!p.user_id) continue;
@@ -584,21 +602,27 @@ export default function App() {
       if (!lastByMatch.has(mm.match_id)) lastByMatch.set(mm.match_id, mm);
     }
 
-    const next = matchesList.map((m) => {
-      const otherUserId = m.user1_id === user.id ? m.user2_id : m.user1_id;
-      const prof = byUser.get(otherUserId);
-      const last = lastByMatch.get(m.id);
+    const next = matchesList
+      .map((m) => {
+        const otherUserId = m.user1_id === user.id ? m.user2_id : m.user1_id;
+        if (!otherUserId || blockedSet.has(otherUserId)) return null;
 
-      return {
-        id: `match-${m.id}`,
-        match_id: m.id, // ✅ bigint
-        user_id: otherUserId,
-        name: prof?.name || "Match",
-        photo_urls: Array.isArray(prof?.photo_urls) ? prof.photo_urls : [],
-        last_message_body: last?.body || "",
-        last_message_at: last?.created_at || null
-      };
-    });
+        const prof = byUser.get(otherUserId);
+        const last = lastByMatch.get(m.id);
+
+        return {
+          id: `match-${m.id}`,
+          match_id: m.id, // ✅ bigint
+          user_id: otherUserId, // ✅ utile pour oublier (block)
+          name: prof?.name || "Match",
+          city: prof?.city || "",
+          sport: prof?.sport || "",
+          photo_urls: Array.isArray(prof?.photo_urls) ? prof.photo_urls : [],
+          last_message_body: last?.body || "",
+          last_message_at: last?.created_at || null
+        };
+      })
+      .filter(Boolean);
 
     setCrushes(next);
   };
@@ -607,6 +631,34 @@ export default function App() {
     fetchCrushes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  /* -------------------------------
+     Oublier un match (BLOCK)
+  -------------------------------- */
+  const forgetMatch = async (c) => {
+    if (!user?.id) return;
+    if (!c?.user_id) return;
+
+    const { error } = await supabase.from("blocks").insert({
+      blocker_id: user.id,
+      blocked_user_id: c.user_id
+    });
+
+    // si déjà bloqué, on refresh quand même
+    const msg = String(error?.message || "").toLowerCase();
+    if (error && !msg.includes("duplicate")) {
+      console.error("block error:", error);
+      setProfileToast("Impossible d'oublier ce match (RLS ?).");
+      window.clearTimeout(forgetMatch.__t);
+      forgetMatch.__t = window.setTimeout(() => setProfileToast(""), 3000);
+      return;
+    }
+
+    await fetchCrushes();
+    setProfileToast("Match oublié ✅");
+    window.clearTimeout(forgetMatch.__t);
+    forgetMatch.__t = window.setTimeout(() => setProfileToast(""), 2500);
+  };
 
   /* -------------------------------
      Fetch qui m'a superlike
@@ -1219,6 +1271,7 @@ export default function App() {
               crushes={crushes}
               superlikers={superlikers}
               myProfile={myProfile}
+              onForgetMatch={forgetMatch}
             />
           }
         />
