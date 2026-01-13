@@ -1,29 +1,31 @@
 // sportmeet-complet/src/pages/ChatPage.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 export function ChatPage() {
   const navigate = useNavigate();
-  const { matchId } = useParams(); // "demo" ou uuid
+  const { matchId } = useParams(); // "demo" ou bigint en string
   const location = useLocation();
 
-  const crush = location.state?.crush || null;
-  const myPhotoUrl = location.state?.myPhotoUrl || "";
-
   const isDemo = matchId === "demo";
+  const matchIdNum = useMemo(() => (isDemo ? null : Number(matchId)), [isDemo, matchId]);
 
   const [me, setMe] = useState(null);
+
+  // crush peut venir du state, mais on va le sécuriser via DB
+  const [crush, setCrush] = useState(location.state?.crush || null);
+
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
 
   const scrollRef = useRef(null);
   const channelRef = useRef(null);
 
-  const avatar = crush?.photo || myPhotoUrl || "/logo.png";
   const title = crush?.name || "Messages";
+  const avatar = crush?.photo_urls?.[0] || crush?.photo || "/logo.png"; // support ancien format + nouveau
 
-  // user
+  // 1) user
   useEffect(() => {
     let mounted = true;
     supabase.auth.getUser().then(({ data }) => {
@@ -35,7 +37,49 @@ export function ChatPage() {
     };
   }, []);
 
-  // load + realtime
+  // 2) charger le profil "other" si absent (refresh, lien direct…)
+  useEffect(() => {
+    const run = async () => {
+      if (isDemo) return;
+      if (!me?.id) return;
+      if (!matchIdNum || Number.isNaN(matchIdNum)) return;
+
+      // si on a déjà un crush avec un name -> ok
+      if (crush?.name) return;
+
+      // match -> determine otherUserId -> fetch profile
+      const { data: matchRow, error: matchErr } = await supabase
+        .from("matches")
+        .select("id, user1_id, user2_id")
+        .eq("id", matchIdNum)
+        .single();
+
+      if (matchErr || !matchRow) {
+        console.error("fetch match error:", matchErr);
+        return;
+      }
+
+      const otherUserId = matchRow.user1_id === me.id ? matchRow.user2_id : matchRow.user1_id;
+
+      const { data: profileRow, error: profErr } = await supabase
+        .from("profiles")
+        .select("id, name, photo_urls, user_id")
+        .eq("user_id", otherUserId)
+        .single();
+
+      if (profErr) {
+        console.error("fetch profile error:", profErr);
+        return;
+      }
+
+      setCrush(profileRow);
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemo, me?.id, matchIdNum]);
+
+  // 3) load + realtime messages
   useEffect(() => {
     const cleanup = () => {
       if (channelRef.current) {
@@ -52,15 +96,14 @@ export function ChatPage() {
           {
             id: "demo-1",
             sender_id: "them",
-            body: crush?.message || "Salut 👋 Ça te dit une séance cette semaine ? 💪",
+            body: "Salut 👋 Ça te dit une séance cette semaine ? 💪",
             created_at: new Date().toISOString()
           }
         ]);
         return;
       }
 
-      // vrai match id requis
-      if (!matchId) {
+      if (!matchIdNum || Number.isNaN(matchIdNum)) {
         setMessages([]);
         return;
       }
@@ -68,7 +111,7 @@ export function ChatPage() {
       const { data, error } = await supabase
         .from("messages")
         .select("id, match_id, sender_id, body, created_at")
-        .eq("match_id", matchId)
+        .eq("match_id", matchIdNum)
         .order("created_at", { ascending: true })
         .limit(300);
 
@@ -81,10 +124,15 @@ export function ChatPage() {
       setMessages(data || []);
 
       const channel = supabase
-        .channel(`messages:${matchId}`)
+        .channel(`messages:${matchIdNum}`)
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "messages", filter: `match_id=eq.${matchId}` },
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `match_id=eq.${matchIdNum}`
+          },
           (payload) => {
             const row = payload.new;
             setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
@@ -97,9 +145,9 @@ export function ChatPage() {
 
     run();
     return cleanup;
-  }, [matchId, isDemo, crush?.message]);
+  }, [isDemo, matchIdNum]);
 
-  // autoscroll
+  // 4) autoscroll
   useEffect(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -118,16 +166,23 @@ export function ChatPage() {
       return;
     }
 
-    if (!me?.id || !matchId) return;
+    if (!me?.id || !matchIdNum || Number.isNaN(matchIdNum)) return;
+
+    // ✅ option: envoi optimiste (rend le chat "vrai")
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = { id: tempId, match_id: matchIdNum, sender_id: me.id, body: text, created_at: new Date().toISOString() };
+    setMessages((prev) => [...prev, optimistic]);
 
     const { error } = await supabase.from("messages").insert({
-      match_id: matchId,
+      match_id: matchIdNum,
       sender_id: me.id,
       body: text
     });
 
     if (error) {
       console.error("send message error:", error);
+      // rollback simple
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       return;
     }
 
@@ -147,7 +202,7 @@ export function ChatPage() {
 
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800 }}>{title}</div>
-              <div style={{ opacity: 0.75, fontSize: 13 }}>{isDemo ? "Démo" : "Messagerie"}</div>
+              <div style={{ opacity: 0.75, fontSize: 13 }}>{isDemo ? "Démo" : `Match #${matchId}`}</div>
             </div>
           </div>
 
@@ -179,6 +234,9 @@ export function ChatPage() {
                   }}
                 >
                   <div style={{ fontSize: 14, lineHeight: 1.35 }}>{m.body}</div>
+                  <div style={{ fontSize: 12, opacity: 0.65, marginTop: 6, textAlign: mine ? "right" : "left" }}>
+                    {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </div>
                 </div>
               );
             })}
