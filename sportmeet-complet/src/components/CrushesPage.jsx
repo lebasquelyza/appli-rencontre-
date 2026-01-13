@@ -2,6 +2,16 @@
 import React from "react";
 
 export function CrushesPage({ crushes = [], superlikers = [], onBack }) {
+  // ✅ message test (affiché même sans crush, juste pour preview UI)
+  const demoCrush = {
+    id: "__demo_paul",
+    name: "Paul",
+    photo: "/logo.png",
+    message: "Salut 👋 Ça te dit une séance cette semaine ? 💪"
+  };
+
+  const list = crushes.length === 0 ? [demoCrush] : crushes;
+
   return (
     <div className="card" style={{ padding: 16 }}>
       <div
@@ -31,19 +41,23 @@ export function CrushesPage({ crushes = [], superlikers = [], onBack }) {
           borderRadius: 14
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12
+          }}
+        >
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700 }}>Passe à Premium ⭐</div>
             <div style={{ opacity: 0.85, marginTop: 4 }}>
               pour voir qui t’a <strong>superlike</strong> et débloquer plus de superlikes.
             </div>
 
-            {/* ✅ Liste de ceux qui t'ont superlike */}
             <div style={{ marginTop: 10 }}>
               {superlikers.length === 0 ? (
-                <div style={{ opacity: 0.8, fontSize: 14 }}>
-                  Aucun superlike pour le moment.
-                </div>
+                <div style={{ opacity: 0.8, fontSize: 14 }}>Aucun superlike pour le moment.</div>
               ) : (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {superlikers.slice(0, 8).map((p) => (
@@ -62,7 +76,15 @@ export function CrushesPage({ crushes = [], superlikers = [], onBack }) {
                           objectFit: "cover"
                         }}
                       />
-                      <div style={{ fontSize: 14, fontWeight: 700, display: "flex", gap: 6, alignItems: "center" }}>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 700,
+                          display: "flex",
+                          gap: 6,
+                          alignItems: "center"
+                        }}
+                      >
                         <span>{p.name}</span>
                         <span style={{ opacity: 0.85 }}>⭐</span>
                       </div>
@@ -93,59 +115,63 @@ export function CrushesPage({ crushes = [], superlikers = [], onBack }) {
       <div style={{ marginTop: 14 }}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>Messages</div>
 
+        {/* ✅ Si pas de crush -> on montre Paul (demo) */}
         {crushes.length === 0 ? (
-          <div className="card" style={{ padding: 14, borderRadius: 14, opacity: 0.85 }}>
-            Aucun message pour le moment. Like des profils pour les retrouver ici.
+          <div style={{ opacity: 0.75, fontSize: 13, marginBottom: 8 }}>
+            Aperçu (message de démo)
           </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {crushes.map((c) => {
-              // ✅ message par défaut demandé
-              const preview =
-                c.lastMessage?.trim?.() ||
-                c.message?.trim?.() ||
-                "Engage la conversation ;)";
+        ) : null}
 
-              return (
-                <div
-                  key={c.id}
-                  className="card"
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {list.map((c) => {
+            const preview =
+              c.lastMessage?.trim?.() ||
+              c.message?.trim?.() ||
+              "Engage la conversation ;)";
+
+            return (
+              <div
+                key={c.id}
+                className="card"
+                style={{
+                  padding: 12,
+                  borderRadius: 14,
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "center"
+                }}
+              >
+                <img
+                  src={c.photo || "/logo.png"}
+                  alt={c.name}
                   style={{
-                    padding: 12,
-                    borderRadius: 14,
-                    display: "flex",
-                    gap: 12,
-                    alignItems: "center"
+                    width: 54,
+                    height: 54,
+                    borderRadius: 12,
+                    objectFit: "cover"
                   }}
-                >
-                  <img
-                    src={c.photo || "/logo.png"}
-                    alt={c.name}
-                    style={{
-                      width: 54,
-                      height: 54,
-                      borderRadius: 12,
-                      objectFit: "cover"
-                    }}
-                  />
+                />
 
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700 }}>{c.name}</div>
-                    <div style={{ opacity: 0.8, marginTop: 2, fontSize: 14 }}>{preview}</div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="btn-ghost btn-sm"
-                    onClick={() => alert("Messagerie bientôt 🙂")}
-                  >
-                    Ouvrir
-                  </button>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700 }}>{c.name}</div>
+                  <div style={{ opacity: 0.8, marginTop: 2, fontSize: 14 }}>{preview}</div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={() =>
+                    c.id === "__demo_paul"
+                      ? alert("Démo 🙂 (Messagerie bientôt)")
+                      : alert("Messagerie bientôt 🙂")
+                  }
+                >
+                  Ouvrir
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
