@@ -7,7 +7,7 @@ export function CrushesPage({
   superlikers = [],
   myPhotoUrl = "",
   onBack,
-  onForgetMatch
+  onHideMatch
 }) {
   const navigate = useNavigate();
 
@@ -49,15 +49,15 @@ export function CrushesPage({
     });
   };
 
-  const forget = (c) => {
-    if (!onForgetMatch) return;
+  const hide = (c) => {
+    if (!onHideMatch) return;
 
     const ok = window.confirm(
-      "Oublier ce match ?\n\n- Il disparaîtra et ne reviendra plus.\n- Vous ne pourrez plus vous écrire."
+      "Masquer ce match ?\n\n- Il disparaîtra de ta liste.\n- Tu pourras le ré-afficher plus tard."
     );
     if (!ok) return;
 
-    onForgetMatch(c);
+    onHideMatch(c);
   };
 
   return (
@@ -158,7 +158,16 @@ export function CrushesPage({
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700 }}>{c.name}</div>
-                  <div style={{ opacity: 0.8, marginTop: 2, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div
+                    style={{
+                      opacity: 0.8,
+                      marginTop: 2,
+                      fontSize: 14,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
+                    }}
+                  >
                     {preview}
                   </div>
                 </div>
@@ -172,9 +181,9 @@ export function CrushesPage({
                     <button
                       type="button"
                       className="btn-ghost btn-sm"
-                      title="Oublier ce match"
-                      onClick={() => forget(c)}
-                      aria-label="Oublier ce match"
+                      title="Masquer ce match"
+                      onClick={() => hide(c)}
+                      aria-label="Masquer ce match"
                     >
                       ✕
                     </button>
