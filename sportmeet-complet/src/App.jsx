@@ -311,7 +311,7 @@ function HomePage({
   );
 }
 
-function CrushesFullPage({ user, onRequireAuth }) {
+function CrushesFullPage({ user, onRequireAuth, crushes }) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -324,7 +324,7 @@ function CrushesFullPage({ user, onRequireAuth }) {
   return (
     <main className="page">
       <div className="shell">
-        <CrushesPage crushes={[]} onBack={() => navigate("/")} />
+        <CrushesPage crushes={crushes} onBack={() => navigate("/")} />
       </div>
     </main>
   );
@@ -386,6 +386,21 @@ export default function App() {
 
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState("");
+
+  // ✅ Crushes (matchs) + persistance locale
+  const [crushes, setCrushes] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("crushes") || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("crushes", JSON.stringify(crushes));
+    } catch {}
+  }, [crushes]);
 
   const isSuspended = !!user && myProfile?.status === "suspended";
   const userForUI = isSuspended ? null : user;
@@ -912,15 +927,65 @@ export default function App() {
   }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* -------------------------------
-     Like/Swipe
+     Like/Swipe ✅ MATCH + CRUSH
   -------------------------------- */
-  const handleLike = async () => {
+  const handleLike = async (profile) => {
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
       else setIsAuthModalOpen(true);
       return;
     }
-    return;
+
+    if (!myProfile?.id) {
+      setProfileToast("Crée ton profil avant de swiper 🙂");
+      window.clearTimeout(handleLike.__t);
+      handleLike.__t = window.setTimeout(() => setProfileToast(""), 2500);
+      return;
+    }
+
+    if (!profile?.id) return;
+
+    // 1) enregistrer le like
+    const { error: likeErr } = await supabase.from("likes").insert({
+      liker_id: user.id,
+      liked_profile_id: profile.id
+    });
+
+    // si doublon, ok ; sinon on log
+    if (likeErr && !String(likeErr.message || "").toLowerCase().includes("duplicate")) {
+      console.error("Like error:", likeErr);
+    }
+
+    // 2) créer match si réciproque (RPC Supabase)
+    const { data: isMatch, error: rpcErr } = await supabase.rpc("create_match_if_mutual", {
+      p_liked_profile_id: profile.id
+    });
+
+    if (rpcErr) {
+      console.error("Match RPC error:", rpcErr);
+      return;
+    }
+
+    // 3) si match => ajout dans crushes + texte
+    if (isMatch) {
+      setCrushes((prev) => {
+        if (prev.some((c) => String(c.id) === String(profile.id))) return prev;
+
+        return [
+          {
+            id: profile.id,
+            name: profile.name,
+            photo: profile.photo_urls?.[0] || "/logo.png",
+            message: "Engage la conversation ;)"
+          },
+          ...prev
+        ];
+      });
+
+      setProfileToast("🎉 C’est un match ! Engage la conversation 😉");
+      window.clearTimeout(handleLike.__t);
+      handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
+    }
   };
 
   const openProfileModal = () => {
@@ -987,7 +1052,11 @@ export default function App() {
         <Route
           path="/crushes"
           element={
-            <CrushesFullPage user={userForUI} onRequireAuth={() => setIsAuthModalOpen(true)} />
+            <CrushesFullPage
+              user={userForUI}
+              onRequireAuth={() => setIsAuthModalOpen(true)}
+              crushes={crushes}
+            />
           }
         />
 
