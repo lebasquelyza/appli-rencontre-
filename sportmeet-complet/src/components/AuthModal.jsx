@@ -159,7 +159,8 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
           email: cleanEmail,
           password,
           options: {
-            emailRedirectTo: window.location.origin/confirmed`
+            // ✅ FIX: bonne concat + page de confirmation
+            emailRedirectTo: `${window.location.origin}/confirmed`
           }
         });
         if (error) throw error;
@@ -336,7 +337,8 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 {loading ? "..." : "Mettre à jour le mot de passe"}
               </button>
 
-              <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>{msg}</p>
+              {/* ✅ FIX build: pas de template string */}
+              <p className={"form-message " + (msg ? (isError ? "error" : "success") : "")}>{msg}</p>
             </form>
           ) : (
             /* ✅ SIGNIN / SIGNUP */
@@ -442,7 +444,8 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 </button>
               )}
 
-              <p className={`form-message ${msg ? (isError ? "error" : "success") : ""}`}>{msg}</p>
+              {/* ✅ FIX build: pas de template string */}
+              <p className={"form-message " + (msg ? (isError ? "error" : "success") : "")}>{msg}</p>
             </form>
           )}
         </div>
