@@ -327,6 +327,21 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile,
   );
 }
 
+// ✅ helper: transforme une erreur Supabase en message lisible
+function niceSupabaseError(err) {
+  if (!err) return "Erreur inconnue.";
+  if (typeof err === "string") return err;
+
+  const msg = err?.message || err?.error_description || err?.details || "";
+  if (msg) return String(msg);
+
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return "Erreur inconnue.";
+  }
+}
+
 export default function App() {
   const navigate = useNavigate();
 
@@ -840,7 +855,7 @@ export default function App() {
 
       if (uploadError) {
         console.error("Supabase upload error:", uploadError);
-        throw uploadError;
+        throw new Error(niceSupabaseError(uploadError));
       }
 
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
@@ -919,129 +934,170 @@ export default function App() {
      SAVE profil
   -------------------------------- */
   const handleSaveProfile = async (data) => {
-    if (isSuspended) throw new Error("SUSPENDED_ACCOUNT");
+    try {
+      if (isSuspended) throw new Error("SUSPENDED_ACCOUNT");
 
-    const wasEdit = !!myProfile?.id;
+      const wasEdit = !!myProfile?.id;
 
-    const photos = Array.isArray(data.photos) ? data.photos : [];
-    const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
-    const hasNewPhotos = photos.length > 0;
+      const photos = Array.isArray(data.photos) ? data.photos : [];
+      const keptPhotoUrls = Array.isArray(data.keptPhotoUrls) ? data.keptPhotoUrls : [];
+      const hasNewPhotos = photos.length > 0;
 
-    const { data: authData } = await supabase.auth.getUser();
-    const currentUser = authData?.user ?? null;
+      const { data: authData } = await supabase.auth.getUser();
+      const currentUser = authData?.user ?? null;
 
-    if (!currentUser) {
-      setIsAuthModalOpen(true);
-      throw new Error("AUTH_REQUIRED");
-    }
+      if (!currentUser) {
+        setIsAuthModalOpen(true);
+        throw new Error("AUTH_REQUIRED");
+      }
 
-    if (!data.name || !data.city || !data.sport || !data.level) throw new Error("MISSING_FIELDS");
+      // ✅ obligatoires (on laisse height géré plus bas)
+      if (!data.name || !data.city || !data.sport || !data.level) throw new Error("MISSING_FIELDS");
 
-    const ageNum = Number(data.age);
-    if (!Number.isFinite(ageNum)) throw new Error("AGE_REQUIRED");
-    if (ageNum < 16) throw new Error("UNDER_16_BLOCKED");
+      const ageNum = Number(data.age);
+      if (!Number.isFinite(ageNum)) throw new Error("AGE_REQUIRED");
+      if (ageNum < 16) throw new Error("UNDER_16_BLOCKED");
 
-    // ✅ AJOUT: Height + validation (corrige le bug heightNum non défini)
-    const heightNum = Number(data.height);
-    if (!Number.isFinite(heightNum)) throw new Error("HEIGHT_REQUIRED");
-    if (heightNum < 80 || heightNum > 250) throw new Error("HEIGHT_INVALID");
+      // ✅ Height: obligatoire UNIQUEMENT si création (ou si l’utilisateur a rempli)
+      const heightRaw = data.height;
+      const hasHeightValue = heightRaw !== undefined && heightRaw !== null && String(heightRaw).trim() !== "";
 
-    const genderValue =
-      data.gender === "female" || data.gender === "male" || data.gender === "other" ? data.gender : null;
+      let heightNum = null;
 
-    if (!myProfile && !hasNewPhotos) throw new Error("PHOTO_REQUIRED");
+      if (!wasEdit) {
+        // création => obligatoire
+        heightNum = Number(heightRaw);
+        if (!Number.isFinite(heightNum)) throw new Error("HEIGHT_REQUIRED");
+        if (heightNum < 80 || heightNum > 250) throw new Error("HEIGHT_INVALID");
+      } else if (hasHeightValue) {
+        // édition => si rempli, on valide
+        heightNum = Number(heightRaw);
+        if (!Number.isFinite(heightNum)) throw new Error("HEIGHT_INVALID");
+        if (heightNum < 80 || heightNum > 250) throw new Error("HEIGHT_INVALID");
+      } else {
+        // édition => vide => on ne force pas (anciens profils)
+        heightNum = null;
+      }
 
-    const totalPhotosCount = (myProfile ? keptPhotoUrls.length : 0) + photos.length;
-    if (totalPhotosCount > 5) throw new Error("MAX_5_PHOTOS");
+      const genderValue =
+        data.gender === "female" || data.gender === "male" || data.gender === "other" ? data.gender : null;
 
-    let profileId = myProfile?.id ?? null;
+      if (!myProfile && !hasNewPhotos) throw new Error("PHOTO_REQUIRED");
 
-    if (!profileId) {
-      const { data: inserted, error: insertError } = await supabase
-        .from("profiles")
-        .insert({
-          user_id: currentUser.id,
+      const totalPhotosCount = (myProfile ? keptPhotoUrls.length : 0) + photos.length;
+      if (totalPhotosCount > 5) throw new Error("MAX_5_PHOTOS");
+
+      let profileId = myProfile?.id ?? null;
+
+      if (!profileId) {
+        const { data: inserted, error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            user_id: currentUser.id,
+            name: data.name,
+            age: ageNum,
+            height: heightNum, // ✅ FIX
+            gender: genderValue,
+            status: "active",
+            city: data.city,
+            sport: data.sport,
+            level: data.level,
+            availability: data.availability || "",
+            bio: data.bio || ""
+          })
+          .select("*")
+          .single();
+
+        if (insertError) {
+          console.error("insert profile error:", insertError);
+          throw new Error(niceSupabaseError(insertError));
+        }
+
+        profileId = inserted.id;
+      } else {
+        const payload = {
           name: data.name,
           age: ageNum,
-          height: heightNum, // ✅ FIX
           gender: genderValue,
-          status: "active",
           city: data.city,
           sport: data.sport,
           level: data.level,
           availability: data.availability || "",
           bio: data.bio || ""
-        })
-        .select("*")
-        .single();
+        };
 
-      if (insertError) {
-        console.error("insert profile error:", insertError);
-        throw insertError;
+        // ✅ on n’écrase pas les anciens profils avec null si vide
+        if (hasHeightValue) payload.height = heightNum;
+
+        const { error: updateError } = await supabase.from("profiles").update(payload).eq("id", profileId);
+
+        if (updateError) {
+          console.error("update profile error:", updateError);
+          throw new Error(niceSupabaseError(updateError));
+        }
       }
 
-      profileId = inserted.id;
-    } else {
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          name: data.name,
-          age: ageNum,
-          height: heightNum, // ✅ FIX
-          gender: genderValue,
-          city: data.city,
-          sport: data.sport,
-          level: data.level,
-          availability: data.availability || "",
-          bio: data.bio || ""
-        })
-        .eq("id", profileId);
-
-      if (updateError) {
-        console.error("update profile error:", updateError);
-        throw updateError;
-      }
-    }
-
-    if (!myProfile) {
-      const uploaded = await uploadProfilePhotos(profileId, photos);
-
-      const { error: updatePhotosErr } = await supabase.from("profiles").update({ photo_urls: uploaded }).eq("id", profileId);
-
-      if (updatePhotosErr) {
-        console.error("update photo_urls error:", updatePhotosErr);
-        throw updatePhotosErr;
-      }
-    } else {
-      const previousUrls = Array.isArray(myProfile?.photo_urls) ? myProfile.photo_urls : [];
-      const removedUrls = previousUrls.filter((u) => !keptPhotoUrls.includes(u));
-
-      let nextUrls = keptPhotoUrls;
-
-      if (hasNewPhotos) {
+      if (!myProfile) {
         const uploaded = await uploadProfilePhotos(profileId, photos);
-        nextUrls = [...keptPhotoUrls, ...uploaded];
+
+        const { error: updatePhotosErr } = await supabase
+          .from("profiles")
+          .update({ photo_urls: uploaded })
+          .eq("id", profileId);
+
+        if (updatePhotosErr) {
+          console.error("update photo_urls error:", updatePhotosErr);
+          throw new Error(niceSupabaseError(updatePhotosErr));
+        }
+      } else {
+        const previousUrls = Array.isArray(myProfile?.photo_urls) ? myProfile.photo_urls : [];
+        const removedUrls = previousUrls.filter((u) => !keptPhotoUrls.includes(u));
+
+        let nextUrls = keptPhotoUrls;
+
+        if (hasNewPhotos) {
+          const uploaded = await uploadProfilePhotos(profileId, photos);
+          nextUrls = [...keptPhotoUrls, ...uploaded];
+        }
+
+        const { error: updatePhotosErr } = await supabase
+          .from("profiles")
+          .update({ photo_urls: nextUrls })
+          .eq("id", profileId);
+
+        if (updatePhotosErr) {
+          console.error("update photo_urls error:", updatePhotosErr);
+          throw new Error(niceSupabaseError(updatePhotosErr));
+        }
+
+        await deleteProfilePhotosFromStorage(removedUrls);
       }
 
-      const { error: updatePhotosErr } = await supabase.from("profiles").update({ photo_urls: nextUrls }).eq("id", profileId);
+      await fetchMyProfile();
+      await fetchProfiles();
+      await fetchCrushes();
 
-      if (updatePhotosErr) {
-        console.error("update photo_urls error:", updatePhotosErr);
-        throw updatePhotosErr;
-      }
+      setProfileToast(wasEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
+      window.clearTimeout(handleSaveProfile.__t);
+      handleSaveProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
 
-      await deleteProfilePhotosFromStorage(removedUrls);
+      setIsProfileModalOpen(false);
+    } catch (err) {
+      // ✅ Ici on renvoie un message exploitable côté ProfileForm
+      const code = String(err?.message || "");
+
+      if (code === "AUTH_REQUIRED") throw err;
+      if (code === "MISSING_FIELDS") throw err;
+      if (code === "PHOTO_REQUIRED") throw err;
+      if (code === "AGE_REQUIRED") throw err;
+      if (code === "UNDER_16_BLOCKED") throw err;
+      if (code === "MAX_5_PHOTOS") throw err;
+      if (code === "HEIGHT_REQUIRED") throw new Error("Merci d’indiquer ta taille.");
+      if (code === "HEIGHT_INVALID") throw new Error("Taille invalide (entre 80 et 250 cm).");
+
+      // sinon: vrai message Supabase
+      throw new Error(niceSupabaseError(err));
     }
-
-    await fetchMyProfile();
-    await fetchProfiles();
-    await fetchCrushes();
-
-    setProfileToast(wasEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
-    window.clearTimeout(handleSaveProfile.__t);
-    handleSaveProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
-
-    setIsProfileModalOpen(false);
   };
 
   /* -------------------------------
