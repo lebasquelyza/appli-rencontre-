@@ -13,6 +13,9 @@ export function Settings({ user }) {
   // ✅ Mot de passe dépliable
   const [openPassword, setOpenPassword] = useState(false);
 
+  // ✅ Matchs masqués dépliable
+  const [openHiddenMatches, setOpenHiddenMatches] = useState(false);
+
   // ✅ Mes infos (lecture seule, toujours visible)
   const [email, setEmail] = useState(user?.email || "");
   const [name, setName] = useState("");
@@ -25,6 +28,7 @@ export function Settings({ user }) {
   // ✅ Matchs masqués
   const [hiddenMatches, setHiddenMatches] = useState([]);
   const [loadingHiddenMatches, setLoadingHiddenMatches] = useState(false);
+  const [hiddenMatchesLoaded, setHiddenMatchesLoaded] = useState(false);
 
   useEffect(() => {
     setEmail(user?.email || "");
@@ -106,6 +110,7 @@ export function Settings({ user }) {
   const fetchHiddenMatches = async () => {
     if (!user) {
       setHiddenMatches([]);
+      setHiddenMatchesLoaded(false);
       return;
     }
 
@@ -195,12 +200,27 @@ export function Settings({ user }) {
       setHiddenMatches(finalList);
     } finally {
       setLoadingHiddenMatches(false);
+      setHiddenMatchesLoaded(true);
     }
   };
 
+  // ✅ Ouvrir/Fermer la section (lazy load au 1er "Voir")
+  const toggleHiddenMatches = async () => {
+    if (!user) return;
+
+    setOpenHiddenMatches((v) => !v);
+
+    // si on ouvre ET pas encore chargé => fetch
+    if (!openHiddenMatches && !hiddenMatchesLoaded) {
+      await fetchHiddenMatches();
+    }
+  };
+
+  // reset si user change / logout
   useEffect(() => {
-    fetchHiddenMatches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setHiddenMatches([]);
+    setHiddenMatchesLoaded(false);
+    setOpenHiddenMatches(false);
   }, [user?.id]);
 
   // ✅ Ré-afficher un match = delete dans hidden_matches
@@ -366,53 +386,71 @@ export function Settings({ user }) {
               </button>
             </div>
 
-            {/* ✅ Matchs masqués */}
+            {/* ✅ Matchs masqués (repliable) */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Matchs masqués</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
                 Les matchs que tu as masqués via la croix ✕ dans “Mes crush”.
               </p>
 
-              {!user ? (
-                <p className="form-message" style={{ marginTop: 10 }}>
-                  Connecte-toi pour voir tes matchs masqués.
-                </p>
-              ) : loadingHiddenMatches ? (
-                <small style={{ display: "block", marginTop: 10, opacity: 0.75 }}>Chargement…</small>
-              ) : hiddenMatches.length === 0 ? (
-                <div style={{ marginTop: 10, opacity: 0.8, fontSize: 14 }}>Aucun match masqué.</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-                  {hiddenMatches.map((m) => (
-                    <div
-                      key={m.match_id}
-                      className="card"
-                      style={{
-                        padding: 12,
-                        borderRadius: 14,
-                        display: "flex",
-                        gap: 12,
-                        alignItems: "center"
-                      }}
-                    >
-                      <img
-                        src={m.photo}
-                        alt={m.name}
-                        style={{ width: 46, height: 46, borderRadius: 12, objectFit: "cover" }}
-                      />
+              <button
+                className="btn-primary"
+                onClick={toggleHiddenMatches}
+                disabled={!user || loadingHiddenMatches}
+              >
+                {openHiddenMatches ? "Fermer" : "Voir"}
+              </button>
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700 }}>{m.name}</div>
-                        <div style={{ opacity: 0.8, fontSize: 14 }}>
-                          {[m.city, m.sport].filter(Boolean).join(" • ")}
+              {openHiddenMatches && (
+                <div style={{ marginTop: 12 }}>
+                  {loadingHiddenMatches ? (
+                    <small style={{ display: "block", opacity: 0.75 }}>Chargement…</small>
+                  ) : hiddenMatches.length === 0 ? (
+                    <div style={{ opacity: 0.8, fontSize: 14 }}>Aucun match masqué.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {hiddenMatches.map((m) => (
+                        <div
+                          key={m.match_id}
+                          className="card"
+                          style={{
+                            padding: 12,
+                            borderRadius: 14,
+                            display: "flex",
+                            gap: 12,
+                            alignItems: "center"
+                          }}
+                        >
+                          <img
+                            src={m.photo}
+                            alt={m.name}
+                            style={{ width: 46, height: 46, borderRadius: 12, objectFit: "cover" }}
+                          />
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700 }}>{m.name}</div>
+                            <div style={{ opacity: 0.8, fontSize: 14 }}>
+                              {[m.city, m.sport].filter(Boolean).join(" • ")}
+                            </div>
+                          </div>
+
+                          <button
+                            className="btn-ghost btn-sm"
+                            onClick={() => unhideMatch(m.match_id)}
+                            disabled={loadingHiddenMatches}
+                          >
+                            Ré-afficher
+                          </button>
                         </div>
-                      </div>
-
-                      <button className="btn-ghost btn-sm" onClick={() => unhideMatch(m.match_id)}>
-                        Ré-afficher
-                      </button>
+                      ))}
                     </div>
-                  ))}
+                  )}
+
+                  {user ? (
+                    <div style={{ marginTop: 10, opacity: 0.75, fontSize: 13 }}>
+                      Astuce : si tu masques un match, il disparaît de la liste “Mes crush”.
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
