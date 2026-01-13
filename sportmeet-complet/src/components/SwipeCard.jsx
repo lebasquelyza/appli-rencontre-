@@ -46,6 +46,10 @@ export function SwipeCard({ profile }) {
   const bio = (profile?.bio || "").trim();
   const availability = (profile?.availability || "").trim();
 
+  // ✅ taille (cm) => chip
+  const heightNum = Number(profile?.height);
+  const heightLabel = Number.isFinite(heightNum) && heightNum > 0 ? `${heightNum} cm` : "";
+
   // ✅ seuils (évite “coupé sans bouton”)
   const bioShowToggle = bio.length > 90;
   const availShowToggle = availability.length > 40;
@@ -120,16 +124,16 @@ export function SwipeCard({ profile }) {
             <div className="h1">
               {profile?.name}
               {profile?.age ? `, ${profile.age}` : ""}
-              {profile?.height ? ` • ${profile.height} cm` : ""}
             </div>
             {profile?.city && <div className="sub">{profile.city}</div>}
           </div>
 
-          {/* ✅ chips: SPORT + NIVEAU seulement */}
-          {(profile?.sport || profile?.level) && (
+          {/* ✅ chips: SPORT + NIVEAU + TAILLE */}
+          {(profile?.sport || profile?.level || heightLabel) && (
             <div className="chips chips-oneLine">
               {profile?.sport && <span className="chip chip-accent">{profile.sport}</span>}
               {profile?.level && <span className="chip">{profile.level}</span>}
+              {heightLabel && <span className="chip">📏 {heightLabel}</span>}
             </div>
           )}
 
