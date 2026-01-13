@@ -1,3 +1,4 @@
+// sportmeet-complet/src/components/CrushesPage.jsx
 import React from "react";
 
 export function CrushesPage({ crushes = [], onBack }) {
@@ -47,45 +48,53 @@ export function CrushesPage({ crushes = [], onBack }) {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {crushes.map((c) => (
-              <div
-                key={c.id}
-                className="card"
-                style={{
-                  padding: 12,
-                  borderRadius: 14,
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "center"
-                }}
-              >
-                <img
-                  src={c.photo || "/logo.png"}
-                  alt={c.name}
+            {crushes.map((c) => {
+              // ✅ message par défaut demandé
+              const preview =
+                c.lastMessage?.trim?.() ||
+                c.message?.trim?.() ||
+                "Engage la conversation ;)";
+
+              return (
+                <div
+                  key={c.id}
+                  className="card"
                   style={{
-                    width: 54,
-                    height: 54,
-                    borderRadius: 12,
-                    objectFit: "cover"
+                    padding: 12,
+                    borderRadius: 14,
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "center"
                   }}
-                />
-
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700 }}>{c.name}</div>
-                  <div style={{ opacity: 0.8, marginTop: 2, fontSize: 14 }}>
-                    Aucun message pour le moment.
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={() => alert("Messagerie bientôt 🙂")}
                 >
-                  Ouvrir
-                </button>
-              </div>
-            ))}
+                  <img
+                    src={c.photo || "/logo.png"}
+                    alt={c.name}
+                    style={{
+                      width: 54,
+                      height: 54,
+                      borderRadius: 12,
+                      objectFit: "cover"
+                    }}
+                  />
+
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700 }}>{c.name}</div>
+                    <div style={{ opacity: 0.8, marginTop: 2, fontSize: 14 }}>
+                      {preview}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    onClick={() => alert("Messagerie bientôt 🙂")}
+                  >
+                    Ouvrir
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
