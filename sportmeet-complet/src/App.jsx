@@ -22,7 +22,7 @@ import { Settings } from "./pages/Settings";
 // ✅ Page Configurer compte
 import { AccountSettings } from "./pages/AccountSettings";
 
-// ✅ Page Chat (doit exister)
+// ✅ Page Chat
 import { ChatPage } from "./pages/ChatPage";
 
 const BUCKET = "profile-photos";
@@ -383,20 +383,8 @@ export default function App() {
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState("");
 
-  // ✅ Crushes persistés en local
-  const [crushes, setCrushes] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("crushes") || "[]");
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("crushes", JSON.stringify(crushes));
-    } catch {}
-  }, [crushes]);
+  // ✅ CRUSHES = source de vérité = DB (matches/messages), pas localStorage
+  const [crushes, setCrushes] = useState([]);
 
   // ✅ personnes qui m'ont superlike
   const [superlikers, setSuperlikers] = useState([]);
@@ -474,6 +462,7 @@ export default function App() {
     setMyProfile(null);
     setIsProfileModalOpen(false);
     setIsPreviewModalOpen(false);
+    setCrushes([]); // ✅ reset inbox
     navigate("/", { replace: true });
   };
 
@@ -530,6 +519,100 @@ export default function App() {
   }, [user?.id]);
 
   /* -------------------------------
+     Fetch CRUSHES (vraie inbox)
+     - matches.id = bigint
+     - messages.match_id = bigint
+     - profiles.user_id = uuid auth
+  -------------------------------- */
+  const fetchCrushes = async () => {
+    if (!user) {
+      setCrushes([]);
+      return;
+    }
+
+    const { data: matchesRows, error: mErr } = await supabase
+      .from("matches")
+      .select("id, user1_id, user2_id, created_at")
+      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (mErr) {
+      console.error("fetchCrushes matches error:", mErr);
+      setCrushes([]);
+      return;
+    }
+
+    const matchesList = matchesRows || [];
+    if (matchesList.length === 0) {
+      setCrushes([]);
+      return;
+    }
+
+    const otherUserIds = matchesList
+      .map((m) => (m.user1_id === user.id ? m.user2_id : m.user1_id))
+      .filter(Boolean);
+
+    const { data: profs, error: pErr } = await supabase
+      .from("profiles")
+      .select("id, user_id, name, photo_urls, created_at, status")
+      .in("user_id", otherUserIds)
+      .order("created_at", { ascending: false });
+
+    if (pErr) {
+      console.error("fetchCrushes profiles error:", pErr);
+      setCrushes([]);
+      return;
+    }
+
+    // map: user_id -> profile le plus récent (déjà trié desc)
+    const byUser = new Map();
+    for (const p of profs || []) {
+      if (!p.user_id) continue;
+      if (!byUser.has(p.user_id)) byUser.set(p.user_id, p);
+    }
+
+    const ids = matchesList.map((m) => m.id);
+
+    const { data: msgRows, error: msgErr } = await supabase
+      .from("messages")
+      .select("id, match_id, body, created_at, sender_id")
+      .in("match_id", ids)
+      .order("created_at", { ascending: false })
+      .limit(800);
+
+    if (msgErr) console.error("fetchCrushes last messages error:", msgErr);
+
+    const lastByMatch = new Map();
+    for (const mm of msgRows || []) {
+      if (!lastByMatch.has(mm.match_id)) lastByMatch.set(mm.match_id, mm);
+    }
+
+    const next = matchesList.map((m) => {
+      const otherUserId = m.user1_id === user.id ? m.user2_id : m.user1_id;
+      const prof = byUser.get(otherUserId);
+      const last = lastByMatch.get(m.id);
+
+      return {
+        id: `match-${m.id}`, // clé react stable
+        match_id: m.id, // ✅ bigint -> utilisé dans /chat/:matchId
+        user_id: otherUserId,
+        name: prof?.name || "Match",
+        photo_urls: Array.isArray(prof?.photo_urls) ? prof.photo_urls : [],
+        last_message_body: last?.body || "",
+        last_message_at: last?.created_at || null
+      };
+    });
+
+    setCrushes(next);
+  };
+
+  useEffect(() => {
+    fetchCrushes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  /* -------------------------------
      Fetch qui m'a superlike
   -------------------------------- */
   const fetchSuperlikers = async () => {
@@ -575,7 +658,7 @@ export default function App() {
         id: p.id,
         user_id: p.user_id,
         name: p.name,
-        photo: Array.isArray(p.photo_urls) ? p.photo_urls[0] : null
+        photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : []
       }))
     );
   };
@@ -683,6 +766,7 @@ export default function App() {
 
       await fetchMyProfile();
       await fetchProfiles();
+      await fetchCrushes(); // ✅ inbox refresh
 
       setProfileToast("Compte repris ✅");
       window.clearTimeout(handleResumeAccount.__t);
@@ -768,6 +852,7 @@ export default function App() {
 
       setMyProfile(null);
       await fetchProfiles();
+      await fetchCrushes(); // ✅ inbox refresh
 
       setIsProfileModalOpen(false);
       setIsPreviewModalOpen(false);
@@ -904,6 +989,7 @@ export default function App() {
 
     await fetchMyProfile();
     await fetchProfiles();
+    await fetchCrushes(); // ✅ inbox refresh
 
     setProfileToast(wasEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
     window.clearTimeout(handleSaveProfile.__t);
@@ -976,7 +1062,6 @@ export default function App() {
 
   /* -------------------------------
      Like/Swipe ✅ LIKE + SUPERLIKE + LIMIT 5/JOUR + MATCH
-     (SwipeDeck peut appeler handleLike(profile) ou handleLike(profile, {isSuper:true})
   -------------------------------- */
   const handleLike = async (profile, opts = {}) => {
     const isSuper = !!opts.isSuper;
@@ -1051,23 +1136,9 @@ export default function App() {
       return;
     }
 
-    // 3) si match => ajout dans crushes + preview message
+    // 3) si match => refresh inbox DB (vrai match_id)
     if (isMatch) {
-      setCrushes((prev) => {
-        if (prev.some((c) => String(c.id) === String(profile.id))) return prev;
-
-        return [
-          {
-            id: profile.id,
-            name: profile.name,
-            photo: profile.photo_urls?.[0] || myProfile?.photo_urls?.[0] || "/logo.png",
-            message: "Engage la conversation ;)",
-            // ⚠️ quand ton RPC renverra match_id, on le mettra ici
-            match_id: null
-          },
-          ...prev
-        ];
-      });
+      await fetchCrushes();
 
       setProfileToast("🎉 C’est un match ! Engage la conversation 😉");
       window.clearTimeout(handleLike.__t);
@@ -1158,10 +1229,7 @@ export default function App() {
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
 
-        <Route
-          path="/settings"
-          element={<Settings user={userForUI} onOpenProfile={openProfileModal} />}
-        />
+        <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
 
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
       </Routes>
