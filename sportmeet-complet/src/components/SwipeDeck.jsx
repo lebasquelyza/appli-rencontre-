@@ -84,12 +84,12 @@ export function SwipeDeck({
 
   const consumeSuperlike = () => {
     const st = readSuperlikeState();
-    const next = {
+    const nextState = {
       day: todayKey(),
       count: Math.min(SUPERLIKE_DAILY_LIMIT, (st.count || 0) + 1)
     };
-    writeSuperlikeState(next);
-    return next;
+    writeSuperlikeState(nextState);
+    return nextState;
   };
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -213,7 +213,6 @@ export function SwipeDeck({
       const ok = await onLikeProfile?.(currentProfile, { isSuper: false });
       if (ok === false) return;
 
-      // ✅ feedback
       showFlash("like");
       vibrate([20]);
 
@@ -243,10 +242,8 @@ export function SwipeDeck({
       const ok = await onLikeProfile?.(currentProfile, { isSuper: true });
       if (ok === false) return;
 
-      // ✅ on consomme seulement si l'action a réussi
       consumeSuperlike();
 
-      // ✅ feedback
       showFlash("super");
       vibrate([15, 35, 15]);
 
@@ -271,7 +268,6 @@ export function SwipeDeck({
 
     if (busy) return;
 
-    // ✅ feedback
     showFlash("nope");
     vibrate([12]);
 
@@ -318,13 +314,7 @@ export function SwipeDeck({
     position: "relative"
   };
 
-  /**
-   * ✅ "Pro mais fun" swipe badges:
-   * - plus gros
-   * - plus contrasté
-   * - pill colorée + bordure + glow discret
-   * - apparition plus tôt pendant le drag
-   */
+  // ✅ "Pro mais fun" swipe badges
   const badgeCommon = {
     position: "absolute",
     top: 14,
@@ -343,7 +333,6 @@ export function SwipeDeck({
     textShadow: "0 6px 18px rgba(0,0,0,.35)"
   };
 
-  // Apparition plus tôt: avant c'était ~40px, là ça pop dès ~18px
   const likeAlpha = clamp((drag.x - 18) / 48, 0, 1);
   const nopeAlpha = clamp((-drag.x - 18) / 48, 0, 1);
   const superAlpha = clamp((-drag.y - 42) / 72, 0, 1);
@@ -376,7 +365,7 @@ export function SwipeDeck({
     boxShadow: "0 10px 26px rgba(255,215,0,.14), 0 0 0 1px rgba(255,215,0,.12)"
   };
 
-  // ✅ Flash overlay styles (validation) — plus "clean" et visible
+  // ✅ Flash overlay styles (validation) — corrigé (pas de fermeture en trop)
   const flashStyle = (() => {
     if (!flash.on) return { opacity: 0, pointerEvents: "none" };
 
@@ -411,7 +400,6 @@ export function SwipeDeck({
       ...common,
       background:
         "radial-gradient(circle at 30% 20%, rgba(255,80,92,.22), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(255,80,92,.12), rgba(0,0,0,0))"
-      };
     };
   })();
 
@@ -698,7 +686,7 @@ export function SwipeDeck({
         </>
       ) : (
         <div className="swipe-empty" style={{ textAlign: "center" }}>
-          {Array.isArray(profiles) && profiles.length > 0 ? (
+          {hasAny ? (
             <>
               <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
               <p style={{ marginTop: 0, opacity: 0.9, lineHeight: 1.35 }}>
