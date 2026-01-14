@@ -130,8 +130,8 @@ function withShareInterstitial(list, every = 8) {
 }
 
 /**
- * ✅ NEW: normalise un profil au format “deck”,
- * pour que l’APERÇU rende EXACTEMENT comme une vraie carte de swipe.
+ * ✅ NEW: normalise un profil au format “deck”
+ * (utile pour que l’aperçu rende comme une vraie carte)
  */
 function normalizeProfileForCard(p) {
   if (!p) return null;
@@ -182,7 +182,7 @@ function HomePage({
   setIsPreviewModalOpen,
   onDeleteMyProfile
 }) {
-  // ✅ NEW: profil pour l’aperçu = même format que les cartes du deck
+  // ✅ profil “aperçu” normalisé
   const myProfileForCard = useMemo(() => normalizeProfileForCard(myProfile), [myProfile]);
 
   return (
@@ -311,10 +311,10 @@ function HomePage({
         </div>
       )}
 
-      {/* ✅ Aperçu en GRAND + fond dégradé/blur */}
+      {/* ✅✅✅ APERÇU AGRANDI (UNIQUEMENT ICI) */}
       {isPreviewModalOpen && (
         <div
-          className="modal-backdrop"
+          className="modal-backdrop modal-backdrop--preview"
           onClick={() => setIsPreviewModalOpen(false)}
           style={{
             background: "linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.92))",
@@ -323,10 +323,9 @@ function HomePage({
           }}
         >
           <div
-            className="modal-card modal-card--sheet"
+            className="modal-card modal-card--sheet modal-card--preview"
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "min(1100px, 98vw)",
               maxHeight: "calc(var(--appH, 100vh) - 16px)",
               overflow: "hidden"
             }}
@@ -342,8 +341,7 @@ function HomePage({
               {!myProfileForCard ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
-                <div style={{ maxWidth: 930, margin: "0 auto" }}>
-                  {/* ✅ IMPORTANT: profil normalisé => rendu identique aux cartes du deck */}
+                <div style={{ maxWidth: 980, margin: "0 auto" }}>
                   <SwipeCard profile={myProfileForCard} />
                 </div>
               )}
