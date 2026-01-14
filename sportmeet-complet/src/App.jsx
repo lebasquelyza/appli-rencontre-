@@ -281,7 +281,7 @@ function HomePage({
         </div>
       )}
 
-      {/* ✅✅✅ Aperçu AGRANDI (MODIF UNIQUEMENT ICI) */}
+      {/* ✅✅✅ Aperçu AGRANDI + la carte remplit la hauteur */}
       {isPreviewModalOpen && (
         <div
           className="modal-backdrop"
@@ -290,8 +290,6 @@ function HomePage({
             background: "linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.92))",
             backdropFilter: "blur(10px)",
             WebkitBackdropFilter: "blur(10px)",
-
-            // ✅ IMPORTANT: réduit la marge autour => l’aperçu devient visiblement plus grand sur iPhone
             padding: 8
           }}
         >
@@ -299,14 +297,10 @@ function HomePage({
             className="modal-card modal-card--sheet"
             onClick={(e) => e.stopPropagation()}
             style={{
-              // ✅ IMPORTANT: force quasi plein écran sur mobile (au lieu de min(..., vw) qui ne change presque rien)
               width: "calc(100vw - 16px)",
               maxWidth: "calc(100vw - 16px)",
-
-              // ✅ IMPORTANT: prend presque toute la hauteur
               height: "calc(var(--appH, 100vh) - 16px)",
               maxHeight: "calc(var(--appH, 100vh) - 16px)",
-
               overflow: "hidden"
             }}
           >
@@ -321,8 +315,7 @@ function HomePage({
               {!myProfile ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
-                // ✅ ne bride pas trop la largeur (sinon tu ne vois pas la différence)
-                <div style={{ width: "100%", maxWidth: 560, margin: "0 auto" }}>
+                <div className="previewCardWrap">
                   <SwipeCard profile={myProfile} />
                 </div>
               )}
