@@ -281,7 +281,7 @@ function HomePage({
         </div>
       )}
 
-      {/* ✅✅✅ Aperçu AGRANDI + la carte remplit la hauteur */}
+      {/* ✅ Aperçu en GRAND + fond dégradé/blur */}
       {isPreviewModalOpen && (
         <div
           className="modal-backdrop"
@@ -289,18 +289,15 @@ function HomePage({
           style={{
             background: "linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.92))",
             backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            padding: 8
+            WebkitBackdropFilter: "blur(10px)"
           }}
         >
           <div
             className="modal-card modal-card--sheet"
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "calc(100vw - 16px)",
-              maxWidth: "calc(100vw - 16px)",
-              height: "calc(var(--appH, 100vh) - 16px)",
-              maxHeight: "calc(var(--appH, 100vh) - 16px)",
+              width: "min(820px, 96vw)",
+              maxHeight: "calc(var(--appH, 100vh) - 40px)",
               overflow: "hidden"
             }}
           >
@@ -315,7 +312,7 @@ function HomePage({
               {!myProfile ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
-                <div className="previewCardWrap">
+                <div style={{ maxWidth: 760, margin: "0 auto" }}>
                   <SwipeCard profile={myProfile} />
                 </div>
               )}
@@ -986,30 +983,34 @@ export default function App() {
     let profileId = myProfile?.id ?? null;
 
     if (!profileId) {
-      const { data: inserted, error: insertError } = await supabase
+      // ✅✅✅ OPTION A: UPSERT sur user_id (évite duplicate key)
+      const { data: upserted, error: upsertErr } = await supabase
         .from("profiles")
-        .insert({
-          user_id: currentUser.id,
-          name: data.name,
-          age: ageNum,
-          height: heightNum, // ✅ NULL ok
-          gender: genderValue,
-          status: "active",
-          city: data.city,
-          sport: data.sport,
-          level: data.level,
-          availability: data.availability || "",
-          bio: data.bio || ""
-        })
+        .upsert(
+          {
+            user_id: currentUser.id,
+            name: data.name,
+            age: ageNum,
+            height: heightNum, // ✅ NULL ok
+            gender: genderValue,
+            status: "active",
+            city: data.city,
+            sport: data.sport,
+            level: data.level,
+            availability: data.availability || "",
+            bio: data.bio || ""
+          },
+          { onConflict: "user_id" }
+        )
         .select("*")
         .single();
 
-      if (insertError) {
-        console.error("insert profile error:", insertError);
-        throw new Error(insertError.message || "Insert error");
+      if (upsertErr) {
+        console.error("upsert profile error:", upsertErr);
+        throw new Error(upsertErr.message || "Upsert error");
       }
 
-      profileId = inserted.id;
+      profileId = upserted.id;
     } else {
       // ✅ en update: si heightNum === null, on ne force pas à null (on garde l’existant)
       const updatePayload = {
