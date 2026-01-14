@@ -982,3 +982,28 @@ input:focus, select:focus, textarea:focus{
   }
   .chat-input input{ flex: 1; }
 }
+
+/* ================================
+   ✅✅✅ AJOUTS UNIQUEMENT POUR L’APERÇU
+   (n’affecte pas les autres modals)
+================================ */
+
+/* backdrop un peu moins “paddé” pour laisser plus de place */
+.modal-backdrop--preview{
+  padding: 8px;
+}
+
+/* la sheet d’aperçu peut être plus large */
+.modal-card--preview{
+  width: min(980px, calc(100vw - 16px)) !important;
+  max-width: calc(100vw - 16px) !important;
+}
+
+/* mobile: quasi plein écran */
+@media (max-width: 640px){
+  .modal-card--preview{
+    width: calc(100vw - 12px) !important;
+    max-width: calc(100vw - 12px) !important;
+    max-height: calc(var(--appH, 100vh) - 12px) !important;
+  }
+}
