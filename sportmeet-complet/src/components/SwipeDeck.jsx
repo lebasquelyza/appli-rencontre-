@@ -6,6 +6,7 @@ import { SwipeCard } from "./SwipeCard";
 export function SwipeDeck({
   profiles,
   onLikeProfile,
+  onReportProfile, // ✅ AJOUT: handler signalement
   isAuthenticated,
   onRequireAuth,
 
@@ -105,7 +106,7 @@ export function SwipeDeck({
     [currentProfile?.id]
   );
 
-  // ✅ gate centralisé pour actions (✕ / ❤ / ★)
+  // ✅ gate centralisé pour actions (✕ / ❤ / ★ / 🚩)
   const guardAction = () => {
     if (isShareCard) return { ok: false, reason: "share" };
 
@@ -166,6 +167,32 @@ export function SwipeDeck({
 
     if (busy) return;
     next();
+  };
+
+  // ✅ SIGNALER un profil (prompt rapide)
+  const handleReport = async () => {
+    const gate = guardAction();
+    if (!gate.ok) return;
+
+    if (!currentProfile || busy) return;
+
+    // Stoppe la propagation pour ne pas ouvrir le zoom
+    // (au cas où le bouton est dans une zone cliquable)
+    const reasonsHint =
+      "Raison ? (ex: faux profil, contenu inapproprié, harcèlement, mineur, spam)";
+    const reason = (window.prompt(reasonsHint) || "").trim();
+    if (!reason) return;
+
+    const details = (window.prompt("Détails (optionnel)") || "").trim();
+
+    setBusy(true);
+    try {
+      await onReportProfile?.(currentProfile, { reason, details });
+      // Optionnel: passer au profil suivant après signalement
+      next();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleReset = () => setIndex(0);
@@ -302,6 +329,22 @@ export function SwipeDeck({
               >
                 ★
               </button>
+
+              {/* ✅ BOUTON SIGNALER */}
+              <button
+                type="button"
+                className="swBtn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleReport();
+                }}
+                disabled={busy}
+                aria-label="Signaler"
+                title="Signaler ce profil"
+                style={{ fontSize: 18 }}
+              >
+                🚩
+              </button>
             </div>
           )}
 
@@ -328,11 +371,31 @@ export function SwipeDeck({
                   onClick={(e) => e.stopPropagation()}
                   style={{
                     width: "min(560px, 100%)",
-                    // ✅ hauteur “vraie carte” (comme le deck) mais un peu plus grande
                     height: "min(calc(var(--appH, 100vh) * 0.78), 720px)"
                   }}
                 >
-                  <div style={{ marginBottom: 10, display: "flex", justifyContent: "flex-end" }}>
+                  <div style={{ marginBottom: 10, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    {/* ✅ signaler aussi dans le zoom */}
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => {
+                        // on signale le profil zoomé (c’est le même que currentProfile la plupart du temps)
+                        const gate = guardAction();
+                        if (!gate.ok) return;
+
+                        const reason = (window.prompt(
+                          "Raison ? (ex: faux profil, contenu inapproprié, harcèlement, mineur, spam)"
+                        ) || "").trim();
+                        if (!reason) return;
+                        const details = (window.prompt("Détails (optionnel)") || "").trim();
+                        onReportProfile?.(zoomProfile, { reason, details });
+                      }}
+                      title="Signaler ce profil"
+                    >
+                      🚩 Signaler
+                    </button>
+
                     <button type="button" className="btn-ghost" onClick={closeZoom}>
                       Fermer
                     </button>
