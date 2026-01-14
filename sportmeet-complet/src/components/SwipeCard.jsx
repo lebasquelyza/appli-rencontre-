@@ -68,7 +68,11 @@ export function SwipeCard({ profile, onOpen, onReport }) {
   const heightNum = Number(profile?.height);
   const heightLabel = Number.isFinite(heightNum) && heightNum > 0 ? `${heightNum} cm` : "";
 
-  const bioShowToggle = bio.length > 90;
+  // ✅ CHANGEMENT ICI :
+  // Avant: const bioShowToggle = bio.length > 90;
+  // Maintenant: si bio existe => afficher "Voir +"
+  const bioShowToggle = bio.length > 0;
+
   const availShowToggle = availability.length > 40;
 
   const toggleBio = () => {
@@ -269,6 +273,7 @@ export function SwipeCard({ profile, onOpen, onReport }) {
                 {bio}
               </div>
 
+              {/* ✅ Toujours afficher si bio existe */}
               {bioShowToggle && (
                 <button
                   type="button"
@@ -376,12 +381,7 @@ export function SwipeCard({ profile, onOpen, onReport }) {
                   <button type="button" className="btn-ghost" onClick={closeReport}>
                     Annuler
                   </button>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={submitReport}
-                    disabled={!reportReason}
-                  >
+                  <button type="button" className="btn-primary" onClick={submitReport} disabled={!reportReason}>
                     Envoyer
                   </button>
                 </div>
