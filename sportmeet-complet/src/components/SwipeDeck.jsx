@@ -58,7 +58,7 @@ export function SwipeDeck({
     // type: "nope" | "like" | "super"
     setFlash({ type, on: true });
     if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
-    flashTimerRef.current = window.setTimeout(() => setFlash({ type: null, on: false }), 220);
+    flashTimerRef.current = window.setTimeout(() => setFlash({ type: null, on: false }), 240);
   };
 
   const showGate = (msg) => {
@@ -165,7 +165,6 @@ export function SwipeDeck({
       const ok = await onLikeProfile?.(currentProfile, { isSuper: false });
       if (ok === false) return;
 
-      // ✅ feedback
       showFlash("like");
       vibrate([20]);
 
@@ -187,7 +186,6 @@ export function SwipeDeck({
       const ok = await onLikeProfile?.(currentProfile, { isSuper: true });
       if (ok === false) return;
 
-      // ✅ feedback
       showFlash("super");
       vibrate([15, 35, 15]);
 
@@ -212,7 +210,6 @@ export function SwipeDeck({
 
     if (busy) return;
 
-    // ✅ feedback
     showFlash("nope");
     vibrate([12]);
 
@@ -259,47 +256,65 @@ export function SwipeDeck({
     position: "relative"
   };
 
-  // ✅ Badge styles (drag hints)
+  /**
+   * ✅ "Pro mais fun" swipe badges:
+   * - plus gros
+   * - plus contrasté
+   * - pill colorée + bordure + glow discret
+   * - apparition plus tôt pendant le drag
+   */
   const badgeCommon = {
     position: "absolute",
-    top: 16,
+    top: 14,
     zIndex: 20,
-    padding: "8px 12px",
-    borderRadius: 14,
-    fontWeight: 900,
-    letterSpacing: 1,
-    fontSize: 14,
-    background: "rgba(0,0,0,.45)",
+    padding: "10px 14px",
+    borderRadius: 999,
+    fontWeight: 1000,
+    letterSpacing: 1.4,
+    fontSize: 16,
+    textTransform: "uppercase",
+    userSelect: "none",
+    pointerEvents: "none",
     backdropFilter: "blur(10px)",
     WebkitBackdropFilter: "blur(10px)",
-    border: "1px solid rgba(255,255,255,.18)",
-    userSelect: "none",
-    pointerEvents: "none"
+    border: "1px solid rgba(255,255,255,.22)",
+    textShadow: "0 6px 18px rgba(0,0,0,.35)"
   };
+
+  // Apparition plus tôt: avant c'était ~40px, là ça pop dès ~16-20px
+  const likeAlpha = clamp((drag.x - 18) / 48, 0, 1);
+  const nopeAlpha = clamp((-drag.x - 18) / 48, 0, 1);
+  const superAlpha = clamp((-drag.y - 42) / 72, 0, 1);
 
   const badgeNope = {
     ...badgeCommon,
     left: 14,
     transform: "rotate(-10deg)",
-    opacity: clamp((-drag.x - 40) / 70, 0, 1)
+    opacity: nopeAlpha,
+    background: "linear-gradient(180deg, rgba(255,80,92,.28), rgba(0,0,0,.10))",
+    boxShadow: "0 10px 26px rgba(255,80,92,.18), 0 0 0 1px rgba(255,80,92,.14)"
   };
 
   const badgeLike = {
     ...badgeCommon,
     right: 14,
     transform: "rotate(10deg)",
-    opacity: clamp((drag.x - 40) / 70, 0, 1)
+    opacity: likeAlpha,
+    background: "linear-gradient(180deg, rgba(0,224,150,.26), rgba(0,0,0,.10))",
+    boxShadow: "0 10px 26px rgba(0,224,150,.16), 0 0 0 1px rgba(0,224,150,.12)"
   };
 
   const badgeSuper = {
     ...badgeCommon,
     left: "50%",
     transform: "translateX(-50%)",
-    top: 14,
-    opacity: clamp((-drag.y - 60) / 90, 0, 1)
+    top: 12,
+    opacity: superAlpha,
+    background: "linear-gradient(180deg, rgba(255,215,0,.22), rgba(0,0,0,.10))",
+    boxShadow: "0 10px 26px rgba(255,215,0,.14), 0 0 0 1px rgba(255,215,0,.12)"
   };
 
-  // ✅ Flash overlay styles
+  // ✅ Flash overlay styles (validation) — plus "clean" et visible
   const flashStyle = (() => {
     if (!flash.on) return { opacity: 0, pointerEvents: "none" };
 
@@ -318,37 +333,42 @@ export function SwipeDeck({
     if (flash.type === "like") {
       return {
         ...common,
-        background: "linear-gradient(180deg, rgba(0,255,150,.10), rgba(0,0,0,0))"
+        background:
+          "radial-gradient(circle at 70% 20%, rgba(0,224,150,.22), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(0,224,150,.12), rgba(0,0,0,0))"
       };
     }
     if (flash.type === "super") {
       return {
         ...common,
-        background: "linear-gradient(180deg, rgba(255,215,0,.12), rgba(0,0,0,0))"
+        background:
+          "radial-gradient(circle at 50% 10%, rgba(255,215,0,.20), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(255,215,0,.10), rgba(0,0,0,0))"
       };
     }
-    // nope
     return {
       ...common,
-      background: "linear-gradient(180deg, rgba(255,80,80,.10), rgba(0,0,0,0))"
+      background:
+        "radial-gradient(circle at 30% 20%, rgba(255,80,92,.22), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(255,80,92,.12), rgba(0,0,0,0))"
     };
   })();
 
   const flashLabel = (() => {
     if (!flash.on) return null;
-    const box = {
+
+    const boxBase = {
       padding: "10px 14px",
-      borderRadius: 16,
+      borderRadius: 999,
       fontWeight: 1000,
-      letterSpacing: 1,
-      background: "rgba(0,0,0,.55)",
-      border: "1px solid rgba(255,255,255,.18)",
-      backdropFilter: "blur(10px)",
-      WebkitBackdropFilter: "blur(10px)"
+      letterSpacing: 1.2,
+      border: "1px solid rgba(255,255,255,.22)",
+      background: "rgba(10,10,14,.55)",
+      backdropFilter: "blur(12px)",
+      WebkitBackdropFilter: "blur(12px)",
+      boxShadow: "0 12px 30px rgba(0,0,0,.22)"
     };
-    if (flash.type === "like") return <div style={box}>OUI ❤️</div>;
-    if (flash.type === "super") return <div style={box}>SUPERLIKE ★</div>;
-    return <div style={box}>NON ✕</div>;
+
+    if (flash.type === "like") return <div style={boxBase}>OUI ❤️</div>;
+    if (flash.type === "super") return <div style={boxBase}>SUPERLIKE ★</div>;
+    return <div style={boxBase}>NON ✕</div>;
   })();
 
   // ✅ Pointer handlers (drag + validate)
@@ -408,7 +428,7 @@ export function SwipeDeck({
     const dx = pointerRef.current.lastX - pointerRef.current.startX;
     const dy = pointerRef.current.lastY - pointerRef.current.startY;
 
-    // tap (pas un swipe) => zoom
+    // tap (pas un swipe) => zoom via onClick (si moved=false)
     if (!pointerRef.current.moved) {
       resetDrag();
       return;
@@ -659,3 +679,4 @@ export function SwipeDeck({
     </div>
   );
 }
+
