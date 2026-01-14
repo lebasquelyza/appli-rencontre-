@@ -44,6 +44,54 @@ export function SwipeDeck({
   const SWIPE_X = 95; // seuil like/skip
   const SWIPE_Y = 115; // seuil superlike (haut)
 
+  // ✅ Superlike limit (front only)
+  const SUPERLIKE_DAILY_LIMIT = 5;
+  const SUPERLIKE_LS_KEY = "matchfit_superlikes_v1";
+
+  const todayKey = () => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const readSuperlikeState = () => {
+    try {
+      if (typeof window === "undefined") return { day: todayKey(), count: 0 };
+      const raw = window.localStorage.getItem(SUPERLIKE_LS_KEY);
+      if (!raw) return { day: todayKey(), count: 0 };
+      const parsed = JSON.parse(raw);
+      if (!parsed?.day || typeof parsed?.count !== "number") return { day: todayKey(), count: 0 };
+      if (parsed.day !== todayKey()) return { day: todayKey(), count: 0 };
+      return parsed;
+    } catch {
+      return { day: todayKey(), count: 0 };
+    }
+  };
+
+  const writeSuperlikeState = (state) => {
+    try {
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem(SUPERLIKE_LS_KEY, JSON.stringify(state));
+    } catch {}
+  };
+
+  const canUseSuperlike = () => {
+    const st = readSuperlikeState();
+    return st.count < SUPERLIKE_DAILY_LIMIT;
+  };
+
+  const consumeSuperlike = () => {
+    const st = readSuperlikeState();
+    const next = {
+      day: todayKey(),
+      count: Math.min(SUPERLIKE_DAILY_LIMIT, (st.count || 0) + 1)
+    };
+    writeSuperlikeState(next);
+    return next;
+  };
+
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const vibrate = (pattern) => {
@@ -165,6 +213,7 @@ export function SwipeDeck({
       const ok = await onLikeProfile?.(currentProfile, { isSuper: false });
       if (ok === false) return;
 
+      // ✅ feedback
       showFlash("like");
       vibrate([20]);
 
@@ -181,11 +230,23 @@ export function SwipeDeck({
     if (!gate.ok) return;
     if (!currentProfile || busy) return;
 
+    // ✅ limite quotidienne (front)
+    if (!canUseSuperlike()) {
+      showGate(`Tu as atteint la limite de ${SUPERLIKE_DAILY_LIMIT} superlikes aujourd’hui ⭐`);
+      vibrate([30, 20, 30]);
+      resetDrag();
+      return;
+    }
+
     setBusy(true);
     try {
       const ok = await onLikeProfile?.(currentProfile, { isSuper: true });
       if (ok === false) return;
 
+      // ✅ on consomme seulement si l'action a réussi
+      consumeSuperlike();
+
+      // ✅ feedback
       showFlash("super");
       vibrate([15, 35, 15]);
 
@@ -210,6 +271,7 @@ export function SwipeDeck({
 
     if (busy) return;
 
+    // ✅ feedback
     showFlash("nope");
     vibrate([12]);
 
@@ -281,7 +343,7 @@ export function SwipeDeck({
     textShadow: "0 6px 18px rgba(0,0,0,.35)"
   };
 
-  // Apparition plus tôt: avant c'était ~40px, là ça pop dès ~16-20px
+  // Apparition plus tôt: avant c'était ~40px, là ça pop dès ~18px
   const likeAlpha = clamp((drag.x - 18) / 48, 0, 1);
   const nopeAlpha = clamp((-drag.x - 18) / 48, 0, 1);
   const superAlpha = clamp((-drag.y - 42) / 72, 0, 1);
@@ -344,10 +406,12 @@ export function SwipeDeck({
           "radial-gradient(circle at 50% 10%, rgba(255,215,0,.20), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(255,215,0,.10), rgba(0,0,0,0))"
       };
     }
+    // nope
     return {
       ...common,
       background:
         "radial-gradient(circle at 30% 20%, rgba(255,80,92,.22), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(255,80,92,.12), rgba(0,0,0,0))"
+      };
     };
   })();
 
@@ -583,7 +647,7 @@ export function SwipeDeck({
                 onClick={handleSuperLike}
                 disabled={busy}
                 aria-label="Super like"
-                title="Super like"
+                title={`Super like (limite ${SUPERLIKE_DAILY_LIMIT}/jour)`}
               >
                 ★
               </button>
@@ -634,7 +698,7 @@ export function SwipeDeck({
         </>
       ) : (
         <div className="swipe-empty" style={{ textAlign: "center" }}>
-          {hasAny ? (
+          {Array.isArray(profiles) && profiles.length > 0 ? (
             <>
               <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
               <p style={{ marginTop: 0, opacity: 0.9, lineHeight: 1.35 }}>
@@ -679,4 +743,3 @@ export function SwipeDeck({
     </div>
   );
 }
-
