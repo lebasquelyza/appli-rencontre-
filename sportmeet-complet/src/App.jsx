@@ -13,6 +13,8 @@ import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 import { Confirmed } from "./pages/Confirmed";
 import { HowItWorks } from "./pages/HowItWorks";
+import { AccountReview } from "./pages/AccountReview";
+
 
 // ✅ effet "bombe" match (modal centre)
 import { MatchBoomModal } from "./components/MatchBoomModal";
@@ -1466,6 +1468,8 @@ export default function App() {
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/confirmed" element={<Confirmed onOpenAuth={() => setIsAuthModalOpen(true)} />} />
+        <Route path="/review" element={<AccountReview onLogout={handleLogout} />} />
+
 
         {/* ✅ CORRIGÉ: on passe la bonne prop attendue par Settings */}
         <Route
