@@ -326,8 +326,8 @@ function HomePage({
             className="modal-card modal-card--sheet"
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: "min(820px, 96vw)",
-              maxHeight: "calc(var(--appH, 100vh) - 40px)",
+              width: "min(1100px, 98vw)",
+              maxHeight: "calc(var(--appH, 100vh) - 16px)",
               overflow: "hidden"
             }}
           >
@@ -342,7 +342,7 @@ function HomePage({
               {!myProfileForCard ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
-                <div style={{ maxWidth: 760, margin: "0 auto" }}>
+                <div style={{ maxWidth: 930, margin: "0 auto" }}>
                   {/* ✅ IMPORTANT: profil normalisé => rendu identique aux cartes du deck */}
                   <SwipeCard profile={myProfileForCard} />
                 </div>
