@@ -7,7 +7,16 @@ function hashToHue(str = "") {
   return h;
 }
 
-export function SwipeCard({ profile, onOpen }) {
+const REPORT_REASONS = [
+  "Faux profil / arnaque",
+  "Contenu inapproprié",
+  "Harcèlement",
+  "Mineur",
+  "Spam",
+  "Autre"
+];
+
+export function SwipeCard({ profile, onOpen, onReport }) {
   const photos = Array.isArray(profile?.photo_urls) ? profile.photo_urls : [];
   const hasPhotos = photos.length > 0;
 
@@ -21,13 +30,22 @@ export function SwipeCard({ profile, onOpen }) {
 
   const startX = useRef(null);
 
+  // ✅ modal signalement
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
+  const [reportDetails, setReportDetails] = useState("");
+
   useEffect(() => {
     setIndex(0);
     setBioOpen(false);
     setAvailOpen(false);
+
+    // reset report modal
+    setReportOpen(false);
+    setReportReason(REPORT_REASONS[0]);
+    setReportDetails("");
   }, [profile?.id]);
 
-  // ✅ évite un index hors limite si la liste de photos change
   useEffect(() => {
     setIndex((i) => Math.min(i, Math.max(0, photos.length - 1)));
   }, [photos.length]);
@@ -46,11 +64,9 @@ export function SwipeCard({ profile, onOpen }) {
   const bio = (profile?.bio || "").trim();
   const availability = (profile?.availability || "").trim();
 
-  // ✅ taille (cm) => chip uniquement
   const heightNum = Number(profile?.height);
   const heightLabel = Number.isFinite(heightNum) && heightNum > 0 ? `${heightNum} cm` : "";
 
-  // ✅ seuils (évite “coupé sans bouton”)
   const bioShowToggle = bio.length > 90;
   const availShowToggle = availability.length > 40;
 
@@ -64,9 +80,8 @@ export function SwipeCard({ profile, onOpen }) {
     setAvailOpen((v) => !v);
   };
 
-  // ✅ si on touche bio/dispo => pas de swipe photo / pas d’open modal
   const isInTextZone = (target) =>
-    !!target?.closest?.(".swipeBio, .bioToggle, .swipeAvail, .availToggle");
+    !!target?.closest?.(".swipeBio, .bioToggle, .swipeAvail, .availToggle, .reportBtn, .reportModal");
 
   const onTouchStart = (e) => {
     if (isInTextZone(e.target)) return;
@@ -85,15 +100,34 @@ export function SwipeCard({ profile, onOpen }) {
     startX.current = null;
   };
 
-  // ✅ click => open modal (si onOpen fourni)
   const onClickCard = (e) => {
     if (!onOpen) return;
     if (isInTextZone(e.target)) return;
     onOpen();
   };
 
-  // ✅ si bio OU dispo open => on agrandit l’overlay (déroule vers le haut)
   const overlayOpen = bioOpen || availOpen;
+
+  const openReport = (e) => {
+    e?.stopPropagation?.();
+    if (!onReport) return;
+    setReportOpen(true);
+  };
+
+  const closeReport = () => {
+    setReportOpen(false);
+  };
+
+  const submitReport = async () => {
+    if (!onReport) return;
+    const reason = (reportReason || "").trim();
+    const details = (reportDetails || "").trim();
+
+    if (!reason) return;
+
+    await onReport({ reason, details });
+    closeReport();
+  };
 
   return (
     <article className="card swipeCard">
@@ -105,9 +139,37 @@ export function SwipeCard({ profile, onOpen }) {
         style={{
           ...(hasPhotos ? null : bgFallback),
           touchAction: "pan-y",
-          cursor: onOpen ? "pointer" : "default"
+          cursor: onOpen ? "pointer" : "default",
+          position: "relative"
         }}
       >
+        {/* ✅ Bouton signaler (si onReport est fourni) */}
+        {typeof onReport === "function" ? (
+          <button
+            type="button"
+            className="reportBtn"
+            onClick={openReport}
+            title="Signaler ce profil"
+            aria-label="Signaler ce profil"
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              zIndex: 5,
+              border: "none",
+              borderRadius: 999,
+              padding: "8px 10px",
+              background: "rgba(0,0,0,.42)",
+              color: "white",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              cursor: "pointer"
+            }}
+          >
+            🚩
+          </button>
+        ) : null}
+
         {hasPhotos && (
           <div className="photo-track" style={{ transform: `translateX(-${index * 100}%)` }}>
             {photos.map((src, i) => (
@@ -137,7 +199,6 @@ export function SwipeCard({ profile, onOpen }) {
             {profile?.city && <div className="sub">{profile.city}</div>}
           </div>
 
-          {/* ✅ chips: SPORT + NIVEAU + TAILLE */}
           {(profile?.sport || profile?.level || heightLabel) && (
             <div className="chips chips-oneLine">
               {profile?.sport && <span className="chip chip-accent">{profile.sport}</span>}
@@ -146,7 +207,6 @@ export function SwipeCard({ profile, onOpen }) {
             </div>
           )}
 
-          {/* ✅ DISPO repliable (comme bio) */}
           {availability && (
             <div className="availWrap">
               <div
@@ -180,7 +240,6 @@ export function SwipeCard({ profile, onOpen }) {
             </div>
           )}
 
-          {/* ✅ BIO repliable */}
           {bio && (
             <div className="bioWrap">
               <div
@@ -214,6 +273,111 @@ export function SwipeCard({ profile, onOpen }) {
             </div>
           )}
         </div>
+
+        {/* ✅ Modal Signalement */}
+        {reportOpen && (
+          <div
+            className="reportModal"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeReport();
+            }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 10,
+              background: "rgba(0,0,0,.55)",
+              display: "grid",
+              placeItems: "center",
+              padding: 14
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(460px, 100%)",
+                borderRadius: 16,
+                background: "rgba(20,20,20,.92)",
+                color: "white",
+                padding: 14,
+                boxShadow: "0 10px 30px rgba(0,0,0,.35)"
+              }}
+            >
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                <div style={{ fontWeight: 800 }}>Signaler ce profil</div>
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={closeReport}
+                  style={{ marginLeft: "auto" }}
+                >
+                  Fermer
+                </button>
+              </div>
+
+              <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 10, lineHeight: 1.35 }}>
+                {profile?.name ? (
+                  <span>
+                    Profil : <strong>{profile.name}</strong>
+                  </span>
+                ) : null}
+              </div>
+
+              <div style={{ display: "grid", gap: 8 }}>
+                <label style={{ fontSize: 13, opacity: 0.9 }}>Raison</label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  style={{
+                    width: "100%",
+                    borderRadius: 12,
+                    padding: "10px 12px",
+                    border: "1px solid rgba(255,255,255,.15)",
+                    background: "rgba(255,255,255,.06)",
+                    color: "white"
+                  }}
+                >
+                  {REPORT_REASONS.map((r) => (
+                    <option key={r} value={r} style={{ color: "black" }}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+
+                <label style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>Détails (optionnel)</label>
+                <textarea
+                  value={reportDetails}
+                  onChange={(e) => setReportDetails(e.target.value)}
+                  rows={3}
+                  placeholder="Explique brièvement ce qui pose problème…"
+                  style={{
+                    width: "100%",
+                    borderRadius: 12,
+                    padding: "10px 12px",
+                    border: "1px solid rgba(255,255,255,.15)",
+                    background: "rgba(255,255,255,.06)",
+                    color: "white",
+                    resize: "vertical"
+                  }}
+                />
+
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+                  <button type="button" className="btn-ghost" onClick={closeReport}>
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={submitReport}
+                    disabled={!reportReason}
+                  >
+                    Envoyer
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </article>
   );
