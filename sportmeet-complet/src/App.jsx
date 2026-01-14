@@ -1462,7 +1462,7 @@ export default function App() {
         />
 
         <Route path="/chat/:matchId" element={<ChatPage />} />
-
+        <Route path="/comment-ca-marche" element={<HowItWorks />} />
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/confirmed" element={<Confirmed onOpenAuth={() => setIsAuthModalOpen(true)} />} />
