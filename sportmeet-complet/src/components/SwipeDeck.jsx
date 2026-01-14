@@ -1,5 +1,6 @@
 // sportmeet-complet/src/components/SwipeDeck.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { SwipeCard } from "./SwipeCard";
 
 export function SwipeDeck({
@@ -19,7 +20,7 @@ export function SwipeDeck({
   const [gateMsg, setGateMsg] = useState("");
   const gateTimerRef = useRef(null);
 
-  // ✅ NEW: zoom (profil en grand) — le flou n'existe QUE quand zoomOpen = true
+  // ✅ zoom (profil en grand)
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomProfile, setZoomProfile] = useState(null);
 
@@ -169,7 +170,7 @@ export function SwipeDeck({
 
   const hasAny = Array.isArray(profiles) && profiles.length > 0;
 
-  // ✅ NEW: ouvrir le profil en grand (SANS changer le reste)
+  // ✅ ouvrir le profil en grand
   const openZoom = (p) => {
     if (!p || p.__type === "share") return;
     setZoomProfile(p);
@@ -181,7 +182,7 @@ export function SwipeDeck({
     setZoomProfile(null);
   };
 
-  // ✅ NEW: empêcher le scroll derrière quand zoom ouvert
+  // ✅ empêcher le scroll derrière quand zoom ouvert
   useEffect(() => {
     if (!zoomOpen) return;
     const prev = document.body.style.overflow;
@@ -197,7 +198,6 @@ export function SwipeDeck({
         <>
           <div
             className="swipeStage"
-            // ✅ NEW: clic sur la carte => zoom (mais uniquement si pas share card)
             onClick={() => {
               if (isShareCard) return;
               openZoom(currentProfile);
@@ -301,39 +301,23 @@ export function SwipeDeck({
             </div>
           )}
 
-          {/* ✅ NEW: ZOOM OVERLAY — flou uniquement ici */}
-          {zoomOpen && zoomProfile && (
-            <div
-              onClick={closeZoom}
-              style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 9999,
-                background: "rgba(0,0,0,0.35)",
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
-                display: "grid",
-                placeItems: "center",
-                padding: 14
-              }}
-            >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  width: "min(520px, 100%)"
-                }}
-              >
-                <div style={{ marginBottom: 10, display: "flex", justifyContent: "flex-end" }}>
-                  <button type="button" className="btn-ghost" onClick={closeZoom}>
-                    Fermer
-                  </button>
-                </div>
+          {/* ✅✅✅ ZOOM OVERLAY (Portal) — blur fiable même sur iPhone */}
+          {zoomOpen && zoomProfile &&
+            typeof document !== "undefined" &&
+            createPortal(
+              <div className="zoomBackdrop" onClick={closeZoom}>
+                <div className="zoomPanel" onClick={(e) => e.stopPropagation()}>
+                  <div className="zoomHeader">
+                    <button type="button" className="btn-ghost" onClick={closeZoom}>
+                      Fermer
+                    </button>
+                  </div>
 
-                {/* carte en grand */}
-                <SwipeCard profile={zoomProfile} />
-              </div>
-            </div>
-          )}
+                  <SwipeCard profile={zoomProfile} />
+                </div>
+              </div>,
+              document.body
+            )}
         </>
       ) : (
         <div className="swipe-empty" style={{ textAlign: "center" }}>
