@@ -213,6 +213,7 @@ export function SwipeDeck({
       const ok = await onLikeProfile?.(currentProfile, { isSuper: false });
       if (ok === false) return;
 
+      // ✅ feedback
       showFlash("like");
       vibrate([20]);
 
@@ -242,8 +243,10 @@ export function SwipeDeck({
       const ok = await onLikeProfile?.(currentProfile, { isSuper: true });
       if (ok === false) return;
 
+      // ✅ on consomme seulement si l'action a réussi
       consumeSuperlike();
 
+      // ✅ feedback
       showFlash("super");
       vibrate([15, 35, 15]);
 
@@ -268,6 +271,7 @@ export function SwipeDeck({
 
     if (busy) return;
 
+    // ✅ feedback
     showFlash("nope");
     vibrate([12]);
 
@@ -309,7 +313,7 @@ export function SwipeDeck({
     transform: `translate3d(${drag.x}px, ${drag.y}px, 0) rotate(${rotate}deg)`,
     transition: drag.active ? "none" : "transform 180ms ease",
     willChange: "transform",
-    cursor: isShareCard ? "default" : drag.active ? "grabbing" : "grab",
+    cursor: isShareCard ? "default" : !isAuthenticated ? "default" : drag.active ? "grabbing" : "grab",
     touchAction: "pan-y",
     position: "relative"
   };
@@ -365,7 +369,7 @@ export function SwipeDeck({
     boxShadow: "0 10px 26px rgba(255,215,0,.14), 0 0 0 1px rgba(255,215,0,.12)"
   };
 
-  // ✅ Flash overlay styles (validation) — corrigé (pas de fermeture en trop)
+  // ✅ Flash overlay styles (validation)
   const flashStyle = (() => {
     if (!flash.on) return { opacity: 0, pointerEvents: "none" };
 
@@ -429,6 +433,14 @@ export function SwipeDeck({
     if (!currentProfile || busy) return;
     if (isShareCard) return;
 
+    // ✅ NO AUTH => pas de swipe (même pas de drag)
+    if (!isAuthenticated) {
+      onRequireAuth?.();
+      showGate("Connecte-toi pour swiper 💪");
+      resetDrag();
+      return;
+    }
+
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
     pointerRef.current.active = true;
@@ -472,6 +484,12 @@ export function SwipeDeck({
     if (!pointerRef.current.active) return;
     pointerRef.current.active = false;
 
+    // ✅ Si pas connecté => on remet au centre et on stop
+    if (!isAuthenticated) {
+      resetDrag();
+      return;
+    }
+
     if (!currentProfile || busy) {
       resetDrag();
       return;
@@ -480,7 +498,7 @@ export function SwipeDeck({
     const dx = pointerRef.current.lastX - pointerRef.current.startX;
     const dy = pointerRef.current.lastY - pointerRef.current.startY;
 
-    // tap (pas un swipe) => zoom via onClick (si moved=false)
+    // tap (pas un swipe) => zoom
     if (!pointerRef.current.moved) {
       resetDrag();
       return;
@@ -731,3 +749,4 @@ export function SwipeDeck({
     </div>
   );
 }
+
