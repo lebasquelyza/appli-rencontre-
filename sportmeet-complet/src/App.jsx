@@ -12,6 +12,7 @@ import { CrushesPage } from "./components/CrushesPage";
 import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 import { Confirmed } from "./pages/Confirmed";
+import { HowItWorks } from "./pages/HowItWorks";
 
 // ✅ effet "bombe" match (modal centre)
 import { MatchBoomModal } from "./components/MatchBoomModal";
