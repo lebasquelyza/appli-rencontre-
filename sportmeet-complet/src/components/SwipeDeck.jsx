@@ -22,6 +22,19 @@ export function SwipeDeck({
 
   const scrollYRef = useRef(0);
 
+  // ✅ Swipe gesture state
+  const pointerRef = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
+    moved: false
+  });
+
+  const SWIPE_X = 90; // seuil horizontal (px)
+  const SWIPE_Y = 110; // seuil vertical (px) pour superlike (haut)
+
   const showGate = (msg) => {
     setGateMsg(msg);
     if (gateTimerRef.current) window.clearTimeout(gateTimerRef.current);
@@ -188,17 +201,100 @@ export function SwipeDeck({
     };
   }, [zoomOpen]);
 
+  // ✅ Pointer handlers for swipe gestures (left=NO, right=YES, up=SUPERLIKE)
+  const onPointerDown = (e) => {
+    if (zoomOpen) return;
+    if (!currentProfile || busy) return;
+
+    // share card: swipe = continue
+    if (isShareCard) return;
+
+    // only primary button/finger
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    pointerRef.current.active = true;
+    pointerRef.current.startX = e.clientX;
+    pointerRef.current.startY = e.clientY;
+    pointerRef.current.lastX = e.clientX;
+    pointerRef.current.lastY = e.clientY;
+    pointerRef.current.moved = false;
+
+    // keep receiving moves even if pointer leaves
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch {}
+  };
+
+  const onPointerMove = (e) => {
+    if (!pointerRef.current.active) return;
+
+    const dx = e.clientX - pointerRef.current.startX;
+    const dy = e.clientY - pointerRef.current.startY;
+
+    pointerRef.current.lastX = e.clientX;
+    pointerRef.current.lastY = e.clientY;
+
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+      pointerRef.current.moved = true;
+    }
+  };
+
+  const onPointerUp = async (e) => {
+    if (!pointerRef.current.active) return;
+    pointerRef.current.active = false;
+
+    if (!currentProfile || busy) return;
+
+    const dx = pointerRef.current.lastX - pointerRef.current.startX;
+    const dy = pointerRef.current.lastY - pointerRef.current.startY;
+
+    // si c'est un simple tap (pas un swipe), on laisse le click ouvrir le zoom
+    if (!pointerRef.current.moved) return;
+
+    // priorité : superlike vers le haut
+    if (dy < -SWIPE_Y && Math.abs(dx) < SWIPE_X) {
+      await handleSuperLike();
+      return;
+    }
+
+    // droite = like ✅
+    if (dx > SWIPE_X) {
+      await handleLike();
+      return;
+    }
+
+    // gauche = skip ❌
+    if (dx < -SWIPE_X) {
+      handleSkip();
+      return;
+    }
+  };
+
+  const onPointerCancel = () => {
+    pointerRef.current.active = false;
+  };
+
   return (
     <div className="swipe-container" data-swipe-deck>
       {currentProfile ? (
         <>
           <div
             className="swipeStage"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
             onClick={() => {
+              // évite l'ouverture zoom si on vient de swiper
+              if (pointerRef.current.moved) return;
+
               if (isShareCard) return;
               openZoom(currentProfile);
             }}
-            style={{ cursor: isShareCard ? "default" : "zoom-in" }}
+            style={{
+              cursor: isShareCard ? "default" : "grab",
+              touchAction: "pan-y" // ✅ permet scroll vertical mais capte le swipe horizontal
+            }}
           >
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
@@ -265,6 +361,7 @@ export function SwipeDeck({
             </div>
           ) : (
             <div className="actions" onClick={(e) => e.stopPropagation()}>
+              {/* ❌ gauche = NON */}
               <button
                 type="button"
                 className="swBtn swBtnBad"
@@ -276,6 +373,7 @@ export function SwipeDeck({
                 ✕
               </button>
 
+              {/* ✅ droite = OUI */}
               <button
                 type="button"
                 className="swBtn swBtnPrimary"
@@ -287,6 +385,7 @@ export function SwipeDeck({
                 ❤
               </button>
 
+              {/* ⭐ superlike */}
               <button
                 type="button"
                 className="swBtn swBtnGood"
@@ -389,4 +488,3 @@ export function SwipeDeck({
     </div>
   );
 }
-
