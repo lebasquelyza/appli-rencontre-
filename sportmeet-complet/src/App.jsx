@@ -183,6 +183,8 @@ function HomePage({
   setIsPreviewModalOpen,
   onDeleteMyProfile
 }) {
+  const navigate = useNavigate();
+
   return (
     <>
       <main className="page">
@@ -538,6 +540,27 @@ export default function App() {
     setCrushes([]);
     setHiddenProfileIds(new Set()); // ✅ reset local state
     navigate("/", { replace: true });
+  };
+
+  /* -------------------------------
+     ✅ CLEAR hidden profiles (pour Settings -> "Réinitialiser")
+  -------------------------------- */
+  const clearHiddenProfiles = () => {
+    const uid = user?.id || "anon";
+
+    setHiddenProfileIds(new Set());
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(hiddenKeyForUser(uid));
+      } catch {
+        // ignore
+      }
+    }
+
+    setProfileToast("Profils masqués réinitialisés ✅");
+    window.clearTimeout(clearHiddenProfiles.__t);
+    clearHiddenProfiles.__t = window.setTimeout(() => setProfileToast(""), 2500);
   };
 
   /* -------------------------------
@@ -1443,7 +1466,12 @@ export default function App() {
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/confirmed" element={<Confirmed onOpenAuth={() => setIsAuthModalOpen(true)} />} />
 
-        <Route path="/settings" element={<Settings user={userForUI} onOpenProfile={openProfileModal} />} />
+        {/* ✅ CORRIGÉ: on passe la bonne prop attendue par Settings */}
+        <Route
+          path="/settings"
+          element={<Settings user={userForUI} onClearHiddenProfiles={clearHiddenProfiles} />}
+        />
+
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
         <Route path="/subscription" element={<Subscription user={userForUI} />} />
       </Routes>
