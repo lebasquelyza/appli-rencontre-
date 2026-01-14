@@ -28,12 +28,13 @@ export function SwipeCard({ profile, onOpen, onReport }) {
   // ✅ dispo repliable (comme bio)
   const [availOpen, setAvailOpen] = useState(false);
 
-  const startX = useRef(null);
-
   // ✅ modal signalement
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
   const [reportDetails, setReportDetails] = useState("");
+
+  // ✅ anti double tap
+  const lastTapRef = useRef(0);
 
   useEffect(() => {
     setIndex(0);
@@ -83,26 +84,34 @@ export function SwipeCard({ profile, onOpen, onReport }) {
   const isInTextZone = (target) =>
     !!target?.closest?.(".swipeBio, .bioToggle, .swipeAvail, .availToggle, .reportBtn, .reportModal");
 
-  const onTouchStart = (e) => {
+  // ✅ Navigation photos via TAP (gauche/droite)
+  const handleTapMedia = (e) => {
     if (isInTextZone(e.target)) return;
-    startX.current = e.touches[0].clientX;
-  };
+    if (!hasPhotos) return;
 
-  const onTouchEnd = (e) => {
-    if (isInTextZone(e.target)) return;
-    if (startX.current == null) return;
+    const now = Date.now();
+    // évite que le tap déclenche un openZoom si tu doubles vite
+    lastTapRef.current = now;
 
-    const dx = e.changedTouches[0].clientX - startX.current;
-    if (Math.abs(dx) > 50) {
-      if (dx < 0 && index < photos.length - 1) setIndex((i) => i + 1);
-      if (dx > 0 && index > 0) setIndex((i) => i - 1);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const isLeft = x < rect.width / 2;
+
+    if (isLeft) {
+      if (index > 0) setIndex((i) => i - 1);
+    } else {
+      if (index < photos.length - 1) setIndex((i) => i + 1);
     }
-    startX.current = null;
   };
 
   const onClickCard = (e) => {
+    // si on a tap pour changer la photo, on ne doit pas ouvrir
     if (!onOpen) return;
     if (isInTextZone(e.target)) return;
+
+    const dt = Date.now() - (lastTapRef.current || 0);
+    if (dt < 250) return;
+
     onOpen();
   };
 
@@ -122,7 +131,6 @@ export function SwipeCard({ profile, onOpen, onReport }) {
     if (!onReport) return;
     const reason = (reportReason || "").trim();
     const details = (reportDetails || "").trim();
-
     if (!reason) return;
 
     await onReport({ reason, details });
@@ -133,12 +141,15 @@ export function SwipeCard({ profile, onOpen, onReport }) {
     <article className="card swipeCard">
       <div
         className={`cardMedia swipeMedia ${hasPhotos ? "has-photo" : "no-photo"}`}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        onClick={onClickCard}
+        onClick={(e) => {
+          // 1) si photos: tap = navigation
+          // 2) sinon: click = open
+          if (hasPhotos) handleTapMedia(e);
+          else onClickCard(e);
+        }}
         style={{
           ...(hasPhotos ? null : bgFallback),
-          touchAction: "pan-y",
+          touchAction: "pan-y", // le swipe horizontal est géré par SwipeDeck
           cursor: onOpen ? "pointer" : "default",
           position: "relative"
         }}
