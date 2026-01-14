@@ -13,8 +13,6 @@ import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 import { Confirmed } from "./pages/Confirmed";
 import { HowItWorks } from "./pages/HowItWorks";
-import { AccountReview } from "./pages/AccountReview";
-
 
 // ✅ effet "bombe" match (modal centre)
 import { MatchBoomModal } from "./components/MatchBoomModal";
@@ -34,6 +32,9 @@ import { Subscription } from "./pages/Subscription";
 
 // ✅ Page Chat
 import { ChatPage } from "./pages/ChatPage";
+
+// ✅ Page "Compte en cours de vérification"
+import { AccountReview } from "./pages/AccountReview";
 
 const BUCKET = "profile-photos";
 
@@ -167,9 +168,10 @@ function HomePage({
   loadingProfiles,
   filteredProfiles,
   handleLike,
-  onReportProfile, // ✅ AJOUT
+  onReportProfile,
   userForUI,
   isSuspended,
+  isInReview, // ✅ AJOUT
   loadingMyProfile,
   myProfile,
   handleSaveProfile,
@@ -212,6 +214,7 @@ function HomePage({
               </p>
             ) : null}
 
+            {/* ✅ BANNI / SUSPENDU */}
             {isSuspended ? (
               <div
                 className="form-message error"
@@ -244,6 +247,36 @@ function HomePage({
               </div>
             ) : null}
 
+            {/* ✅ EN REVIEW */}
+            {isInReview && !isSuspended ? (
+              <div
+                className="form-message"
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  justifyContent: "space-between"
+                }}
+              >
+                <div style={{ lineHeight: 1.35 }}>
+                  <strong>Compte en cours de vérification</strong> — tu ne peux pas créer/modifier ton profil pour le moment.
+                  <div style={{ marginTop: 6, opacity: 0.9 }}>
+                    Notre équipe examine les signalements reçus te concernant et t’enverra un email.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-primary btn-sm"
+                  onClick={() => navigate("/review")}
+                  title="Voir la page de vérification"
+                >
+                  DÉTAILS
+                </button>
+              </div>
+            ) : null}
+
             {!userForUI && !isSuspended && (
               <p className="form-message" style={{ marginTop: 8 }}>
                 Connecte-toi pour créer/éditer ton profil et swiper.
@@ -262,8 +295,9 @@ function HomePage({
               <SwipeDeck
                 profiles={filteredProfiles}
                 onLikeProfile={handleLike}
-                onReportProfile={onReportProfile} // ✅ AJOUT
-                isAuthenticated={!!userForUI && !isSuspended}
+                onReportProfile={onReportProfile}
+                // ✅ on interdit le swipe si compte en review ou suspendu
+                isAuthenticated={!!userForUI && !isSuspended && !isInReview}
                 onRequireAuth={() => setIsAuthModalOpen(true)}
                 hasMyProfile={!!myProfile?.id}
               />
@@ -452,7 +486,13 @@ export default function App() {
   // ✅ profils masqués (signalés) — persistant localStorage
   const [hiddenProfileIds, setHiddenProfileIds] = useState(() => new Set());
 
+  // ✅ Compte en cours de vérification (>=7 signalements)
+  const [inReview, setInReview] = useState(false);
+
   const isSuspended = !!user && myProfile?.status === "suspended";
+  const isInReview = !!user && !!inReview && !isSuspended;
+
+  // 👉 on conserve userForUI pour l’affichage, mais on bloque les actions si review
   const userForUI = isSuspended ? null : user;
 
   // ✅ charger les profils masqués quand l'utilisateur change
@@ -538,10 +578,11 @@ export default function App() {
     await supabase.auth.signOut();
     setUser(null);
     setMyProfile(null);
+    setInReview(false);
     setIsProfileModalOpen(false);
     setIsPreviewModalOpen(false);
     setCrushes([]);
-    setHiddenProfileIds(new Set()); // ✅ reset local state
+    setHiddenProfileIds(new Set());
     navigate("/", { replace: true });
   };
 
@@ -564,6 +605,29 @@ export default function App() {
     setProfileToast("Profils masqués réinitialisés ✅");
     window.clearTimeout(clearHiddenProfiles.__t);
     clearHiddenProfiles.__t = window.setTimeout(() => setProfileToast(""), 2500);
+  };
+
+  /* -------------------------------
+     ✅ Check "in review" via RPC
+  -------------------------------- */
+  const fetchReviewStatus = async () => {
+    if (!user?.id) {
+      setInReview(false);
+      return;
+    }
+    try {
+      const { data, error } = await supabase.rpc("my_account_in_review");
+      if (error) {
+        console.error("my_account_in_review error:", error);
+        // par sécurité: si erreur, on ne bloque pas
+        setInReview(false);
+        return;
+      }
+      setInReview(!!data);
+    } catch (e) {
+      console.error("fetchReviewStatus exception:", e);
+      setInReview(false);
+    }
   };
 
   /* -------------------------------
@@ -616,8 +680,21 @@ export default function App() {
 
   useEffect(() => {
     fetchMyProfile();
+    fetchReviewStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  /* -------------------------------
+     ✅ Redirection vers /review
+  -------------------------------- */
+  useEffect(() => {
+    if (user?.id && isInReview) {
+      // évite boucle si déjà sur /review
+      if (window.location.pathname !== "/review") {
+        navigate("/review", { replace: true });
+      }
+    }
+  }, [user?.id, isInReview, navigate]);
 
   /* -------------------------------
      Fetch CRUSHES + hidden_matches
@@ -789,7 +866,6 @@ export default function App() {
 
     const msg = String(error?.message || "").toLowerCase();
     if (error && msg.includes("duplicate")) {
-      // ✅ même si déjà signalé, on peut aussi le cacher du feed
       setHiddenProfileIds((prev) => {
         const next = new Set(prev);
         next.add(profile.id);
@@ -800,13 +876,14 @@ export default function App() {
       console.error("reportProfile error:", error);
       setProfileToast("Impossible de signaler ce profil.");
     } else {
-      // ✅ cache immédiatement du feed + persiste localStorage via useEffect
       setHiddenProfileIds((prev) => {
         const next = new Set(prev);
         next.add(profile.id);
         return next;
       });
       setProfileToast("Signalement envoyé ✅ Profil masqué.");
+      // on rafraîchit le statut review au cas où c’est le 7e report d’un compte (pour l’auteur)
+      fetchReviewStatus();
     }
 
     window.clearTimeout(reportProfile.__t);
@@ -967,6 +1044,7 @@ export default function App() {
       await fetchMyProfile();
       await fetchProfiles();
       await fetchCrushes();
+      await fetchReviewStatus();
 
       setProfileToast("Compte repris ✅");
       window.clearTimeout(handleResumeAccount.__t);
@@ -1019,8 +1097,9 @@ export default function App() {
      SUPPRIMER mon profil
   -------------------------------- */
   const handleDeleteMyProfile = async () => {
-    if (!user || isSuspended) {
+    if (!user || isSuspended || isInReview) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
+      else if (isInReview) setProfileToast("Compte en cours de vérification — action indisponible.");
       else setIsAuthModalOpen(true);
       return;
     }
@@ -1074,6 +1153,7 @@ export default function App() {
   -------------------------------- */
   const handleSaveProfile = async (data) => {
     if (isSuspended) throw new Error("SUSPENDED_ACCOUNT");
+    if (isInReview) throw new Error("REVIEW_ACCOUNT"); // ✅ AJOUT
 
     const wasEdit = !!myProfile?.id;
 
@@ -1166,6 +1246,7 @@ export default function App() {
 
         if (insErr) {
           console.error("insert profile error:", insErr);
+          // ✅ message lisible si RLS bloque (compte en review)
           throw new Error(insErr.message || "Insert error");
         }
 
@@ -1231,6 +1312,7 @@ export default function App() {
     await fetchMyProfile();
     await fetchProfiles();
     await fetchCrushes();
+    await fetchReviewStatus();
 
     setProfileToast(wasEdit ? "Profil mis à jour ✅" : "Profil créé ✅");
     window.clearTimeout(handleSaveProfile.__t);
@@ -1254,9 +1336,7 @@ export default function App() {
       const myLoc = filters.myLocation;
 
       const base = profiles.filter((p) => {
-        // ✅ NE PLUS MONTRER les profils signalés/masqués
         if (hiddenProfileIds.has(p.id)) return false;
-
         if (user && p.user_id === user.id) return false;
 
         if (filters.sport) {
@@ -1297,7 +1377,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [profiles, filters, user, hiddenProfileIds]); // ✅ AJOUT hiddenProfileIds
+  }, [profiles, filters, user, hiddenProfileIds]);
 
   /* -------------------------------
      Like/Swipe ✅ LIKE + SUPERLIKE + LIMIT 5/JOUR + MATCH
@@ -1305,8 +1385,9 @@ export default function App() {
   const handleLike = async (profile, opts = {}) => {
     const isSuper = !!opts.isSuper;
 
-    if (!user || isSuspended) {
+    if (!user || isSuspended || isInReview) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
+      else if (isInReview) navigate("/review");
       else setIsAuthModalOpen(true);
       return false;
     }
@@ -1388,8 +1469,9 @@ export default function App() {
   };
 
   const openProfileModal = () => {
-    if (!user || isSuspended) {
+    if (!user || isSuspended || isInReview) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
+      else if (isInReview) navigate("/review");
       else setIsAuthModalOpen(true);
       return;
     }
@@ -1397,8 +1479,9 @@ export default function App() {
   };
 
   const openCrushesPage = () => {
-    if (!user || isSuspended) {
+    if (!user || isSuspended || isInReview) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
+      else if (isInReview) navigate("/review");
       else setIsAuthModalOpen(true);
       return;
     }
@@ -1416,6 +1499,9 @@ export default function App() {
       />
 
       <Routes>
+        {/* ✅ Page dédiée */}
+        <Route path="/review" element={<AccountReview onLogout={handleLogout} />} />
+
         <Route
           path="/"
           element={
@@ -1427,9 +1513,10 @@ export default function App() {
               loadingProfiles={loadingProfiles}
               filteredProfiles={filteredProfiles}
               handleLike={handleLike}
-              onReportProfile={reportProfile} // ✅ AJOUT
+              onReportProfile={reportProfile}
               userForUI={userForUI}
               isSuspended={isSuspended}
+              isInReview={isInReview}
               loadingMyProfile={loadingMyProfile}
               myProfile={myProfile}
               handleSaveProfile={handleSaveProfile}
@@ -1453,7 +1540,7 @@ export default function App() {
           path="/crushes"
           element={
             <CrushesFullPage
-              user={userForUI}
+              user={userForUI && !isInReview ? userForUI : null}
               onRequireAuth={() => setIsAuthModalOpen(true)}
               crushes={crushes}
               superlikers={superlikers}
@@ -1468,10 +1555,7 @@ export default function App() {
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/confirmed" element={<Confirmed onOpenAuth={() => setIsAuthModalOpen(true)} />} />
-        <Route path="/review" element={<AccountReview onLogout={handleLogout} />} />
 
-
-        {/* ✅ CORRIGÉ: on passe la bonne prop attendue par Settings */}
         <Route
           path="/settings"
           element={<Settings user={userForUI} onClearHiddenProfiles={clearHiddenProfiles} />}
