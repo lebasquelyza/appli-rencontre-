@@ -1,5 +1,5 @@
 // sportmeet-complet/src/App.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 
 import { Header } from "./components/Header";
@@ -129,33 +129,6 @@ function withShareInterstitial(list, every = 8) {
   return out;
 }
 
-/**
- * ✅ NEW: normalise un profil au format “deck”
- * (utile pour que l’aperçu rende comme une vraie carte)
- */
-function normalizeProfileForCard(p) {
-  if (!p) return null;
-  return {
-    id: p.id,
-    user_id: p.user_id ?? null,
-    name: p.name,
-    age: p.age ?? null,
-    height: p.height ?? null,
-    gender: p.gender ?? null,
-    status: p.status ?? "active",
-    suspended_at: p.suspended_at ?? null,
-    suspension_reason: p.suspension_reason ?? null,
-    city: p.city || "",
-    sport: p.sport || "",
-    level: p.level || "",
-    availability: p.availability || "",
-    bio: p.bio || "",
-    photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
-    isCustom: true,
-    createdAt: p.createdAt ?? p.created_at ?? null
-  };
-}
-
 function HomePage({
   filters,
   onFiltersChange,
@@ -182,9 +155,6 @@ function HomePage({
   setIsPreviewModalOpen,
   onDeleteMyProfile
 }) {
-  // ✅ profil “aperçu” normalisé
-  const myProfileForCard = useMemo(() => normalizeProfileForCard(myProfile), [myProfile]);
-
   return (
     <>
       <main className="page">
@@ -311,22 +281,32 @@ function HomePage({
         </div>
       )}
 
-      {/* ✅✅✅ APERÇU AGRANDI (UNIQUEMENT ICI) */}
+      {/* ✅✅✅ Aperçu AGRANDI (MODIF UNIQUEMENT ICI) */}
       {isPreviewModalOpen && (
         <div
-          className="modal-backdrop modal-backdrop--preview"
+          className="modal-backdrop"
           onClick={() => setIsPreviewModalOpen(false)}
           style={{
             background: "linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.92))",
             backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)"
+            WebkitBackdropFilter: "blur(10px)",
+
+            // ✅ IMPORTANT: réduit la marge autour => l’aperçu devient visiblement plus grand sur iPhone
+            padding: 8
           }}
         >
           <div
-            className="modal-card modal-card--sheet modal-card--preview"
+            className="modal-card modal-card--sheet"
             onClick={(e) => e.stopPropagation()}
             style={{
+              // ✅ IMPORTANT: force quasi plein écran sur mobile (au lieu de min(..., vw) qui ne change presque rien)
+              width: "calc(100vw - 16px)",
+              maxWidth: "calc(100vw - 16px)",
+
+              // ✅ IMPORTANT: prend presque toute la hauteur
+              height: "calc(var(--appH, 100vh) - 16px)",
               maxHeight: "calc(var(--appH, 100vh) - 16px)",
+
               overflow: "hidden"
             }}
           >
@@ -338,11 +318,12 @@ function HomePage({
             </div>
 
             <div className="modal-body" style={{ paddingTop: 10 }}>
-              {!myProfileForCard ? (
+              {!myProfile ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
-                <div style={{ maxWidth: 980, margin: "0 auto" }}>
-                  <SwipeCard profile={myProfileForCard} />
+                // ✅ ne bride pas trop la largeur (sinon tu ne vois pas la différence)
+                <div style={{ width: "100%", maxWidth: 560, margin: "0 auto" }}>
+                  <SwipeCard profile={myProfile} />
                 </div>
               )}
             </div>
