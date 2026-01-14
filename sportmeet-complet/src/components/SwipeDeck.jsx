@@ -20,9 +20,12 @@ export function SwipeDeck({
   const [gateMsg, setGateMsg] = useState("");
   const gateTimerRef = useRef(null);
 
-  // ✅ zoom (profil en grand)
+  // ✅ zoom
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomProfile, setZoomProfile] = useState(null);
+
+  // ✅ pour pouvoir “revenir” au même scroll si besoin
+  const scrollYRef = useRef(0);
 
   const showGate = (msg) => {
     setGateMsg(msg);
@@ -111,7 +114,6 @@ export function SwipeDeck({
       return { ok: false, reason: "auth" };
     }
 
-    // ✅ IMPORTANT: on bloque UNIQUEMENT si on reçoit explicitement false
     if (hasMyProfile === false) {
       showGate("Crée ton profil avant de pouvoir trouver ta/ton partenaire 💪");
       return { ok: false, reason: "no_profile" };
@@ -173,6 +175,7 @@ export function SwipeDeck({
   // ✅ ouvrir le profil en grand
   const openZoom = (p) => {
     if (!p || p.__type === "share") return;
+    scrollYRef.current = window.scrollY || 0;
     setZoomProfile(p);
     setZoomOpen(true);
   };
@@ -189,6 +192,8 @@ export function SwipeDeck({
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
+      // optionnel: revenir au scroll précédent
+      // window.scrollTo(0, scrollYRef.current || 0);
     };
   }, [zoomOpen]);
 
@@ -211,7 +216,6 @@ export function SwipeDeck({
             )}
           </div>
 
-          {/* ✅ toast message */}
           {gateMsg && <div className="gate-toast">{gateMsg}</div>}
 
           {!isAuthenticated && !isShareCard ? (
@@ -301,19 +305,42 @@ export function SwipeDeck({
             </div>
           )}
 
-          {/* ✅✅✅ ZOOM OVERLAY (Portal) — blur fiable même sur iPhone */}
-          {zoomOpen && zoomProfile &&
+          {/* ✅✅✅ ZOOM OVERLAY (Portal + inline styles) */}
+          {zoomOpen &&
+            zoomProfile &&
             typeof document !== "undefined" &&
             createPortal(
-              <div className="zoomBackdrop" onClick={closeZoom}>
-                <div className="zoomPanel" onClick={(e) => e.stopPropagation()}>
-                  <div className="zoomHeader">
+              <div
+                onClick={closeZoom}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9999,
+                  background: "rgba(0,0,0,.35)",
+                  backdropFilter: "blur(14px)",
+                  WebkitBackdropFilter: "blur(14px)",
+                  display: "grid",
+                  placeItems: "center",
+                  padding: 14
+                }}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: "min(560px, 100%)",
+                    // ✅ hauteur “vraie carte” (comme le deck) mais un peu plus grande
+                    height: "min(calc(var(--appH, 100vh) * 0.78), 720px)"
+                  }}
+                >
+                  <div style={{ marginBottom: 10, display: "flex", justifyContent: "flex-end" }}>
                     <button type="button" className="btn-ghost" onClick={closeZoom}>
                       Fermer
                     </button>
                   </div>
 
-                  <SwipeCard profile={zoomProfile} />
+                  <div style={{ height: "calc(100% - 46px)" }}>
+                    <SwipeCard profile={zoomProfile} />
+                  </div>
                 </div>
               </div>,
               document.body
