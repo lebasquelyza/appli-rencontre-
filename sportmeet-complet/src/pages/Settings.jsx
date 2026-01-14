@@ -141,9 +141,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
             {/* ✅ Mes infos (toujours visible, non modifiable) */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Mes infos</h3>
-              <p style={{ opacity: 0.85, marginTop: 6 }}>
-                Informations de ton compte (lecture seule).
-              </p>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>Informations de ton compte (lecture seule).</p>
 
               <div className="form" style={{ marginTop: 12 }}>
                 <div className="form-group">
@@ -164,19 +162,23 @@ export function Settings({ user, onClearHiddenProfiles }) {
 
                 <div className="form-group">
                   <label>Âge</label>
-                  <input
-                    type="text"
-                    value={displayAge}
-                    disabled
-                    readOnly
-                    style={whiteDisabledInputStyle}
-                  />
+                  <input type="text" value={displayAge} disabled readOnly style={whiteDisabledInputStyle} />
                 </div>
 
-                {loading ? (
-                  <small style={{ display: "block", marginTop: 6, opacity: 0.75 }}>...</small>
-                ) : null}
+                {loading ? <small style={{ display: "block", marginTop: 6, opacity: 0.75 }}>...</small> : null}
               </div>
+            </div>
+
+            {/* ✅ Comment ça marche */}
+            <div className="card" style={{ padding: 14 }}>
+              <h3 style={{ marginTop: 0 }}>Comment ça marche</h3>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>
+                Comprendre le swipe, les superlikes (5/jour), les matchs et la sécurité.
+              </p>
+
+              <button className="btn-primary" onClick={() => navigate("/comment-ca-marche")}>
+                Ouvrir
+              </button>
             </div>
 
             {/* ✅ Mot de passe (dépliable) */}
@@ -186,11 +188,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
                 Change ton mot de passe (on n’affiche jamais l’ancien).
               </p>
 
-              <button
-                className="btn-primary"
-                onClick={() => setOpenPassword((v) => !v)}
-                disabled={!user}
-              >
+              <button className="btn-primary" onClick={() => setOpenPassword((v) => !v)} disabled={!user}>
                 {openPassword ? "Fermer" : "Ouvrir"}
               </button>
 
@@ -220,11 +218,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
                     />
                   </div>
 
-                  <button
-                    className="btn-primary"
-                    onClick={changePassword}
-                    disabled={!user || loading}
-                  >
+                  <button className="btn-primary" onClick={changePassword} disabled={!user || loading}>
                     Changer le mot de passe
                   </button>
                 </div>
@@ -259,9 +253,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
             {/* ✅ Configuration */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Configuration</h3>
-              <p style={{ opacity: 0.85, marginTop: 6 }}>
-                Modifier ton profil, tes infos et tes préférences.
-              </p>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>Modifier ton profil, tes infos et tes préférences.</p>
               <button className="btn-primary" onClick={() => navigate("/account")} disabled={!user}>
                 Configurer
               </button>
@@ -270,9 +262,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
             {/* ✅ Abonnement */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Abonnement</h3>
-              <p style={{ opacity: 0.85, marginTop: 6 }}>
-                Découvre Premium et gère ton abonnement.
-              </p>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>Découvre Premium et gère ton abonnement.</p>
               <button className="btn-primary" onClick={() => navigate("/subscription")} disabled={!user}>
                 Ouvrir
               </button>
@@ -281,9 +271,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
             {/* ✅ Conditions */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Conditions d’utilisation</h3>
-              <p style={{ opacity: 0.85, marginTop: 6 }}>
-                Règles, âge minimum (16+), contenu, suspension/bloquage.
-              </p>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>Règles, âge minimum (16+), contenu, suspension/bloquage.</p>
               <button className="btn-primary" onClick={() => navigate("/conditions")}>
                 Ouvrir
               </button>
