@@ -6,7 +6,7 @@ import { SwipeCard } from "./SwipeCard";
 export function SwipeDeck({
   profiles,
   onLikeProfile,
-  onReportProfile, // ✅ AJOUT
+  onReportProfile,
   isAuthenticated,
   onRequireAuth,
   hasMyProfile = true
@@ -22,18 +22,44 @@ export function SwipeDeck({
 
   const scrollYRef = useRef(0);
 
-  // ✅ Swipe gesture state
+  // ✅ Drag state for visuals
+  const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
+  const dragRafRef = useRef(null);
+
+  // ✅ Flash feedback (NON / OUI / SUPERLIKE)
+  const [flash, setFlash] = useState({ type: null, on: false });
+  const flashTimerRef = useRef(null);
+
+  // ✅ Pointer tracking
   const pointerRef = useRef({
     active: false,
     startX: 0,
     startY: 0,
     lastX: 0,
     lastY: 0,
-    moved: false
+    moved: false,
+    pointerId: null
   });
 
-  const SWIPE_X = 90; // seuil horizontal (px)
-  const SWIPE_Y = 110; // seuil vertical (px) pour superlike (haut)
+  const SWIPE_X = 95; // seuil like/skip
+  const SWIPE_Y = 115; // seuil superlike (haut)
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const vibrate = (pattern) => {
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(pattern);
+      }
+    } catch {}
+  };
+
+  const showFlash = (type) => {
+    // type: "nope" | "like" | "super"
+    setFlash({ type, on: true });
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setFlash({ type: null, on: false }), 220);
+  };
 
   const showGate = (msg) => {
     setGateMsg(msg);
@@ -41,13 +67,13 @@ export function SwipeDeck({
     gateTimerRef.current = window.setTimeout(() => setGateMsg(""), 2200);
   };
 
-  useEffect(() => {
-    setIndex(0);
-  }, [profiles]);
+  useEffect(() => setIndex(0), [profiles]);
 
   useEffect(() => {
     return () => {
       if (gateTimerRef.current) window.clearTimeout(gateTimerRef.current);
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+      if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current);
     };
   }, []);
 
@@ -62,9 +88,7 @@ export function SwipeDeck({
   );
 
   const shareUrl =
-    typeof window !== "undefined" && window.location?.origin
-      ? window.location.origin
-      : "https://matchfit.app";
+    typeof window !== "undefined" && window.location?.origin ? window.location.origin : "https://matchfit.app";
 
   const handleShare = async () => {
     const payload = { title: "MatchFit", text: shareText, url: shareUrl };
@@ -129,42 +153,57 @@ export function SwipeDeck({
     return { ok: true };
   };
 
+  const resetDrag = () => setDrag({ x: 0, y: 0, active: false });
+
   const handleLike = async () => {
     const gate = guardAction();
     if (!gate.ok) return;
-
     if (!currentProfile || busy) return;
 
     setBusy(true);
     try {
       const ok = await onLikeProfile?.(currentProfile, { isSuper: false });
       if (ok === false) return;
+
+      // ✅ feedback
+      showFlash("like");
+      vibrate([20]);
+
+      await sleep(140);
       next();
     } finally {
       setBusy(false);
+      resetDrag();
     }
   };
 
   const handleSuperLike = async () => {
     const gate = guardAction();
     if (!gate.ok) return;
-
     if (!currentProfile || busy) return;
 
     setBusy(true);
     try {
       const ok = await onLikeProfile?.(currentProfile, { isSuper: true });
       if (ok === false) return;
+
+      // ✅ feedback
+      showFlash("super");
+      vibrate([15, 35, 15]);
+
+      await sleep(160);
       next();
     } finally {
       setBusy(false);
+      resetDrag();
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     if (isShareCard) {
       if (busy) return;
       next();
+      resetDrag();
       return;
     }
 
@@ -172,7 +211,14 @@ export function SwipeDeck({
     if (!gate.ok) return;
 
     if (busy) return;
+
+    // ✅ feedback
+    showFlash("nope");
+    vibrate([12]);
+
+    await sleep(120);
     next();
+    resetDrag();
   };
 
   const handleReset = () => setIndex(0);
@@ -197,19 +243,120 @@ export function SwipeDeck({
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
-      // window.scrollTo(0, scrollYRef.current || 0);
     };
   }, [zoomOpen]);
 
-  // ✅ Pointer handlers for swipe gestures (left=NO, right=YES, up=SUPERLIKE)
+  // ✅ Apply transform based on drag
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const rotate = clamp(drag.x / 18, -14, 14); // deg
+
+  const stageStyle = {
+    transform: `translate3d(${drag.x}px, ${drag.y}px, 0) rotate(${rotate}deg)`,
+    transition: drag.active ? "none" : "transform 180ms ease",
+    willChange: "transform",
+    cursor: isShareCard ? "default" : drag.active ? "grabbing" : "grab",
+    touchAction: "pan-y",
+    position: "relative"
+  };
+
+  // ✅ Badge styles (drag hints)
+  const badgeCommon = {
+    position: "absolute",
+    top: 16,
+    zIndex: 20,
+    padding: "8px 12px",
+    borderRadius: 14,
+    fontWeight: 900,
+    letterSpacing: 1,
+    fontSize: 14,
+    background: "rgba(0,0,0,.45)",
+    backdropFilter: "blur(10px)",
+    WebkitBackdropFilter: "blur(10px)",
+    border: "1px solid rgba(255,255,255,.18)",
+    userSelect: "none",
+    pointerEvents: "none"
+  };
+
+  const badgeNope = {
+    ...badgeCommon,
+    left: 14,
+    transform: "rotate(-10deg)",
+    opacity: clamp((-drag.x - 40) / 70, 0, 1)
+  };
+
+  const badgeLike = {
+    ...badgeCommon,
+    right: 14,
+    transform: "rotate(10deg)",
+    opacity: clamp((drag.x - 40) / 70, 0, 1)
+  };
+
+  const badgeSuper = {
+    ...badgeCommon,
+    left: "50%",
+    transform: "translateX(-50%)",
+    top: 14,
+    opacity: clamp((-drag.y - 60) / 90, 0, 1)
+  };
+
+  // ✅ Flash overlay styles
+  const flashStyle = (() => {
+    if (!flash.on) return { opacity: 0, pointerEvents: "none" };
+
+    const common = {
+      position: "absolute",
+      inset: 0,
+      zIndex: 30,
+      display: "grid",
+      placeItems: "center",
+      borderRadius: 18,
+      transition: "opacity 160ms ease",
+      pointerEvents: "none",
+      opacity: 1
+    };
+
+    if (flash.type === "like") {
+      return {
+        ...common,
+        background: "linear-gradient(180deg, rgba(0,255,150,.10), rgba(0,0,0,0))"
+      };
+    }
+    if (flash.type === "super") {
+      return {
+        ...common,
+        background: "linear-gradient(180deg, rgba(255,215,0,.12), rgba(0,0,0,0))"
+      };
+    }
+    // nope
+    return {
+      ...common,
+      background: "linear-gradient(180deg, rgba(255,80,80,.10), rgba(0,0,0,0))"
+    };
+  })();
+
+  const flashLabel = (() => {
+    if (!flash.on) return null;
+    const box = {
+      padding: "10px 14px",
+      borderRadius: 16,
+      fontWeight: 1000,
+      letterSpacing: 1,
+      background: "rgba(0,0,0,.55)",
+      border: "1px solid rgba(255,255,255,.18)",
+      backdropFilter: "blur(10px)",
+      WebkitBackdropFilter: "blur(10px)"
+    };
+    if (flash.type === "like") return <div style={box}>OUI ❤️</div>;
+    if (flash.type === "super") return <div style={box}>SUPERLIKE ★</div>;
+    return <div style={box}>NON ✕</div>;
+  })();
+
+  // ✅ Pointer handlers (drag + validate)
   const onPointerDown = (e) => {
     if (zoomOpen) return;
     if (!currentProfile || busy) return;
-
-    // share card: swipe = continue
     if (isShareCard) return;
 
-    // only primary button/finger
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
     pointerRef.current.active = true;
@@ -218,8 +365,10 @@ export function SwipeDeck({
     pointerRef.current.lastX = e.clientX;
     pointerRef.current.lastY = e.clientY;
     pointerRef.current.moved = false;
+    pointerRef.current.pointerId = e.pointerId;
 
-    // keep receiving moves even if pointer leaves
+    setDrag({ x: 0, y: 0, active: true });
+
     try {
       e.currentTarget.setPointerCapture?.(e.pointerId);
     } catch {}
@@ -234,44 +383,62 @@ export function SwipeDeck({
     pointerRef.current.lastX = e.clientX;
     pointerRef.current.lastY = e.clientY;
 
-    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
-      pointerRef.current.moved = true;
-    }
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) pointerRef.current.moved = true;
+
+    if (dragRafRef.current) return;
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = null;
+      setDrag({
+        x: clamp(dx, -220, 220),
+        y: clamp(dy, -220, 160),
+        active: true
+      });
+    });
   };
 
-  const onPointerUp = async (e) => {
+  const onPointerUp = async () => {
     if (!pointerRef.current.active) return;
     pointerRef.current.active = false;
 
-    if (!currentProfile || busy) return;
+    if (!currentProfile || busy) {
+      resetDrag();
+      return;
+    }
 
     const dx = pointerRef.current.lastX - pointerRef.current.startX;
     const dy = pointerRef.current.lastY - pointerRef.current.startY;
 
-    // si c'est un simple tap (pas un swipe), on laisse le click ouvrir le zoom
-    if (!pointerRef.current.moved) return;
+    // tap (pas un swipe) => zoom
+    if (!pointerRef.current.moved) {
+      resetDrag();
+      return;
+    }
 
-    // priorité : superlike vers le haut
+    // superlike up
     if (dy < -SWIPE_Y && Math.abs(dx) < SWIPE_X) {
       await handleSuperLike();
       return;
     }
 
-    // droite = like ✅
+    // right = like
     if (dx > SWIPE_X) {
       await handleLike();
       return;
     }
 
-    // gauche = skip ❌
+    // left = nope
     if (dx < -SWIPE_X) {
-      handleSkip();
+      await handleSkip();
       return;
     }
+
+    // not enough => back to center
+    resetDrag();
   };
 
   const onPointerCancel = () => {
     pointerRef.current.active = false;
+    resetDrag();
   };
 
   return (
@@ -285,24 +452,31 @@ export function SwipeDeck({
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerCancel}
             onClick={() => {
-              // évite l'ouverture zoom si on vient de swiper
               if (pointerRef.current.moved) return;
-
               if (isShareCard) return;
               openZoom(currentProfile);
             }}
-            style={{
-              cursor: isShareCard ? "default" : "grab",
-              touchAction: "pan-y" // ✅ permet scroll vertical mais capte le swipe horizontal
-            }}
+            style={stageStyle}
           >
+            {/* ✅ Flash feedback (validation) */}
+            {!isShareCard && <div style={flashStyle}>{flashLabel}</div>}
+
+            {/* ✅ Badges visibles pendant le swipe */}
+            {!isShareCard && (
+              <>
+                <div style={badgeNope}>NON</div>
+                <div style={badgeLike}>OUI</div>
+                <div style={badgeSuper}>SUPERLIKE ★</div>
+              </>
+            )}
+
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
             ) : (
               <SwipeCard
                 key={currentProfile.id}
                 profile={currentProfile}
-                onReport={(payload) => onReportProfile?.(currentProfile, payload)} // ✅
+                onReport={(payload) => onReportProfile?.(currentProfile, payload)}
               />
             )}
           </div>
@@ -361,7 +535,6 @@ export function SwipeDeck({
             </div>
           ) : (
             <div className="actions" onClick={(e) => e.stopPropagation()}>
-              {/* ❌ gauche = NON */}
               <button
                 type="button"
                 className="swBtn swBtnBad"
@@ -373,7 +546,6 @@ export function SwipeDeck({
                 ✕
               </button>
 
-              {/* ✅ droite = OUI */}
               <button
                 type="button"
                 className="swBtn swBtnPrimary"
@@ -385,7 +557,6 @@ export function SwipeDeck({
                 ❤
               </button>
 
-              {/* ⭐ superlike */}
               <button
                 type="button"
                 className="swBtn swBtnGood"
@@ -433,7 +604,7 @@ export function SwipeDeck({
                   <div style={{ height: "calc(100% - 46px)" }}>
                     <SwipeCard
                       profile={zoomProfile}
-                      onReport={(payload) => onReportProfile?.(zoomProfile, payload)} // ✅
+                      onReport={(payload) => onReportProfile?.(zoomProfile, payload)}
                     />
                   </div>
                 </div>
