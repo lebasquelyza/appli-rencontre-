@@ -921,14 +921,15 @@ export default function App() {
         return;
       }
 
+      // ✅ UI: on “reset” local + on rouvre directement pour recréer
       setMyProfile(null);
       await fetchProfiles();
       await fetchCrushes();
 
-      setIsProfileModalOpen(false);
       setIsPreviewModalOpen(false);
+      setIsProfileModalOpen(true); // ✅ recréer direct
 
-      setProfileToast("Profil supprimé ✅");
+      setProfileToast("Profil supprimé ✅ Tu peux en recréer un.");
       window.clearTimeout(handleDeleteMyProfile.__t);
       handleDeleteMyProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
     } catch (e) {
@@ -983,11 +984,45 @@ export default function App() {
     let profileId = myProfile?.id ?? null;
 
     if (!profileId) {
-      // ✅✅✅ OPTION A: UPSERT sur user_id (évite duplicate key)
-      const { data: upserted, error: upsertErr } = await supabase
+      // ✅✅✅ SANS UNIQUE: on évite ON CONFLICT
+      // On regarde si un profil existe déjà (au cas où) -> update, sinon insert
+      const { data: existing, error: exErr } = await supabase
         .from("profiles")
-        .upsert(
-          {
+        .select("id")
+        .eq("user_id", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (exErr) console.error("check existing profile error:", exErr);
+
+      if (existing?.id) {
+        profileId = existing.id;
+
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({
+            name: data.name,
+            age: ageNum,
+            height: heightNum,
+            gender: genderValue,
+            status: "active",
+            city: data.city,
+            sport: data.sport,
+            level: data.level,
+            availability: data.availability || "",
+            bio: data.bio || ""
+          })
+          .eq("id", profileId);
+
+        if (updateError) {
+          console.error("update existing profile error:", updateError);
+          throw new Error(updateError.message || "Update error");
+        }
+      } else {
+        const { data: inserted, error: insErr } = await supabase
+          .from("profiles")
+          .insert({
             user_id: currentUser.id,
             name: data.name,
             age: ageNum,
@@ -999,18 +1034,17 @@ export default function App() {
             level: data.level,
             availability: data.availability || "",
             bio: data.bio || ""
-          },
-          { onConflict: "user_id" }
-        )
-        .select("*")
-        .single();
+          })
+          .select("*")
+          .single();
 
-      if (upsertErr) {
-        console.error("upsert profile error:", upsertErr);
-        throw new Error(upsertErr.message || "Upsert error");
+        if (insErr) {
+          console.error("insert profile error:", insErr);
+          throw new Error(insErr.message || "Insert error");
+        }
+
+        profileId = inserted.id;
       }
-
-      profileId = upserted.id;
     } else {
       // ✅ en update: si heightNum === null, on ne force pas à null (on garde l’existant)
       const updatePayload = {
@@ -1033,6 +1067,7 @@ export default function App() {
       }
     }
 
+    // ✅ Photos
     if (!myProfile) {
       const uploaded = await uploadProfilePhotos(profileId, photos);
 
