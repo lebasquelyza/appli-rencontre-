@@ -137,6 +137,7 @@ function HomePage({
   loadingProfiles,
   filteredProfiles,
   handleLike,
+  onReportProfile, // ✅ AJOUT
   userForUI,
   isSuspended,
   loadingMyProfile,
@@ -229,6 +230,7 @@ function HomePage({
               <SwipeDeck
                 profiles={filteredProfiles}
                 onLikeProfile={handleLike}
+                onReportProfile={onReportProfile} // ✅ AJOUT
                 isAuthenticated={!!userForUI && !isSuspended}
                 onRequireAuth={() => setIsAuthModalOpen(true)}
                 hasMyProfile={!!myProfile?.id}
@@ -682,6 +684,50 @@ export default function App() {
     setProfileToast("Match masqué ✅");
     window.clearTimeout(hideMatch.__t);
     hideMatch.__t = window.setTimeout(() => setProfileToast(""), 2500);
+  };
+
+  /* -------------------------------
+     ✅ SIGNALER un profil (profile_reports)
+  -------------------------------- */
+  const reportProfile = async (profile, payload) => {
+    if (!user || isSuspended) {
+      if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
+      else setIsAuthModalOpen(true);
+      return false;
+    }
+
+    if (!profile?.id) return false;
+
+    const reason = (payload?.reason || "").trim();
+    const details = (payload?.details || "").trim();
+
+    if (!reason) {
+      setProfileToast("Choisis une raison.");
+      window.clearTimeout(reportProfile.__t);
+      reportProfile.__t = window.setTimeout(() => setProfileToast(""), 2500);
+      return false;
+    }
+
+    const { error } = await supabase.from("profile_reports").insert({
+      reporter_id: user.id,
+      reported_profile_id: profile.id,
+      reason,
+      details: details || null
+    });
+
+    const msg = String(error?.message || "").toLowerCase();
+    if (error && msg.includes("duplicate")) {
+      setProfileToast("Tu as déjà signalé ce profil.");
+    } else if (error) {
+      console.error("reportProfile error:", error);
+      setProfileToast("Impossible de signaler ce profil.");
+    } else {
+      setProfileToast("Signalement envoyé ✅");
+    }
+
+    window.clearTimeout(reportProfile.__t);
+    reportProfile.__t = window.setTimeout(() => setProfileToast(""), 3000);
+    return !error;
   };
 
   /* -------------------------------
@@ -1303,6 +1349,7 @@ export default function App() {
               loadingProfiles={loadingProfiles}
               filteredProfiles={filteredProfiles}
               handleLike={handleLike}
+              onReportProfile={reportProfile} // ✅ AJOUT
               userForUI={userForUI}
               isSuspended={isSuspended}
               loadingMyProfile={loadingMyProfile}
