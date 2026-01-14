@@ -129,6 +129,33 @@ function withShareInterstitial(list, every = 8) {
   return out;
 }
 
+/* -------------------------------
+   ✅ LocalStorage helpers (profils masqués)
+-------------------------------- */
+function hiddenKeyForUser(userId) {
+  return `matchfit_hidden_profiles_${userId || "anon"}`;
+}
+
+function loadHiddenIds(userId) {
+  try {
+    const raw = localStorage.getItem(hiddenKeyForUser(userId));
+    const arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(arr.filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveHiddenIds(userId, setObj) {
+  try {
+    const arr = Array.from(setObj || []);
+    localStorage.setItem(hiddenKeyForUser(userId), JSON.stringify(arr));
+  } catch {
+    // ignore
+  }
+}
+
 function HomePage({
   filters,
   onFiltersChange,
@@ -417,8 +444,26 @@ export default function App() {
   // ✅ modal "boom" quand match
   const [matchBoom, setMatchBoom] = useState({ open: false, name: "", photoUrl: "" });
 
+  // ✅ profils masqués (signalés) — persistant localStorage
+  const [hiddenProfileIds, setHiddenProfileIds] = useState(() => new Set());
+
   const isSuspended = !!user && myProfile?.status === "suspended";
   const userForUI = isSuspended ? null : user;
+
+  // ✅ charger les profils masqués quand l'utilisateur change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const uid = user?.id || "anon";
+    setHiddenProfileIds(loadHiddenIds(uid));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // ✅ sauvegarder les profils masqués dans localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const uid = user?.id || "anon";
+    saveHiddenIds(uid, hiddenProfileIds);
+  }, [hiddenProfileIds, user?.id]);
 
   useEffect(() => {
     const h = window.location.hash || "";
@@ -491,6 +536,7 @@ export default function App() {
     setIsProfileModalOpen(false);
     setIsPreviewModalOpen(false);
     setCrushes([]);
+    setHiddenProfileIds(new Set()); // ✅ reset local state
     navigate("/", { replace: true });
   };
 
@@ -687,7 +733,7 @@ export default function App() {
   };
 
   /* -------------------------------
-     ✅ SIGNALER un profil (profile_reports)
+     ✅ SIGNALER un profil (profile_reports) + cacher du feed
   -------------------------------- */
   const reportProfile = async (profile, payload) => {
     if (!user || isSuspended) {
@@ -717,12 +763,24 @@ export default function App() {
 
     const msg = String(error?.message || "").toLowerCase();
     if (error && msg.includes("duplicate")) {
-      setProfileToast("Tu as déjà signalé ce profil.");
+      // ✅ même si déjà signalé, on peut aussi le cacher du feed
+      setHiddenProfileIds((prev) => {
+        const next = new Set(prev);
+        next.add(profile.id);
+        return next;
+      });
+      setProfileToast("Tu as déjà signalé ce profil. Il est masqué ✅");
     } else if (error) {
       console.error("reportProfile error:", error);
       setProfileToast("Impossible de signaler ce profil.");
     } else {
-      setProfileToast("Signalement envoyé ✅");
+      // ✅ cache immédiatement du feed + persiste localStorage via useEffect
+      setHiddenProfileIds((prev) => {
+        const next = new Set(prev);
+        next.add(profile.id);
+        return next;
+      });
+      setProfileToast("Signalement envoyé ✅ Profil masqué.");
     }
 
     window.clearTimeout(reportProfile.__t);
@@ -967,13 +1025,12 @@ export default function App() {
         return;
       }
 
-      // ✅ UI: on “reset” local + on rouvre directement pour recréer
       setMyProfile(null);
       await fetchProfiles();
       await fetchCrushes();
 
       setIsPreviewModalOpen(false);
-      setIsProfileModalOpen(true); // ✅ recréer direct
+      setIsProfileModalOpen(true);
 
       setProfileToast("Profil supprimé ✅ Tu peux en recréer un.");
       window.clearTimeout(handleDeleteMyProfile.__t);
@@ -1012,7 +1069,6 @@ export default function App() {
     if (!Number.isFinite(ageNum)) throw new Error("AGE_REQUIRED");
     if (ageNum < 16) throw new Error("UNDER_16_BLOCKED");
 
-    // ✅ TAILLE: on accepte NULL pour anciens profils, mais si renseignée => validation
     const rawHeight = data.height;
     const heightNum = rawHeight === "" || rawHeight == null ? null : Number(rawHeight);
 
@@ -1030,8 +1086,6 @@ export default function App() {
     let profileId = myProfile?.id ?? null;
 
     if (!profileId) {
-      // ✅✅✅ SANS UNIQUE: on évite ON CONFLICT
-      // On regarde si un profil existe déjà (au cas où) -> update, sinon insert
       const { data: existing, error: exErr } = await supabase
         .from("profiles")
         .select("id")
@@ -1072,7 +1126,7 @@ export default function App() {
             user_id: currentUser.id,
             name: data.name,
             age: ageNum,
-            height: heightNum, // ✅ NULL ok
+            height: heightNum,
             gender: genderValue,
             status: "active",
             city: data.city,
@@ -1092,7 +1146,6 @@ export default function App() {
         profileId = inserted.id;
       }
     } else {
-      // ✅ en update: si heightNum === null, on ne force pas à null (on garde l’existant)
       const updatePayload = {
         name: data.name,
         age: ageNum,
@@ -1113,7 +1166,6 @@ export default function App() {
       }
     }
 
-    // ✅ Photos
     if (!myProfile) {
       const uploaded = await uploadProfilePhotos(profileId, photos);
 
@@ -1176,6 +1228,9 @@ export default function App() {
       const myLoc = filters.myLocation;
 
       const base = profiles.filter((p) => {
+        // ✅ NE PLUS MONTRER les profils signalés/masqués
+        if (hiddenProfileIds.has(p.id)) return false;
+
         if (user && p.user_id === user.id) return false;
 
         if (filters.sport) {
@@ -1216,7 +1271,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [profiles, filters, user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profiles, filters, user, hiddenProfileIds]); // ✅ AJOUT hiddenProfileIds
 
   /* -------------------------------
      Like/Swipe ✅ LIKE + SUPERLIKE + LIMIT 5/JOUR + MATCH
@@ -1239,7 +1294,6 @@ export default function App() {
 
     if (!profile?.id) return false;
 
-    // ✅ Limite 5 superlikes / jour
     if (isSuper) {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -1261,7 +1315,6 @@ export default function App() {
       }
     }
 
-    // 1) enregistrer like/superlike
     const { error: likeErr } = await supabase.from("likes").insert({
       liker_id: user.id,
       liked_profile_id: profile.id,
@@ -1283,7 +1336,6 @@ export default function App() {
       console.error("Like insert error:", likeErr);
     }
 
-    // 2) match si réciproque
     const { data, error: rpcErr } = await supabase.rpc("create_match_if_mutual", {
       p_liked_profile_id: profile.id
     });
@@ -1396,7 +1448,6 @@ export default function App() {
         <Route path="/subscription" element={<Subscription user={userForUI} />} />
       </Routes>
 
-      {/* ✅ Modal Match (effet bombe) */}
       <MatchBoomModal
         open={matchBoom.open}
         matchName={matchBoom.name}
