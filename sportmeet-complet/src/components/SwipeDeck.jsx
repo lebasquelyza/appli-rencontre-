@@ -6,26 +6,20 @@ import { SwipeCard } from "./SwipeCard";
 export function SwipeDeck({
   profiles,
   onLikeProfile,
-  onReportProfile, // ✅ AJOUT: handler signalement
+  onReportProfile, // ✅ AJOUT
   isAuthenticated,
   onRequireAuth,
-
-  // ✅ NOUVEAU: vrai si l'utilisateur a déjà créé son profil
-  // ✅ DEFAULT: true pour ne jamais bloquer si la prop n'est pas passée
   hasMyProfile = true
 }) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // ✅ petit message "gate" quand pas de profil
   const [gateMsg, setGateMsg] = useState("");
   const gateTimerRef = useRef(null);
 
-  // ✅ zoom
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomProfile, setZoomProfile] = useState(null);
 
-  // ✅ pour pouvoir “revenir” au même scroll si besoin
   const scrollYRef = useRef(0);
 
   const showGate = (msg) => {
@@ -106,7 +100,6 @@ export function SwipeDeck({
     [currentProfile?.id]
   );
 
-  // ✅ gate centralisé pour actions (✕ / ❤ / ★ / 🚩)
   const guardAction = () => {
     if (isShareCard) return { ok: false, reason: "share" };
 
@@ -169,37 +162,10 @@ export function SwipeDeck({
     next();
   };
 
-  // ✅ SIGNALER un profil (prompt rapide)
-  const handleReport = async () => {
-    const gate = guardAction();
-    if (!gate.ok) return;
-
-    if (!currentProfile || busy) return;
-
-    // Stoppe la propagation pour ne pas ouvrir le zoom
-    // (au cas où le bouton est dans une zone cliquable)
-    const reasonsHint =
-      "Raison ? (ex: faux profil, contenu inapproprié, harcèlement, mineur, spam)";
-    const reason = (window.prompt(reasonsHint) || "").trim();
-    if (!reason) return;
-
-    const details = (window.prompt("Détails (optionnel)") || "").trim();
-
-    setBusy(true);
-    try {
-      await onReportProfile?.(currentProfile, { reason, details });
-      // Optionnel: passer au profil suivant après signalement
-      next();
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleReset = () => setIndex(0);
 
   const hasAny = Array.isArray(profiles) && profiles.length > 0;
 
-  // ✅ ouvrir le profil en grand
   const openZoom = (p) => {
     if (!p || p.__type === "share") return;
     scrollYRef.current = window.scrollY || 0;
@@ -212,14 +178,12 @@ export function SwipeDeck({
     setZoomProfile(null);
   };
 
-  // ✅ empêcher le scroll derrière quand zoom ouvert
   useEffect(() => {
     if (!zoomOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
-      // optionnel: revenir au scroll précédent
       // window.scrollTo(0, scrollYRef.current || 0);
     };
   }, [zoomOpen]);
@@ -239,7 +203,11 @@ export function SwipeDeck({
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
             ) : (
-              <SwipeCard key={currentProfile.id} profile={currentProfile} />
+              <SwipeCard
+                key={currentProfile.id}
+                profile={currentProfile}
+                onReport={(payload) => onReportProfile?.(currentProfile, payload)} // ✅
+              />
             )}
           </div>
 
@@ -329,26 +297,9 @@ export function SwipeDeck({
               >
                 ★
               </button>
-
-              {/* ✅ BOUTON SIGNALER */}
-              <button
-                type="button"
-                className="swBtn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleReport();
-                }}
-                disabled={busy}
-                aria-label="Signaler"
-                title="Signaler ce profil"
-                style={{ fontSize: 18 }}
-              >
-                🚩
-              </button>
             </div>
           )}
 
-          {/* ✅✅✅ ZOOM OVERLAY (Portal + inline styles) */}
           {zoomOpen &&
             zoomProfile &&
             typeof document !== "undefined" &&
@@ -374,35 +325,17 @@ export function SwipeDeck({
                     height: "min(calc(var(--appH, 100vh) * 0.78), 720px)"
                   }}
                 >
-                  <div style={{ marginBottom: 10, display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                    {/* ✅ signaler aussi dans le zoom */}
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      onClick={() => {
-                        // on signale le profil zoomé (c’est le même que currentProfile la plupart du temps)
-                        const gate = guardAction();
-                        if (!gate.ok) return;
-
-                        const reason = (window.prompt(
-                          "Raison ? (ex: faux profil, contenu inapproprié, harcèlement, mineur, spam)"
-                        ) || "").trim();
-                        if (!reason) return;
-                        const details = (window.prompt("Détails (optionnel)") || "").trim();
-                        onReportProfile?.(zoomProfile, { reason, details });
-                      }}
-                      title="Signaler ce profil"
-                    >
-                      🚩 Signaler
-                    </button>
-
+                  <div style={{ marginBottom: 10, display: "flex", justifyContent: "flex-end" }}>
                     <button type="button" className="btn-ghost" onClick={closeZoom}>
                       Fermer
                     </button>
                   </div>
 
                   <div style={{ height: "calc(100% - 46px)" }}>
-                    <SwipeCard profile={zoomProfile} />
+                    <SwipeCard
+                      profile={zoomProfile}
+                      onReport={(payload) => onReportProfile?.(zoomProfile, payload)} // ✅
+                    />
                   </div>
                 </div>
               </div>,
@@ -456,3 +389,4 @@ export function SwipeDeck({
     </div>
   );
 }
+
