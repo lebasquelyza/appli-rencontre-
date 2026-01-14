@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-export function Settings({ user }) {
+export function Settings({ user, onClearHiddenProfiles }) {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -230,6 +230,31 @@ export function Settings({ user }) {
                 </div>
               )}
             </div>
+
+            {/* ✅ Profils masqués (signalements) */}
+            {user ? (
+              <div className="card" style={{ padding: 14 }}>
+                <h3 style={{ marginTop: 0 }}>Profils masqués</h3>
+                <p style={{ opacity: 0.85, marginTop: 6 }}>
+                  Réaffiche tous les profils que tu avais masqués après un signalement.
+                </p>
+
+                <button
+                  className="btn-ghost"
+                  onClick={() => {
+                    const ok = window.confirm(
+                      "Réinitialiser les profils masqués ? Ils réapparaîtront dans ton fil."
+                    );
+                    if (!ok) return;
+                    onClearHiddenProfiles?.();
+                    setBanner("Profils masqués réinitialisés ✅");
+                  }}
+                  disabled={!onClearHiddenProfiles}
+                >
+                  Réinitialiser
+                </button>
+              </div>
+            ) : null}
 
             {/* ✅ Configuration */}
             <div className="card" style={{ padding: 14 }}>
