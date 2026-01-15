@@ -1,3 +1,4 @@
+// sportmeet-complet/src/pages/AccountReview.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -38,3 +39,4 @@ export function AccountReview({ onLogout }) {
     </main>
   );
 }
+
