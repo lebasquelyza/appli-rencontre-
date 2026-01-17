@@ -59,7 +59,25 @@ function safeFileExt(file) {
 
 function randomId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${Date.now()}
+
+// ✅ Envoie la session Supabase à l'app Expo (si la web app tourne dans une WebView)
+function sendSessionToNative(session) {
+  try {
+    const access_token = session?.access_token ?? null;
+    if (window.ReactNativeWebView?.postMessage) {
+      window.ReactNativeWebView.postMessage(
+        JSON.stringify({
+          type: "SUPABASE_SESSION",
+          access_token,
+        })
+      );
+    }
+  } catch {
+    // ignore
+  }
+}
+-${Math.random().toString(16).slice(2)}`;
 }
 
 // ✅ Convertit une publicUrl Supabase en "path" storage (bucket relatif)
@@ -443,6 +461,15 @@ export default function App() {
     };
   }, []);
 
+
+// ✅ Test: vérifie que la PWA parle bien à Expo WebView
+useEffect(() => {
+  if (window.ReactNativeWebView?.postMessage) {
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: "PING" }));
+  }
+}, []);
+
+
   const [profiles, setProfiles] = useState([]);
 
   const [filters, setFilters] = useState({
@@ -557,13 +584,21 @@ export default function App() {
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
       setUser(data?.session?.user ?? null);
-    };
+    
+
+    // ✅ AJOUT: envoie la session courante à Expo
+    sendSessionToNative(data?.session ?? null);
+};
 
     init();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-    });
+    
+
+    // ✅ AJOUT: envoie la session à chaque login/logout
+    sendSessionToNative(session ?? null);
+});
 
     return () => {
       mounted = false;
