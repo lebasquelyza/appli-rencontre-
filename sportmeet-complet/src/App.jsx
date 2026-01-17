@@ -14,6 +14,24 @@ import { supabase } from "./lib/supabase";
 import { Confirmed } from "./pages/Confirmed";
 import { HowItWorks } from "./pages/HowItWorks";
 
+const sendSessionToNative = (session) => {
+  try {
+    const access_token = session?.access_token ?? null;
+
+    if (window.ReactNativeWebView?.postMessage) {
+      window.ReactNativeWebView.postMessage(
+        JSON.stringify({
+          type: "SUPABASE_SESSION",
+          access_token,
+        })
+      );
+    }
+  } catch (e) {
+    console.log("sendSessionToNative error", e);
+  }
+};
+
+
 // ✅ effet "bombe" match (modal centre)
 import { MatchBoomModal } from "./components/MatchBoomModal";
 
@@ -59,25 +77,7 @@ function safeFileExt(file) {
 
 function randomId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return `${Date.now()}
-
-// ✅ Envoie la session Supabase à l'app Expo (si la web app tourne dans une WebView)
-function sendSessionToNative(session) {
-  try {
-    const access_token = session?.access_token ?? null;
-    if (window.ReactNativeWebView?.postMessage) {
-      window.ReactNativeWebView.postMessage(
-        JSON.stringify({
-          type: "SUPABASE_SESSION",
-          access_token,
-        })
-      );
-    }
-  } catch {
-    // ignore
-  }
-}
--${Math.random().toString(16).slice(2)}`;
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 // ✅ Convertit une publicUrl Supabase en "path" storage (bucket relatif)
@@ -438,7 +438,15 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile,
 }
 
 export default function App() {
-  const navigate = useNavigate();
+  
+// ✅ Test: vérifie que la PWA parle bien à Expo WebView
+useEffect(() => {
+  if (window.ReactNativeWebView?.postMessage) {
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: "PING" }));
+  }
+}, []);
+
+const navigate = useNavigate();
 
   // ✅ FIX iPhone: on verrouille la hauteur
   useEffect(() => {
@@ -460,15 +468,6 @@ export default function App() {
       document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
-
-
-// ✅ Test: vérifie que la PWA parle bien à Expo WebView
-useEffect(() => {
-  if (window.ReactNativeWebView?.postMessage) {
-    window.ReactNativeWebView.postMessage(JSON.stringify({ type: "PING" }));
-  }
-}, []);
-
 
   const [profiles, setProfiles] = useState([]);
 
