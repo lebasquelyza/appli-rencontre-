@@ -208,6 +208,39 @@ function HomePage({
 }) {
   const navigate = useNavigate();
 
+  // ✅✅✅ LOCK scroll vertical page (Home uniquement) sans casser swipe horizontal ni pinch zoom
+  useEffect(() => {
+    const y = window.scrollY || 0;
+
+    document.body.classList.add("noYScroll");
+    document.body.style.top = `-${y}px`;
+
+    const onTouchMove = (e) => {
+      // ✅ garde pinch-zoom
+      if (e.touches && e.touches.length > 1) return;
+
+      // ✅ autorise le scroll dans les zones explicitement scrollables (modals)
+      if (e.target?.closest?.(".allowScroll")) return;
+
+      // ✅ autorise les gestes sur la carte (swipe lib)
+      if (e.target?.closest?.(".swipeMedia, .swipeCard, .swipeStage")) return;
+
+      // sinon on bloque (évite le “rebond” iOS)
+      e.preventDefault();
+    };
+
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    return () => {
+      document.removeEventListener("touchmove", onTouchMove);
+      document.body.classList.remove("noYScroll");
+      const top = document.body.style.top;
+      document.body.style.top = "";
+      const restoreY = top ? Math.abs(parseInt(top, 10)) : y;
+      window.scrollTo(0, restoreY);
+    };
+  }, []);
+
   return (
     <>
       <main className="page">
@@ -356,7 +389,8 @@ function HomePage({
               </button>
             </div>
 
-            <div className="modal-body modal-body--scroll">
+            {/* ✅✅✅ allowScroll : autorise le scroll dans la modal même si la page est lock */}
+            <div className="modal-body modal-body--scroll allowScroll">
               <ProfileForm
                 loadingExisting={loadingMyProfile}
                 existingProfile={myProfile}
@@ -394,7 +428,8 @@ function HomePage({
               </button>
             </div>
 
-            <div className="modal-body" style={{ paddingTop: 10 }}>
+            {/* ✅ allowScroll (au cas où l’aperçu dépasse sur petits écrans) */}
+            <div className="modal-body allowScroll" style={{ paddingTop: 10 }}>
               {!myProfile ? (
                 <p className="form-message">Aucun profil à prévisualiser.</p>
               ) : (
@@ -438,7 +473,7 @@ function CrushesFullPage({ user, onRequireAuth, crushes, superlikers, myProfile,
 }
 
 export default function App() {
-  
+
 // ✅ Test: vérifie que la PWA parle bien à Expo WebView
 useEffect(() => {
   if (window.ReactNativeWebView?.postMessage) {
@@ -583,7 +618,7 @@ const navigate = useNavigate();
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
       setUser(data?.session?.user ?? null);
-    
+
 
     // ✅ AJOUT: envoie la session courante à Expo
     sendSessionToNative(data?.session ?? null);
@@ -593,7 +628,7 @@ const navigate = useNavigate();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-    
+
 
     // ✅ AJOUT: envoie la session à chaque login/logout
     sendSessionToNative(session ?? null);
