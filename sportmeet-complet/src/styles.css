@@ -15,17 +15,17 @@
 
   --r: 28px;
 
-  /* ✅✅✅ FIX iOS : valeur par défaut fiable */
+  /* ✅ FIX iOS: valeur par défaut fiable */
   --appH: 100dvh;
 
-  /* ✅✅✅ hauteur unique pour TOUTES les cartes du deck (Explorer + Partager) */
+  /* ✅ hauteur unique pour TOUTES les cartes du deck */
   --deckCardH: clamp(330px, calc(var(--appH, 100vh) * 0.52), 580px);
 }
 
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 
-/* ✅ évite le “rubber band” global (sans casser pinch-zoom) */
+/* ✅ évite le “rubber band” global */
 html, body{
   overscroll-behavior: none;
 }
@@ -55,11 +55,21 @@ body{
   overflow-x:hidden;
 }
 
-/* ✅✅✅ BLOQUE le scroll vertical de la page entière (à activer seulement sur la home) */
+/* ✅✅✅ NOUVEAU (important): lock total du scroll vertical de page (iOS/Android) */
 body.noYScroll{
+  position: fixed;
+  left: 0;
+  right: 0;
+  width: 100%;
   height: 100dvh;
-  overflow-y: hidden;
-  overscroll-behavior-y: none;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* ✅✅✅ NOUVEAU: zones où le scroll DOIT rester possible (modals, etc.) */
+.allowScroll{
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ✅ root doit couvrir l’écran */
@@ -76,6 +86,7 @@ body::before{
 
 /* Layout */
 .app-root{
+  /* stable (ne bouge pas avec la barre Safari) */
   min-height: var(--appH, 100dvh);
 }
 
@@ -272,7 +283,6 @@ input:focus, select:focus, textarea:focus{
 /* Chips */
 .chips{ display:flex; flex-wrap:wrap; gap:8px; }
 
-/* ✅ FIX iOS: texte centré verticalement dans les chips */
 .chip{
   font-size:12px;
   line-height: 1;
@@ -430,8 +440,7 @@ input:focus, select:focus, textarea:focus{
   background-size: cover;
   background-position: center;
 
-  /* ✅✅✅ IMPORTANT : on garde swipe horizontal + pinch zoom,
-     et on évite pan-y qui réintroduit le scroll vertical */
+  /* ✅ swipe horizontal + pinch zoom, sans scroll vertical de page */
   touch-action: pan-x pinch-zoom;
 }
 
@@ -488,7 +497,7 @@ input:focus, select:focus, textarea:focus{
   z-index: 2;
 }
 
-/* ✅✅✅ overlay adaptatif (plus de texte coupé) */
+/* ✅ overlay adaptatif (évite textes coupés) */
 .cardOverlay{
   position:absolute;
   left:0; right:0; bottom:0;
@@ -502,7 +511,7 @@ input:focus, select:focus, textarea:focus{
   justify-content:flex-end;
   gap: 10px;
 
-  /* ✅ scroll uniquement ici si texte long */
+  /* ✅ scroll seulement dans l’overlay si contenu long */
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 
@@ -522,7 +531,7 @@ input:focus, select:focus, textarea:focus{
   padding-top: 14px;
 }
 
-/* Optionnel : cacher scrollbar */
+/* Optionnel : cacher scrollbar overlay */
 .cardOverlay::-webkit-scrollbar{ display:none; }
 .cardOverlay{ scrollbar-width: none; }
 
@@ -535,7 +544,7 @@ input:focus, select:focus, textarea:focus{
   min-width: 0;
 }
 
-/* ✅ ne coupe pas le titre */
+/* ne coupe pas le titre */
 .h1{
   font-size: 26px;
   font-weight: 900;
@@ -872,7 +881,7 @@ input:focus, select:focus, textarea:focus{
 
   .footer-note{ display:none; }
 
-  /* ✅ réserve d’espace pour ne pas recouvrir le contenu/bouton */
+  /* réserve d’espace pour ne pas recouvrir le contenu/bouton */
   .page{
     padding-bottom: 150px;
   }
@@ -1001,14 +1010,12 @@ input:focus, select:focus, textarea:focus{
 }
 
 /* =========================================================
-   ✅✅✅ AJOUT : Aperçu "Mon profil sportif"
-   (force la SwipeCard à remplir la hauteur du modal Aperçu)
+   AJOUT : Aperçu "Mon profil sportif"
    ========================================================= */
 .previewCardWrap{
   width: min(760px, 100%);
   margin: 0 auto;
   height: calc(var(--appH, 100dvh) - 140px);
 }
-
 .previewCardWrap .swipeCard{ height: 100%; }
 .previewCardWrap .cardMedia{ height: 100%; }
