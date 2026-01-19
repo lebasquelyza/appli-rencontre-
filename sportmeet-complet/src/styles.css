@@ -15,15 +15,20 @@
 
   --r: 28px;
 
-  /* ✅✅✅ NOUVEAU : hauteur unique pour TOUTES les cartes du deck (Explorer + Partager) */
-  --deckCardH: clamp(330px, calc(var(--appH, 100vh) * 0.52), 580px);
-
   /* ✅✅✅ FIX iOS : valeur par défaut fiable */
   --appH: 100dvh;
+
+  /* ✅✅✅ hauteur unique pour TOUTES les cartes du deck (Explorer + Partager) */
+  --deckCardH: clamp(330px, calc(var(--appH, 100vh) * 0.52), 580px);
 }
 
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
+
+/* ✅ évite le “rubber band” global (sans casser pinch-zoom) */
+html, body{
+  overscroll-behavior: none;
+}
 
 /* ✅ Dégradé partout (y compris safe-area iPhone) */
 html{
@@ -50,6 +55,13 @@ body{
   overflow-x:hidden;
 }
 
+/* ✅✅✅ BLOQUE le scroll vertical de la page entière (à activer seulement sur la home) */
+body.noYScroll{
+  height: 100dvh;
+  overflow-y: hidden;
+  overscroll-behavior-y: none;
+}
+
 /* ✅ root doit couvrir l’écran */
 #root{ min-height: 100dvh; }
 
@@ -64,7 +76,6 @@ body::before{
 
 /* Layout */
 .app-root{
-  /* ✅ stable (ne bouge pas avec la barre Safari) */
   min-height: var(--appH, 100dvh);
 }
 
@@ -74,10 +85,7 @@ body::before{
   display:flex;
   flex-direction:column;
   justify-content:flex-start;
-
-  /* ✅ centre horizontalement tout le contenu */
   align-items:center;
-
   padding: 14px 14px 22px;
 }
 
@@ -110,18 +118,13 @@ body::before{
   backdrop-filter: blur(14px);
   background: rgba(10,10,14,.55);
   border-bottom: 1px solid rgba(255,255,255,.08);
-
-  /* ✅ safe-area notch + léger “baisse” */
   padding-top: calc(env(safe-area-inset-top) + 6px);
 }
 
 .topbar-inner{
   width: min(1100px, 100%);
   margin: 0 auto;
-
-  /* ✅ un peu plus bas (respiration) */
   padding: 12px 14px 10px;
-
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -129,9 +132,7 @@ body::before{
 }
 
 @media (max-width: 520px){
-  .topbar-inner{
-    padding: 10px 10px 10px;
-  }
+  .topbar-inner{ padding: 10px 10px 10px; }
 }
 
 .brand{
@@ -401,13 +402,13 @@ input:focus, select:focus, textarea:focus{
   width: 100%;
 }
 
-/* ✅✅✅ NOUVEAU : le "slot" de la carte = hauteur unique pour Explorer + Partager */
+/* slot carte */
 .swipeStage{
   width: 100%;
   height: var(--deckCardH);
 }
 
-/* ✅✅✅ CARTE (prend la hauteur du slot) */
+/* carte */
 .swipeCard{
   height: 100%;
   width: 100%;
@@ -428,7 +429,10 @@ input:focus, select:focus, textarea:focus{
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
-  touch-action: pan-y;
+
+  /* ✅✅✅ IMPORTANT : on garde swipe horizontal + pinch zoom,
+     et on évite pan-y qui réintroduit le scroll vertical */
+  touch-action: pan-x pinch-zoom;
 }
 
 /* Carousel photos */
@@ -484,17 +488,11 @@ input:focus, select:focus, textarea:focus{
   z-index: 2;
 }
 
-/* =========================================================
-   ✅✅✅ FIX IMPORTANT : overlay adaptatif (plus de texte coupé)
-   - plus de height: 44% fixe
-   - plus de overflow:hidden
-   - scroll interne si contenu long
-   ========================================================= */
+/* ✅✅✅ overlay adaptatif (plus de texte coupé) */
 .cardOverlay{
   position:absolute;
   left:0; right:0; bottom:0;
 
-  /* ✅ au lieu d'une hauteur fixe */
   max-height: min(62%, calc(var(--deckCardH) - 110px));
   height: auto;
 
@@ -504,7 +502,7 @@ input:focus, select:focus, textarea:focus{
   justify-content:flex-end;
   gap: 10px;
 
-  /* ✅ ne coupe plus, scroll si besoin */
+  /* ✅ scroll uniquement ici si texte long */
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 
@@ -524,7 +522,7 @@ input:focus, select:focus, textarea:focus{
   padding-top: 14px;
 }
 
-/* Optionnel : cacher scrollbar sans casser le scroll */
+/* Optionnel : cacher scrollbar */
 .cardOverlay::-webkit-scrollbar{ display:none; }
 .cardOverlay{ scrollbar-width: none; }
 
@@ -537,7 +535,7 @@ input:focus, select:focus, textarea:focus{
   min-width: 0;
 }
 
-/* ✅ ne limite plus à 2 lignes (plus de coupe) */
+/* ✅ ne coupe pas le titre */
 .h1{
   font-size: 26px;
   font-weight: 900;
@@ -606,7 +604,7 @@ input:focus, select:focus, textarea:focus{
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ✅ clamp 2 lignes + ... (volontaire) */
+/* clamp 2 lignes + ... */
 .swipeBio.clamp{
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -614,7 +612,7 @@ input:focus, select:focus, textarea:focus{
   overflow: hidden;
 }
 
-/* ✅ ouverte = scroll */
+/* ouverte = scroll */
 .swipeBio.open{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
@@ -638,7 +636,7 @@ input:focus, select:focus, textarea:focus{
 }
 .bioToggle:active{ transform: scale(.99); }
 
-/* ✅ DISPO repliable (comme bio) */
+/* DISPO */
 .availWrap{
   display:flex;
   flex-direction:column;
@@ -656,7 +654,6 @@ input:focus, select:focus, textarea:focus{
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ✅ clamp 2 lignes + ... (volontaire) */
 .swipeAvail.clamp{
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -1010,17 +1007,8 @@ input:focus, select:focus, textarea:focus{
 .previewCardWrap{
   width: min(760px, 100%);
   margin: 0 auto;
-
-  /* prend la hauteur dispo dans le modal (header + paddings) */
   height: calc(var(--appH, 100dvh) - 140px);
 }
 
-/* la carte doit remplir le wrapper */
-.previewCardWrap .swipeCard{
-  height: 100%;
-}
-
-/* le média (photo) doit aussi remplir */
-.previewCardWrap .cardMedia{
-  height: 100%;
-}
+.previewCardWrap .swipeCard{ height: 100%; }
+.previewCardWrap .cardMedia{ height: 100%; }
