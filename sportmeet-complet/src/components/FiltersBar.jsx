@@ -1,5 +1,5 @@
 //sportmeet-complet/src/components/FiltersBar.jsx
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export function FiltersBar({ filters, onChange, onReset }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -7,6 +7,27 @@ export function FiltersBar({ filters, onChange, onReset }) {
 
   const [locLoading, setLocLoading] = useState(false);
   const [locError, setLocError] = useState(null);
+
+  // ✅ AJOUT: brouillon + confirmation pour la ville
+  const [cityDraft, setCityDraft] = useState(filters.city || "");
+  const [cityNeedsConfirm, setCityNeedsConfirm] = useState(false);
+
+  useEffect(() => {
+    // si reset / changement externe, on resynchronise le brouillon
+    setCityDraft(filters.city || "");
+    setCityNeedsConfirm(false);
+  }, [filters.city]);
+
+  const confirmCity = () => {
+    const next = (cityDraft || "").trim();
+    onChange?.({ city: next });
+    setCityNeedsConfirm(false);
+  };
+
+  const cancelCity = () => {
+    setCityDraft(filters.city || "");
+    setCityNeedsConfirm(false);
+  };
 
   const radiusKm = Number(filters.radiusKm || 0);
   const hasRadius = radiusKm > 0;
@@ -64,7 +85,11 @@ export function FiltersBar({ filters, onChange, onReset }) {
           onChange?.({ myLocation: { lat, lon } });
 
           const cityText = await reverseGeocodeCity(lat, lon);
-          if (cityText) onChange?.({ city: cityText });
+          // ✅ MODIF: on remplit le brouillon et on demande confirmation
+          if (cityText) {
+            setCityDraft(cityText);
+            setCityNeedsConfirm(true);
+          }
         } catch (e) {
           console.error(e);
           setLocError("Impossible de déterminer ta ville automatiquement.");
@@ -183,10 +208,31 @@ export function FiltersBar({ filters, onChange, onReset }) {
               <input
                 id="filter-city"
                 type="text"
-                value={filters.city}
-                onChange={(e) => onChange({ city: e.target.value })}
+                value={cityDraft}
+                onChange={(e) => {
+                  setCityDraft(e.target.value);
+                  setCityNeedsConfirm(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    confirmCity();
+                  }
+                }}
                 placeholder="Ex : Paris"
               />
+
+              {cityNeedsConfirm &&
+              (cityDraft || "").trim() !== (filters.city || "").trim() ? (
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button type="button" className="btn-primary btn-sm" onClick={confirmCity}>
+                    Confirmer
+                  </button>
+                  <button type="button" className="btn-ghost btn-sm" onClick={cancelCity}>
+                    Modifier
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             {/* ✅ Sélecteur KM + bouton 📍 (visuellement fiable) */}
