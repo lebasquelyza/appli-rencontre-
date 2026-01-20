@@ -856,12 +856,16 @@ input:focus, select:focus, textarea:focus{
     position: fixed;
     left: 0;
     right: 0;
-    bottom: env(safe-area-inset-bottom);
+    bottom: 0;
     padding: 0;
     border-top: 1px solid rgba(255,255,255,.08);
-    background: rgba(10,10,14,.55);
+
+    /* ✅ continuité du fond (on laisse voir le background derrière) */
+    background: rgba(10,10,14,.001);
+
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
+
     z-index: 30;
     pointer-events: auto;
   }
@@ -869,7 +873,7 @@ input:focus, select:focus, textarea:focus{
   .footer-inner{
     width: min(1100px, 100%);
     margin: 0 auto;
-    padding: 12px 14px 12px;
+    padding: 12px 14px calc(env(safe-area-inset-bottom) + 12px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -888,7 +892,7 @@ input:focus, select:focus, textarea:focus{
 
   /* réserve d’espace pour ne pas recouvrir le contenu */
   .page{
-    padding-bottom: 140px;
+    padding-bottom: 150px;
   }
 }
 
