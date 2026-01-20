@@ -1111,3 +1111,28 @@ input:focus, select:focus, textarea:focus{
     padding-bottom: 12px !important;
   }
 }
+
+
+/* =========================================================
+   ✅ iOS PWA: enlever la barre noire du bas (home indicator area)
+   Cause fréquente: la safe-area n'est pas "peinte" quand le body est lock (noYScroll)
+   + certains devices montrent le fond système (noir) si le contenu ne couvre pas 100%
+   ========================================================= */
+@supports (-webkit-touch-callout: none) {
+  /* garantit une couleur de fond même si iOS ne peint pas le gradient sur 1px */
+  html, body {
+    background-color: var(--bg1);
+  }
+
+  /* assure que le contenu couvre bien l'écran, y compris la safe-area */
+  #root,
+  .app-root {
+    min-height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* IMPORTANT: quand on lock le scroll, la hauteur 100dvh peut laisser un trait noir en bas */
+  body.noYScroll{
+    height: auto !important; /* on laisse top/bottom:0 faire la hauteur réelle */
+  }
+}
