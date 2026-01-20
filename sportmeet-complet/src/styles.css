@@ -1063,3 +1063,17 @@ input:focus, select:focus, textarea:focus{
     }
   }
 }
+
+
+/* =========================================================
+   ✅ iOS PWA (A2HS): le footer est trop bas / proche de la home bar
+   -> on le remonte SANS le fixer, et on garde la continuité du fond
+   ========================================================= */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 520px){
+    /* Remonte légèrement le footer au-dessus de l'indicateur iOS */
+    .footer{
+      margin-bottom: env(safe-area-inset-bottom);
+    }
+  }
+}
