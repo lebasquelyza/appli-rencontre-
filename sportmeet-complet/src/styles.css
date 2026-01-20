@@ -1032,56 +1032,55 @@ input:focus, select:focus, textarea:focus{
 
 
 /* =========================================================
-   ✅ FIX FINAL iOS PWA — COMPATIBLE TOUS MOBILES (v2)
+   ✅ FIX FINAL iOS PWA — COMPATIBLE TOUS MOBILES (v3)
    Objectif:
    - supprimer la bande noire en bas (home indicator)
    - supprimer la bande blanche en haut (status bar)
-   - éviter toute bande "rose"
-   Principe: on peint explicitement TOP + BOTTOM en couleur unie (bg0)
-   et on force -webkit-fill-available.
+   - éviter une bande "rose"
+   Principe: peindre TOP + BOTTOM avec un dégradé NEUTRE (bg1->bg0)
+   qui se fond avec ton background, et forcer -webkit-fill-available.
    ========================================================= */
 @supports (-webkit-touch-callout: none) {
   html, body {
     height: -webkit-fill-available;
     min-height: -webkit-fill-available;
-
-    /* fallback solide (ne change pas le dégradé, il reste sur html/body via background) */
     background-color: var(--bg0);
-
-    /* iOS PWA bug avec les backgrounds fixed */
     background-attachment: scroll !important;
   }
 
-  /* Peint la safe-area du HAUT (évite la barre blanche) */
+  /* Dégradé neutre (sans teinte) pour fondre avec l'arrière-plan */
+  :root{
+    --safeGrad: linear-gradient(180deg, var(--bg1), var(--bg0));
+  }
+
   html::before{
     content:"";
     position: fixed;
     left: 0;
     right: 0;
-    top: -80px;
-    height: calc(env(safe-area-inset-top) + 80px);
-    background: var(--bg0);
+    top: -120px;
+    height: calc(env(safe-area-inset-top) + 120px);
+    background: var(--safeGrad);
     pointer-events: none;
     z-index: 2147483647;
   }
 
-  /* Peint la safe-area du BAS (évite la barre noire) */
   html::after{
     content:"";
     position: fixed;
     left: 0;
     right: 0;
-    bottom: -80px;
-    height: calc(env(safe-area-inset-bottom) + 80px);
-    background: var(--bg0);
+    bottom: -120px;
+    height: calc(env(safe-area-inset-bottom) + 120px);
+    background: var(--safeGrad);
     pointer-events: none;
     z-index: 2147483647;
   }
 
-  /* garantit que l'app reste au-dessus des layers de peinture */
   #root, .app-root{
     position: relative;
     z-index: 1;
   }
 }
+
 
