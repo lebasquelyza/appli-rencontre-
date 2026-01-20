@@ -853,46 +853,36 @@ input:focus, select:focus, textarea:focus{
 /* ✅ iPhone: footer centré + safe-area */
 @media (max-width: 520px){
   .footer{
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 0;
+    position: static;        /* ✅ plus de floating */
+    padding: 10px 14px 18px;
     border-top: 1px solid rgba(255,255,255,.08);
-
-    /* ✅ continuité du fond (on laisse voir le background derrière) */
-    background: rgba(10,10,14,.001);
-
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-
-    z-index: 30;
+    background: transparent;
     pointer-events: auto;
   }
 
   .footer-inner{
-    width: min(1100px, 100%);
+    width: 100%;
     margin: 0 auto;
-    padding: 12px 14px calc(env(safe-area-inset-bottom) + 12px);
     display: flex;
     justify-content: center;
     align-items: center;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .footerLeft{
     width: 100%;
     text-align: center;
     font-size: 14px;
-    opacity: 0.85;
+    opacity: 0.75;
     letter-spacing: .2px;
     text-shadow: 0 6px 22px rgba(0,0,0,.55);
   }
 
   .footer-note{ display:none; }
 
-  /* réserve d’espace pour ne pas recouvrir le contenu */
+  /* ✅ IMPORTANT: on enlève la réserve ajoutée pour le footer fixed */
   .page{
-    padding-bottom: 150px;
+    padding-bottom: 12px;
   }
 }
 
