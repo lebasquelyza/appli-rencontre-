@@ -16,7 +16,8 @@ const REPORT_REASONS = [
   "Autre"
 ];
 
-export function SwipeCard({ profile, onOpen, onReport }) {
+// ✅ petit helper: évite re-render inutiles quand le parent bouge
+function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false }) {
   const photos = Array.isArray(profile?.photo_urls) ? profile.photo_urls : [];
   const hasPhotos = photos.length > 0;
 
@@ -25,7 +26,7 @@ export function SwipeCard({ profile, onOpen, onReport }) {
   // ✅ bio repliable
   const [bioOpen, setBioOpen] = useState(false);
 
-  // ✅ dispo repliable (comme bio)
+  // ✅ dispo repliable
   const [availOpen, setAvailOpen] = useState(false);
 
   // ✅ modal signalement
@@ -41,7 +42,6 @@ export function SwipeCard({ profile, onOpen, onReport }) {
     setBioOpen(false);
     setAvailOpen(false);
 
-    // reset report modal
     setReportOpen(false);
     setReportReason(REPORT_REASONS[0]);
     setReportDetails("");
@@ -68,11 +68,7 @@ export function SwipeCard({ profile, onOpen, onReport }) {
   const heightNum = Number(profile?.height);
   const heightLabel = Number.isFinite(heightNum) && heightNum > 0 ? `${heightNum} cm` : "";
 
-  // ✅ CHANGEMENT ICI :
-  // Avant: const bioShowToggle = bio.length > 90;
-  // Maintenant: si bio existe => afficher "Voir +"
   const bioShowToggle = bio.length > 0;
-
   const availShowToggle = availability.length > 40;
 
   const toggleBio = () => {
@@ -94,7 +90,6 @@ export function SwipeCard({ profile, onOpen, onReport }) {
     if (!hasPhotos) return;
 
     const now = Date.now();
-    // évite que le tap déclenche un openZoom si tu doubles vite
     lastTapRef.current = now;
 
     const rect = e.currentTarget.getBoundingClientRect();
@@ -109,7 +104,6 @@ export function SwipeCard({ profile, onOpen, onReport }) {
   };
 
   const onClickCard = (e) => {
-    // si on a tap pour changer la photo, on ne doit pas ouvrir
     if (!onOpen) return;
     if (isInTextZone(e.target)) return;
 
@@ -146,19 +140,17 @@ export function SwipeCard({ profile, onOpen, onReport }) {
       <div
         className={`cardMedia swipeMedia ${hasPhotos ? "has-photo" : "no-photo"}`}
         onClick={(e) => {
-          // 1) si photos: tap = navigation
-          // 2) sinon: click = open
           if (hasPhotos) handleTapMedia(e);
           else onClickCard(e);
         }}
         style={{
           ...(hasPhotos ? null : bgFallback),
-          touchAction: "pan-y", // le swipe horizontal est géré par SwipeDeck
+          touchAction: "pan-y",
           cursor: onOpen ? "pointer" : "default",
           position: "relative"
         }}
       >
-        {/* ✅ Bouton signaler (si onReport est fourni) */}
+        {/* ✅ Bouton signaler */}
         {typeof onReport === "function" ? (
           <button
             type="button"
@@ -176,8 +168,8 @@ export function SwipeCard({ profile, onOpen, onReport }) {
               padding: "8px 10px",
               background: "rgba(0,0,0,.42)",
               color: "white",
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
+              backdropFilter: reduceEffects ? "none" : "blur(8px)",
+              WebkitBackdropFilter: reduceEffects ? "none" : "blur(8px)",
               cursor: "pointer"
             }}
           >
@@ -186,10 +178,23 @@ export function SwipeCard({ profile, onOpen, onReport }) {
         ) : null}
 
         {hasPhotos && (
-          <div className="photo-track" style={{ transform: `translateX(-${index * 100}%)` }}>
+          <div
+            className="photo-track"
+            style={{
+              transform: `translateX(-${index * 100}%)`,
+              willChange: "transform"
+            }}
+          >
             {photos.map((src, i) => (
               <div key={src || i} className="photo-slide">
-                <img src={src} alt="" draggable="false" />
+                <img
+                  src={src}
+                  alt=""
+                  draggable="false"
+                  loading="lazy"
+                  decoding="async"
+                  style={{ transform: "translateZ(0)" }}
+                />
               </div>
             ))}
           </div>
@@ -273,7 +278,6 @@ export function SwipeCard({ profile, onOpen, onReport }) {
                 {bio}
               </div>
 
-              {/* ✅ Toujours afficher si bio existe */}
               {bioShowToggle && (
                 <button
                   type="button"
@@ -393,3 +397,13 @@ export function SwipeCard({ profile, onOpen, onReport }) {
     </article>
   );
 }
+
+// ✅ Memo: ne re-render pas la card quand le parent bouge pendant le drag
+export const SwipeCard = React.memo(
+  SwipeCardImpl,
+  (prev, next) =>
+    prev.profile?.id === next.profile?.id &&
+    prev.reduceEffects === next.reduceEffects &&
+    prev.onOpen === next.onOpen &&
+    prev.onReport === next.onReport
+);
