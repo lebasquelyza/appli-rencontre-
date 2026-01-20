@@ -1077,3 +1077,37 @@ input:focus, select:focus, textarea:focus{
     }
   }
 }
+
+
+/* =========================================================
+   ✅ DEMANDE: enlever l'effet "footer" (pas de barre / pas de flottant)
+   -> garder juste "MatchFit © 2026" comme texte normal sous la page
+   ========================================================= */
+
+/* Footer neutre (sans fond, sans blur, sans border) */
+.footer{
+  position: static !important;
+  background: transparent !important;
+  border-top: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  pointer-events: auto !important;
+  padding: 12px 14px calc(env(safe-area-inset-bottom) + 12px) !important;
+}
+
+.footer-inner{
+  justify-content: center !important;
+}
+
+.footerLeft{
+  width: 100% !important;
+  text-align: center !important;
+  opacity: 0.70 !important;
+}
+
+/* Sur mobile: ne réserve plus d'espace comme si le footer était fixed */
+@media (max-width: 520px){
+  .page{
+    padding-bottom: 12px !important;
+  }
+}
