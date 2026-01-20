@@ -1032,28 +1032,56 @@ input:focus, select:focus, textarea:focus{
 
 
 /* =========================================================
-   ✅ FIX FINAL iOS PWA — COMPATIBLE TOUS MOBILES
+   ✅ FIX FINAL iOS PWA — COMPATIBLE TOUS MOBILES (v2)
    Objectif:
-   - supprimer définitivement la bande noire (home indicator)
-   - éviter la bande rose (dégradé mal peint sur iOS PWA)
-   - ne rien changer au design sur Android / desktop
+   - supprimer la bande noire en bas (home indicator)
+   - supprimer la bande blanche en haut (status bar)
+   - éviter toute bande "rose"
+   Principe: on peint explicitement TOP + BOTTOM en couleur unie (bg0)
+   et on force -webkit-fill-available.
    ========================================================= */
 @supports (-webkit-touch-callout: none) {
-  /* iOS PWA bug avec les backgrounds fixed */
   html, body {
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
+
+    /* fallback solide (ne change pas le dégradé, il reste sur html/body via background) */
+    background-color: var(--bg0);
+
+    /* iOS PWA bug avec les backgrounds fixed */
     background-attachment: scroll !important;
   }
 
-  /* Tampon universel bas d'écran (home indicator) */
+  /* Peint la safe-area du HAUT (évite la barre blanche) */
+  html::before{
+    content:"";
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: -80px;
+    height: calc(env(safe-area-inset-top) + 80px);
+    background: var(--bg0);
+    pointer-events: none;
+    z-index: 2147483647;
+  }
+
+  /* Peint la safe-area du BAS (évite la barre noire) */
   html::after{
     content:"";
     position: fixed;
     left: 0;
     right: 0;
-    bottom: -64px; /* marge de sécurité universelle */
-    height: calc(env(safe-area-inset-bottom) + 64px);
-    background: var(--bg0); /* continuité propre */
+    bottom: -80px;
+    height: calc(env(safe-area-inset-bottom) + 80px);
+    background: var(--bg0);
     pointer-events: none;
     z-index: 2147483647;
   }
+
+  /* garantit que l'app reste au-dessus des layers de peinture */
+  #root, .app-root{
+    position: relative;
+    z-index: 1;
+  }
 }
+
