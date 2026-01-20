@@ -1023,16 +1023,15 @@ input:focus, select:focus, textarea:focus{
 
 /* =========================================================
    ✅ FIX iOS PWA: bandes blanches (safe-area + background fixed)
-   - change uniquement ce qui est nécessaire, en override iOS
+   - ne change PAS le rendu (on garde le dégradé), on corrige juste iOS
    ========================================================= */
 @supports (-webkit-touch-callout: none) {
-  /* iOS PWA: background-attachment fixed peut laisser des zones blanches */
+  /* iOS PWA: background-attachment: fixed peut provoquer des zones blanches */
   html, body {
     background-attachment: scroll !important;
-    background-color: var(--bg1); /* fallback solide */
   }
 
-  /* Peindre les safe-areas (encoche + home indicator) */
+  /* Peindre les safe-areas (encoche + home indicator) sans toucher au fond */
   body {
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
@@ -1040,8 +1039,10 @@ input:focus, select:focus, textarea:focus{
     padding-right: env(safe-area-inset-right);
   }
 
+  /* IMPORTANT: ne pas mettre de background sur #root (sinon ça masque le dégradé) */
   #root {
-    background-color: var(--bg1);
     min-height: 100dvh;
+    background: transparent;
   }
 }
+
