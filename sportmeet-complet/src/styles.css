@@ -1160,3 +1160,38 @@ input:focus, select:focus, textarea:focus{
     background-attachment: scroll !important;
   }
 }
+
+
+/* =========================================================
+   ✅ iOS PWA: PAINT la safe-area du bas (home indicator)
+   Si iOS affiche encore une bande noire, c'est souvent parce que
+   la zone sous l'indicateur n'est pas peinte. On la peint explicitement.
+   ========================================================= */
+@supports (-webkit-touch-callout: none) {
+  html {
+    position: relative;
+  }
+
+  html::after {
+    content: "";
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: env(safe-area-inset-bottom);
+    pointer-events: none;
+    z-index: 0;
+    background:
+    radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
+    radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
+    radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));;
+    background-attachment: scroll !important;
+  }
+
+  /* Assure que l'app est au-dessus du "paint layer" */
+  #root, .app-root {
+    position: relative;
+    z-index: 1;
+  }
+}
