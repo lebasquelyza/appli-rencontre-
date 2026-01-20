@@ -1136,3 +1136,27 @@ input:focus, select:focus, textarea:focus{
     height: auto !important; /* on laisse top/bottom:0 faire la hauteur réelle */
   }
 }
+
+
+/* =========================================================
+   ✅ iOS PWA: enlever la barre noire sous le home indicator
+   Idée: forcer le "full-bleed" via -webkit-fill-available
+   et peindre le fond sur #root/.app-root (pas juste body).
+   ========================================================= */
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
+  }
+
+  #root, .app-root {
+    min-height: -webkit-fill-available;
+    /* Peint le même dégradé que le body pour couvrir la safe-area */
+    background:
+    radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
+    radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
+    radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));;
+    background-attachment: scroll !important;
+  }
+}
