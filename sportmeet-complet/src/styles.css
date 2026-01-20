@@ -58,8 +58,6 @@ body{
 /* ✅✅✅ NOUVEAU (important): lock total du scroll vertical de page (iOS/Android) */
 body.noYScroll{
   position: fixed;
-  top: 0;
-  bottom: 0;
   left: 0;
   right: 0;
   width: 100%;
@@ -852,19 +850,16 @@ input:focus, select:focus, textarea:focus{
 
 /* ✅ iPhone: footer centré + safe-area */
 @media (max-width: 520px){
-  /* Footer dans le flux (pas fixed), juste le texte sous la carte */
   .footer{
-    position: static;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    padding: 10px 14px 18px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
+    padding: 0;
     border-top: 0;
     background: transparent;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    z-index: auto;
-    pointer-events: auto;
+    z-index: 3;
+    pointer-events: none;
   }
 
   .footer-inner{
@@ -873,23 +868,22 @@ input:focus, select:focus, textarea:focus{
     display: flex;
     justify-content: center;
     align-items: center;
-    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .footerLeft{
     width: 100%;
     text-align: center;
     font-size: 14px;
-    opacity: 0.70;
+    opacity: 0.75;
     letter-spacing: .2px;
     text-shadow: 0 6px 22px rgba(0,0,0,.55);
   }
 
   .footer-note{ display:none; }
 
-  /* on enlève la grosse réserve (c'était pour le footer fixed) */
+  /* réserve d’espace pour ne pas recouvrir le contenu/bouton */
   .page{
-    padding-bottom: 12px;
+    padding-bottom: 150px;
   }
 }
 
@@ -1025,98 +1019,3 @@ input:focus, select:focus, textarea:focus{
 }
 .previewCardWrap .swipeCard{ height: 100%; }
 .previewCardWrap .cardMedia{ height: 100%; }
-
-
-
-
-
-
-/* =========================================================
-   ✅ FIX FINAL iOS PWA — COMPATIBLE TOUS MOBILES (v3)
-   Objectif:
-   - supprimer la bande noire en bas (home indicator)
-   - supprimer la bande blanche en haut (status bar)
-   - éviter une bande "rose"
-   Principe: peindre TOP + BOTTOM avec un dégradé NEUTRE (bg1->bg0)
-   qui se fond avec ton background, et forcer -webkit-fill-available.
-   ========================================================= */
-@supports (-webkit-touch-callout: none) {
-  html, body {
-    height: -webkit-fill-available;
-    min-height: -webkit-fill-available;
-    background-color: var(--bg0);
-    background-attachment: scroll !important;
-  }
-
-  /* Dégradé neutre (sans teinte) pour fondre avec l'arrière-plan */
-  :root{
-    --safeGrad: linear-gradient(180deg, var(--bg1), var(--bg0));
-  }
-
-  html::before{
-    content:"";
-    position: fixed;
-    left: 0;
-    right: 0;
-    top: -120px;
-    height: calc(env(safe-area-inset-top) + 120px);
-    background: var(--safeGrad);
-    pointer-events: none;
-    z-index: 2147483647;
-  }
-
-  html::after{
-    content:"";
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: -120px;
-    height: calc(env(safe-area-inset-bottom) + 120px);
-    background: var(--safeGrad);
-    pointer-events: none;
-    z-index: 2147483647;
-  }
-
-  #root, .app-root{
-    position: relative;
-    z-index: 1;
-  }
-}
-
-
-
-
-/* =========================================================
-   ✅ Dégradé plein écran (safe-area incluse) — FIX FINAL
-   Principe: un "wallpaper" fixed derrière toute l'app
-   => le dégradé prend 100% de l'écran sur iOS PWA (haut + bas)
-   ========================================================= */
-
-/* On laisse le dégradé au wallpaper, pour éviter les coupures iOS */
-html, body{
-  background: transparent !important;
-  background-attachment: scroll !important;
-}
-
-/* Wallpaper global plein écran */
-body::after{
-  content:"";
-  position: fixed;
-  inset: 0;
-  z-index: -2;          /* derrière tout */
-  pointer-events: none;
-
-  /* ✅ même dégradé que ton design */
-  background:
-    radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
-    radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
-    radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
-    linear-gradient(180deg, var(--bg1), var(--bg0));
-}
-
-/* iOS: plein écran PWA fiable */
-@supports (-webkit-touch-callout: none) {
-  html, body{
-    min-height: -webkit-fill-available;
-  }
-}
