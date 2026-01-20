@@ -11,12 +11,12 @@
 
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.matchfit.app",
+      "bundleIdentifier": "com.matchfit2k26.app",
       "buildNumber": "1"
     },
 
     "android": {
-      "package": "com.matchfit.app",
+      "package": "com.matchfit2k26.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
