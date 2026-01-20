@@ -58,6 +58,8 @@ body{
 /* ✅✅✅ NOUVEAU (important): lock total du scroll vertical de page (iOS/Android) */
 body.noYScroll{
   position: fixed;
+  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
   width: 100%;
@@ -1023,26 +1025,25 @@ input:focus, select:focus, textarea:focus{
 
 /* =========================================================
    ✅ FIX iOS PWA: bandes blanches (safe-area + background fixed)
-   - ne change PAS le rendu (on garde le dégradé), on corrige juste iOS
+   - garde le rendu (dégradé), corrige juste iOS
    ========================================================= */
 @supports (-webkit-touch-callout: none) {
-  /* iOS PWA: background-attachment: fixed peut provoquer des zones blanches */
+  /* iOS PWA: background-attachment: fixed peut créer des traits blancs */
   html, body {
     background-attachment: scroll !important;
+    background-color: var(--bg1); /* fallback: ne masque pas le dégradé */
   }
 
-  /* Peindre les safe-areas (encoche + home indicator) sans toucher au fond */
+  /* IMPORTANT: ne pas ajouter de padding sur body (ça crée un "grand écart" visuel)
+     -> tu gères déjà la safe-area via .topbar et le footer */
   body {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
+    padding: 0 !important;
   }
 
-  /* IMPORTANT: ne pas mettre de background sur #root (sinon ça masque le dégradé) */
   #root {
     min-height: 100dvh;
     background: transparent;
   }
 }
+
 
