@@ -1044,3 +1044,22 @@ input:focus, select:focus, textarea:focus{
 }
 
 
+
+
+/* =========================================================
+   ✅ iOS PWA: footer "dans le flux" + safe-area (home indicator)
+   - Android OK, iOS PWA a besoin d'un padding bas supplémentaire
+   ========================================================= */
+@supports (-webkit-touch-callout: none) {
+  /* garde le footer sous la carte, mais évite qu'il soit collé/masqué par la home bar */
+  @media (max-width: 520px){
+    .footer{
+      padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    }
+
+    /* évite que le contenu touche la home bar */
+    .page{
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+  }
+}
