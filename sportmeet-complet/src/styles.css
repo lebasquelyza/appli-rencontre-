@@ -856,17 +856,20 @@ input:focus, select:focus, textarea:focus{
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(env(safe-area-inset-bottom) + 10px);
+    bottom: 0;
     padding: 0;
-    border-top: 0;
-    background: transparent;
-    z-index: 3;
-    pointer-events: none;
+    border-top: 1px solid rgba(255,255,255,.08);
+    background: rgba(10,10,14,.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    z-index: 30;
+    pointer-events: auto;
   }
 
   .footer-inner{
-    width: 100%;
+    width: min(1100px, 100%);
     margin: 0 auto;
+    padding: 12px 14px calc(env(safe-area-inset-bottom) + 12px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -876,17 +879,18 @@ input:focus, select:focus, textarea:focus{
     width: 100%;
     text-align: center;
     font-size: 14px;
-    opacity: 0.75;
+    opacity: 0.85;
     letter-spacing: .2px;
     text-shadow: 0 6px 22px rgba(0,0,0,.55);
   }
 
   .footer-note{ display:none; }
 
-  /* réserve d’espace pour ne pas recouvrir le contenu/bouton */
+  /* réserve d’espace pour ne pas recouvrir le contenu */
   .page{
-    padding-bottom: 150px;
+    padding-bottom: 140px;
   }
+}
 }
 
 /* Modal sheet */
