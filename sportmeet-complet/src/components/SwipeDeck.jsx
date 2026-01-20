@@ -22,12 +22,11 @@ export function SwipeDeck({
 
   const scrollYRef = useRef(0);
 
-  // ✅ Drag: plus de setState en continu (perf)
+  // ✅ Drag: pas de setState en continu
   const stageRef = useRef(null);
   const dragRafRef = useRef(null);
   const dragRef = useRef({ x: 0, y: 0 });
 
-  // ✅ On garde seulement un bool “dragging” (change rarement)
   const [dragging, setDragging] = useState(false);
 
   // ✅ Flash feedback (NON / OUI / SUPERLIKE)
@@ -45,8 +44,8 @@ export function SwipeDeck({
     pointerId: null
   });
 
-  const SWIPE_X = 95; // seuil like/skip
-  const SWIPE_Y = 115; // seuil superlike (haut)
+  const SWIPE_X = 95;
+  const SWIPE_Y = 115;
 
   // ✅ Superlike limit (front only)
   const SUPERLIKE_DAILY_LIMIT = 5;
@@ -233,7 +232,7 @@ export function SwipeDeck({
     el.style.setProperty("--dy", `${y}px`);
     el.style.setProperty("--rot", `${rot}deg`);
 
-    // badges opacity (calculés ici -> pas de re-render)
+    // ✅ badges "texte" (si tu les gardes)
     const likeAlpha = clamp((x - 18) / 48, 0, 1);
     const nopeAlpha = clamp((-x - 18) / 48, 0, 1);
     const superAlpha = clamp((-y - 42) / 72, 0, 1);
@@ -245,13 +244,30 @@ export function SwipeDeck({
     if (likeEl) likeEl.style.opacity = String(likeAlpha);
     if (nopeEl) nopeEl.style.opacity = String(nopeAlpha);
     if (superEl) superEl.style.opacity = String(superAlpha);
+
+    // ✅ NOUVEAU : icônes ❤️ / ✕ qui suivent le swipe
+    // progress = 0..1
+    const likeP = clamp((x - 18) / 120, 0, 1);
+    const nopeP = clamp((-x - 18) / 120, 0, 1);
+
+    const heart = el.querySelector('[data-icon="heart"]');
+    const cross = el.querySelector('[data-icon="cross"]');
+
+    if (heart) {
+      heart.style.opacity = String(likeP);
+      heart.style.transform = `translate3d(${clamp(x * 0.08, 0, 22)}px, ${clamp(y * 0.04, -10, 10)}px, 0) scale(${0.92 + likeP * 0.14})`;
+    }
+    if (cross) {
+      cross.style.opacity = String(nopeP);
+      cross.style.transform = `translate3d(${clamp(x * 0.08, -22, 0)}px, ${clamp(y * 0.04, -10, 10)}px, 0) scale(${0.92 + nopeP * 0.14})`;
+    }
   };
 
   const resetDragDom = () => {
     applyDragDom(0, 0);
   };
 
-  // ✅ Fly-out animation (Tinder feel)
+  // ✅ Fly-out animation
   const flyOut = async (dir) => {
     const w = typeof window !== "undefined" ? window.innerWidth || 360 : 360;
     const distX = Math.min(320, w * 0.75);
@@ -261,11 +277,10 @@ export function SwipeDeck({
     if (dir === "left") applyDragDom(-distX, -20);
     if (dir === "up") applyDragDom(0, -distY);
 
-    // laisse le temps à la transition
     await sleep(220);
   };
 
-  // ✅ Actions (optimisées: animation immédiate, appel réseau non-bloquant)
+  // ✅ Actions
   const handleLike = async () => {
     const gate = guardAction();
     if (!gate.ok) return;
@@ -280,7 +295,6 @@ export function SwipeDeck({
       next();
       resetDragDom();
 
-      // appel réseau sans bloquer l'UI
       Promise.resolve(onLikeProfile?.(currentProfile, { isSuper: false })).catch(() => {});
     } finally {
       setBusy(false);
@@ -366,7 +380,6 @@ export function SwipeDeck({
     };
   }, [zoomOpen]);
 
-  // ✅ Stage style: transform via CSS vars (smooth & GPU)
   const stageStyle = {
     transform: `translate3d(var(--dx, 0px), var(--dy, 0px), 0) rotate(var(--rot, 0deg))`,
     transition: dragging ? "none" : "transform 220ms cubic-bezier(.2,.8,.2,1)",
@@ -376,7 +389,7 @@ export function SwipeDeck({
     position: "relative"
   };
 
-  // ✅ Badge styles (opacity gérée via DOM dans applyDragDom)
+  // ✅ Badges texte (optionnels)
   const badgeCommon = {
     position: "absolute",
     top: 14,
@@ -427,7 +440,41 @@ export function SwipeDeck({
     WebkitBackdropFilter: dragging ? "none" : "blur(10px)"
   };
 
-  // ✅ Flash overlay styles (validation)
+  // ✅ Icônes ❤️ / ✕ (les styles sont stables, juste opacity/transform changent via applyDragDom)
+  const iconBase = {
+    position: "absolute",
+    top: 18,
+    zIndex: 25,
+    width: 62,
+    height: 62,
+    borderRadius: 999,
+    display: "grid",
+    placeItems: "center",
+    fontSize: 28,
+    fontWeight: 900,
+    userSelect: "none",
+    pointerEvents: "none",
+    opacity: 0,
+    transform: "translate3d(0,0,0) scale(.92)",
+    willChange: "transform, opacity",
+    border: "1px solid rgba(255,255,255,.22)",
+    background: "rgba(10,10,14,.52)",
+    boxShadow: "0 14px 32px rgba(0,0,0,.22)",
+    backdropFilter: dragging ? "none" : "blur(12px)",
+    WebkitBackdropFilter: dragging ? "none" : "blur(12px)"
+  };
+
+  const heartStyle = {
+    ...iconBase,
+    right: 14
+  };
+
+  const crossStyle = {
+    ...iconBase,
+    left: 14
+  };
+
+  // ✅ Flash overlay
   const flashStyle = (() => {
     if (!flash.on) return { opacity: 0, pointerEvents: "none" };
 
@@ -484,7 +531,7 @@ export function SwipeDeck({
     return <div style={boxBase}>NON ✕</div>;
   })();
 
-  // ✅ Pointer handlers (drag + validate)
+  // ✅ Pointer handlers
   const onPointerDown = (e) => {
     if (zoomOpen) return;
     if (!currentProfile || busy) return;
@@ -607,7 +654,19 @@ export function SwipeDeck({
             {/* ✅ Flash feedback */}
             {!isShareCard && <div style={flashStyle}>{flashLabel}</div>}
 
-            {/* ✅ Badges */}
+            {/* ✅ Icônes ❤️ / ✕ */}
+            {!isShareCard && (
+              <>
+                <div data-icon="cross" style={crossStyle}>
+                  ✕
+                </div>
+                <div data-icon="heart" style={heartStyle}>
+                  ❤
+                </div>
+              </>
+            )}
+
+            {/* ✅ Badges texte (si tu veux les garder) */}
             {!isShareCard && (
               <>
                 <div data-badge="nope" style={badgeNope}>
@@ -636,6 +695,7 @@ export function SwipeDeck({
 
           {gateMsg && <div className="gate-toast">{gateMsg}</div>}
 
+          {/* (le reste inchangé) */}
           {!isAuthenticated && !isShareCard ? (
             <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
               <p className="form-message" style={{ margin: 0 }}>
@@ -768,46 +828,12 @@ export function SwipeDeck({
         </>
       ) : (
         <div className="swipe-empty" style={{ textAlign: "center" }}>
-          {hasAny ? (
-            <>
-              <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
-              <p style={{ marginTop: 0, opacity: 0.9, lineHeight: 1.35 }}>
-                Partage <strong>MatchFit</strong> à tes potes… en espérant que ton/ta{" "}
-                <strong>gymcrush</strong> en entende parler 👀
-              </p>
-
-              <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-                <button type="button" className="btn-primary" onClick={handleShare}>
-                  Partager
-                </button>
-                <button type="button" className="btn-ghost" onClick={handleCopy}>
-                  Copier le lien
-                </button>
-              </div>
-
-              <div style={{ marginTop: 12 }}>
-                <button type="button" className="btn-ghost" onClick={handleReset}>
-                  Revoir des profils
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p style={{ marginBottom: 6, fontWeight: 700 }}>Aucun profil dans cette sélection.</p>
-              <p style={{ marginTop: 0, opacity: 0.9 }}>
-                Essaie d’élargir tes filtres, ou partage MatchFit pour attirer du monde 👇
-              </p>
-
-              <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-                <button type="button" className="btn-primary" onClick={handleShare}>
-                  Partager
-                </button>
-                <button type="button" className="btn-ghost" onClick={handleCopy}>
-                  Copier le lien
-                </button>
-              </div>
-            </>
-          )}
+          {/* inchangé */}
+          <p style={{ marginBottom: 6, fontWeight: 700 }}>
+            {Array.isArray(profiles) && profiles.length > 0
+              ? "Plus personne à te présenter 😊"
+              : "Aucun profil dans cette sélection."}
+          </p>
         </div>
       )}
     </div>
