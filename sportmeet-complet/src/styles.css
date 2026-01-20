@@ -1084,3 +1084,39 @@ input:focus, select:focus, textarea:focus{
 }
 
 
+
+
+/* =========================================================
+   ✅ Dégradé plein écran (safe-area incluse) — FIX FINAL
+   Principe: un "wallpaper" fixed derrière toute l'app
+   => le dégradé prend 100% de l'écran sur iOS PWA (haut + bas)
+   ========================================================= */
+
+/* On laisse le dégradé au wallpaper, pour éviter les coupures iOS */
+html, body{
+  background: transparent !important;
+  background-attachment: scroll !important;
+}
+
+/* Wallpaper global plein écran */
+body::after{
+  content:"";
+  position: fixed;
+  inset: 0;
+  z-index: -2;          /* derrière tout */
+  pointer-events: none;
+
+  /* ✅ même dégradé que ton design */
+  background:
+    radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
+    radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
+    radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
+}
+
+/* iOS: plein écran PWA fiable */
+@supports (-webkit-touch-callout: none) {
+  html, body{
+    min-height: -webkit-fill-available;
+  }
+}
