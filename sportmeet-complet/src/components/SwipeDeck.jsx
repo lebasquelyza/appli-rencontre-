@@ -22,14 +22,18 @@ export function SwipeDeck({
 
   const scrollYRef = useRef(0);
 
-  // ✅ Drag: pas de setState en continu
+  // ✅ Drag sans re-render
   const stageRef = useRef(null);
   const dragRafRef = useRef(null);
-  const dragRef = useRef({ x: 0, y: 0 });
 
+  // ✅ refs DOM (pas de querySelector pendant le drag)
+  const heartRef = useRef(null);
+  const crossRef = useRef(null);
+
+  // ✅ state léger
   const [dragging, setDragging] = useState(false);
 
-  // ✅ Flash feedback (NON / OUI / SUPERLIKE)
+  // ✅ Flash feedback
   const [flash, setFlash] = useState({ type: null, on: false });
   const flashTimerRef = useRef(null);
 
@@ -80,10 +84,7 @@ export function SwipeDeck({
     } catch {}
   };
 
-  const canUseSuperlike = () => {
-    const st = readSuperlikeState();
-    return st.count < SUPERLIKE_DAILY_LIMIT;
-  };
+  const canUseSuperlike = () => readSuperlikeState().count < SUPERLIKE_DAILY_LIMIT;
 
   const consumeSuperlike = () => {
     const st = readSuperlikeState();
@@ -129,7 +130,6 @@ export function SwipeDeck({
 
   const hasProfile = index < profiles.length;
   const currentProfile = hasProfile ? profiles[index] : null;
-
   const next = () => setIndex((i) => i + 1);
 
   const shareText = useMemo(
@@ -142,14 +142,12 @@ export function SwipeDeck({
 
   const handleShare = async () => {
     const payload = { title: "MatchFit", text: shareText, url: shareUrl };
-
     try {
       if (navigator.share) {
         await navigator.share(payload);
         return;
       }
     } catch {}
-
     try {
       await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       alert("Message copié ✅");
@@ -189,23 +187,21 @@ export function SwipeDeck({
 
   const guardAction = () => {
     if (isShareCard) return { ok: false, reason: "share" };
-
     if (!isAuthenticated) {
       onRequireAuth?.();
       return { ok: false, reason: "auth" };
     }
-
     if (hasMyProfile === false) {
       showGate("Crée ton profil avant de pouvoir trouver ta/ton partenaire 💪");
       return { ok: false, reason: "no_profile" };
     }
-
     return { ok: true };
   };
 
-  // ✅ Utils
-  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  // ✅ utils
+  const clamp = (v, min, max) => (v < min ? min : v > max ? max : v);
 
+  // ✅ lock scroll (iOS)
   const lockScrollRef = useRef({ prevOverflow: "" });
   const lockScroll = () => {
     try {
@@ -219,55 +215,37 @@ export function SwipeDeck({
     } catch {}
   };
 
-  // ✅ Apply drag to DOM (pas de re-render)
+  // ✅ DOM writes minimal (transform + 2 opacities + 2 transforms)
   const applyDragDom = (x, y) => {
-    dragRef.current.x = x;
-    dragRef.current.y = y;
-
     const el = stageRef.current;
     if (!el) return;
 
     const rot = clamp(x / 18, -14, 14);
+
     el.style.setProperty("--dx", `${x}px`);
     el.style.setProperty("--dy", `${y}px`);
     el.style.setProperty("--rot", `${rot}deg`);
 
-    // ✅ badges "texte" (si tu les gardes)
-    const likeAlpha = clamp((x - 18) / 48, 0, 1);
-    const nopeAlpha = clamp((-x - 18) / 48, 0, 1);
-    const superAlpha = clamp((-y - 42) / 72, 0, 1);
-
-    const likeEl = el.querySelector('[data-badge="like"]');
-    const nopeEl = el.querySelector('[data-badge="nope"]');
-    const superEl = el.querySelector('[data-badge="super"]');
-
-    if (likeEl) likeEl.style.opacity = String(likeAlpha);
-    if (nopeEl) nopeEl.style.opacity = String(nopeAlpha);
-    if (superEl) superEl.style.opacity = String(superAlpha);
-
-    // ✅ NOUVEAU : icônes ❤️ / ✕ qui suivent le swipe
-    // progress = 0..1
+    // progress 0..1
     const likeP = clamp((x - 18) / 120, 0, 1);
     const nopeP = clamp((-x - 18) / 120, 0, 1);
 
-    const heart = el.querySelector('[data-icon="heart"]');
-    const cross = el.querySelector('[data-icon="cross"]');
+    // ❤️ / ✕ (aucun querySelector ici)
+    const heart = heartRef.current;
+    const cross = crossRef.current;
 
     if (heart) {
       heart.style.opacity = String(likeP);
-      heart.style.transform = `translate3d(${clamp(x * 0.08, 0, 22)}px, ${clamp(y * 0.04, -10, 10)}px, 0) scale(${0.92 + likeP * 0.14})`;
+      heart.style.transform = `translate3d(0,0,0) scale(${0.92 + likeP * 0.14})`;
     }
     if (cross) {
       cross.style.opacity = String(nopeP);
-      cross.style.transform = `translate3d(${clamp(x * 0.08, -22, 0)}px, ${clamp(y * 0.04, -10, 10)}px, 0) scale(${0.92 + nopeP * 0.14})`;
+      cross.style.transform = `translate3d(0,0,0) scale(${0.92 + nopeP * 0.14})`;
     }
   };
 
-  const resetDragDom = () => {
-    applyDragDom(0, 0);
-  };
+  const resetDragDom = () => applyDragDom(0, 0);
 
-  // ✅ Fly-out animation
   const flyOut = async (dir) => {
     const w = typeof window !== "undefined" ? window.innerWidth || 360 : 360;
     const distX = Math.min(320, w * 0.75);
@@ -280,7 +258,6 @@ export function SwipeDeck({
     await sleep(220);
   };
 
-  // ✅ Actions
   const handleLike = async () => {
     const gate = guardAction();
     if (!gate.ok) return;
@@ -356,7 +333,6 @@ export function SwipeDeck({
   };
 
   const handleReset = () => setIndex(0);
-
   const hasAny = Array.isArray(profiles) && profiles.length > 0;
 
   const openZoom = (p) => {
@@ -389,64 +365,13 @@ export function SwipeDeck({
     position: "relative"
   };
 
-  // ✅ Badges texte (optionnels)
-  const badgeCommon = {
-    position: "absolute",
-    top: 14,
-    zIndex: 20,
-    padding: "10px 14px",
-    borderRadius: 999,
-    fontWeight: 1000,
-    letterSpacing: 1.4,
-    fontSize: 16,
-    textTransform: "uppercase",
-    userSelect: "none",
-    pointerEvents: "none",
-    border: "1px solid rgba(255,255,255,.22)",
-    textShadow: "0 6px 18px rgba(0,0,0,.35)"
-  };
-
-  const badgeNope = {
-    ...badgeCommon,
-    left: 14,
-    transform: "rotate(-10deg)",
-    opacity: 0,
-    background: "linear-gradient(180deg, rgba(255,80,92,.28), rgba(0,0,0,.10))",
-    boxShadow: "0 10px 26px rgba(255,80,92,.18), 0 0 0 1px rgba(255,80,92,.14)",
-    backdropFilter: dragging ? "none" : "blur(10px)",
-    WebkitBackdropFilter: dragging ? "none" : "blur(10px)"
-  };
-
-  const badgeLike = {
-    ...badgeCommon,
-    right: 14,
-    transform: "rotate(10deg)",
-    opacity: 0,
-    background: "linear-gradient(180deg, rgba(0,224,150,.26), rgba(0,0,0,.10))",
-    boxShadow: "0 10px 26px rgba(0,224,150,.16), 0 0 0 1px rgba(0,224,150,.12)",
-    backdropFilter: dragging ? "none" : "blur(10px)",
-    WebkitBackdropFilter: dragging ? "none" : "blur(10px)"
-  };
-
-  const badgeSuper = {
-    ...badgeCommon,
-    left: "50%",
-    transform: "translateX(-50%)",
-    top: 12,
-    opacity: 0,
-    background: "linear-gradient(180deg, rgba(255,215,0,.22), rgba(0,0,0,.10))",
-    boxShadow: "0 10px 26px rgba(255,215,0,.14), 0 0 0 1px rgba(255,215,0,.12)",
-    backdropFilter: dragging ? "none" : "blur(10px)",
-    WebkitBackdropFilter: dragging ? "none" : "blur(10px)"
-  };
-
-  // ✅ Icônes ❤️ / ✕ (les styles sont stables, juste opacity/transform changent via applyDragDom)
+  // ✅ icônes simples (pas de blur pendant drag)
   const iconBase = {
     position: "absolute",
     top: 18,
     zIndex: 25,
-    width: 62,
-    height: 62,
+    width: 58,
+    height: 58,
     borderRadius: 999,
     display: "grid",
     placeItems: "center",
@@ -457,27 +382,17 @@ export function SwipeDeck({
     opacity: 0,
     transform: "translate3d(0,0,0) scale(.92)",
     willChange: "transform, opacity",
-    border: "1px solid rgba(255,255,255,.22)",
-    background: "rgba(10,10,14,.52)",
-    boxShadow: "0 14px 32px rgba(0,0,0,.22)",
-    backdropFilter: dragging ? "none" : "blur(12px)",
-    WebkitBackdropFilter: dragging ? "none" : "blur(12px)"
+    border: "1px solid rgba(255,255,255,.18)",
+    background: "rgba(10,10,14,.45)",
+    boxShadow: "0 14px 32px rgba(0,0,0,.22)"
   };
 
-  const heartStyle = {
-    ...iconBase,
-    right: 14
-  };
+  const heartStyle = { ...iconBase, right: 14 };
+  const crossStyle = { ...iconBase, left: 14 };
 
-  const crossStyle = {
-    ...iconBase,
-    left: 14
-  };
-
-  // ✅ Flash overlay
+  // ✅ flash overlay (inchangé)
   const flashStyle = (() => {
     if (!flash.on) return { opacity: 0, pointerEvents: "none" };
-
     const common = {
       position: "absolute",
       inset: 0,
@@ -489,7 +404,6 @@ export function SwipeDeck({
       pointerEvents: "none",
       opacity: 1
     };
-
     if (flash.type === "like") {
       return {
         ...common,
@@ -513,7 +427,6 @@ export function SwipeDeck({
 
   const flashLabel = (() => {
     if (!flash.on) return null;
-
     const boxBase = {
       padding: "10px 14px",
       borderRadius: 999,
@@ -521,17 +434,14 @@ export function SwipeDeck({
       letterSpacing: 1.2,
       border: "1px solid rgba(255,255,255,.22)",
       background: "rgba(10,10,14,.55)",
-      backdropFilter: dragging ? "none" : "blur(12px)",
-      WebkitBackdropFilter: dragging ? "none" : "blur(12px)",
       boxShadow: "0 12px 30px rgba(0,0,0,.22)"
     };
-
     if (flash.type === "like") return <div style={boxBase}>OUI ❤️</div>;
     if (flash.type === "super") return <div style={boxBase}>SUPERLIKE ★</div>;
     return <div style={boxBase}>NON ✕</div>;
   })();
 
-  // ✅ Pointer handlers
+  // ✅ pointer handlers
   const onPointerDown = (e) => {
     if (zoomOpen) return;
     if (!currentProfile || busy) return;
@@ -613,12 +523,10 @@ export function SwipeDeck({
       await handleSuperLike();
       return;
     }
-
     if (dx > SWIPE_X) {
       await handleLike();
       return;
     }
-
     if (dx < -SWIPE_X) {
       await handleSkip();
       return;
@@ -651,32 +559,16 @@ export function SwipeDeck({
             }}
             style={stageStyle}
           >
-            {/* ✅ Flash feedback */}
             {!isShareCard && <div style={flashStyle}>{flashLabel}</div>}
 
-            {/* ✅ Icônes ❤️ / ✕ */}
+            {/* ✅ Icônes ❤️ / ✕ (refs directes) */}
             {!isShareCard && (
               <>
-                <div data-icon="cross" style={crossStyle}>
+                <div ref={crossRef} style={crossStyle}>
                   ✕
                 </div>
-                <div data-icon="heart" style={heartStyle}>
+                <div ref={heartRef} style={heartStyle}>
                   ❤
-                </div>
-              </>
-            )}
-
-            {/* ✅ Badges texte (si tu veux les garder) */}
-            {!isShareCard && (
-              <>
-                <div data-badge="nope" style={badgeNope}>
-                  NON
-                </div>
-                <div data-badge="like" style={badgeLike}>
-                  OUI
-                </div>
-                <div data-badge="super" style={badgeSuper}>
-                  SUPERLIKE ★
                 </div>
               </>
             )}
@@ -695,7 +587,6 @@ export function SwipeDeck({
 
           {gateMsg && <div className="gate-toast">{gateMsg}</div>}
 
-          {/* (le reste inchangé) */}
           {!isAuthenticated && !isShareCard ? (
             <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
               <p className="form-message" style={{ margin: 0 }}>
@@ -748,36 +639,13 @@ export function SwipeDeck({
             </div>
           ) : (
             <div className="actions" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                className="swBtn swBtnBad"
-                onClick={handleSkip}
-                disabled={busy}
-                aria-label="Passer"
-                title="Passer"
-              >
+              <button type="button" className="swBtn swBtnBad" onClick={handleSkip} disabled={busy}>
                 ✕
               </button>
-
-              <button
-                type="button"
-                className="swBtn swBtnPrimary"
-                onClick={handleLike}
-                disabled={busy}
-                aria-label="Liker"
-                title="Liker"
-              >
+              <button type="button" className="swBtn swBtnPrimary" onClick={handleLike} disabled={busy}>
                 ❤
               </button>
-
-              <button
-                type="button"
-                className="swBtn swBtnGood"
-                onClick={handleSuperLike}
-                disabled={busy}
-                aria-label="Super like"
-                title={`Super like (limite ${SUPERLIKE_DAILY_LIMIT}/jour)`}
-              >
+              <button type="button" className="swBtn swBtnGood" onClick={handleSuperLike} disabled={busy}>
                 ★
               </button>
             </div>
@@ -828,14 +696,25 @@ export function SwipeDeck({
         </>
       ) : (
         <div className="swipe-empty" style={{ textAlign: "center" }}>
-          {/* inchangé */}
-          <p style={{ marginBottom: 6, fontWeight: 700 }}>
-            {Array.isArray(profiles) && profiles.length > 0
-              ? "Plus personne à te présenter 😊"
-              : "Aucun profil dans cette sélection."}
-          </p>
+          {hasAny ? (
+            <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
+          ) : (
+            <p style={{ marginBottom: 6, fontWeight: 700 }}>Aucun profil dans cette sélection.</p>
+          )}
+          <div style={{ marginTop: 10, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <button type="button" className="btn-primary" onClick={handleShare}>
+              Partager
+            </button>
+            <button type="button" className="btn-ghost" onClick={handleCopy}>
+              Copier le lien
+            </button>
+            <button type="button" className="btn-ghost" onClick={handleReset}>
+              Revoir des profils
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
+
