@@ -22,9 +22,13 @@ export function SwipeDeck({
 
   const scrollYRef = useRef(0);
 
-  // ✅ Drag state for visuals
-  const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
+  // ✅ Drag: plus de setState en continu (perf)
+  const stageRef = useRef(null);
   const dragRafRef = useRef(null);
+  const dragRef = useRef({ x: 0, y: 0 });
+
+  // ✅ On garde seulement un bool “dragging” (change rarement)
+  const [dragging, setDragging] = useState(false);
 
   // ✅ Flash feedback (NON / OUI / SUPERLIKE)
   const [flash, setFlash] = useState({ type: null, on: false });
@@ -103,7 +107,6 @@ export function SwipeDeck({
   };
 
   const showFlash = (type) => {
-    // type: "nope" | "like" | "super"
     setFlash({ type, on: true });
     if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
     flashTimerRef.current = window.setTimeout(() => setFlash({ type: null, on: false }), 240);
@@ -201,8 +204,68 @@ export function SwipeDeck({
     return { ok: true };
   };
 
-  const resetDrag = () => setDrag({ x: 0, y: 0, active: false });
+  // ✅ Utils
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
+  const lockScrollRef = useRef({ prevOverflow: "" });
+  const lockScroll = () => {
+    try {
+      lockScrollRef.current.prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    } catch {}
+  };
+  const unlockScroll = () => {
+    try {
+      document.body.style.overflow = lockScrollRef.current.prevOverflow || "";
+    } catch {}
+  };
+
+  // ✅ Apply drag to DOM (pas de re-render)
+  const applyDragDom = (x, y) => {
+    dragRef.current.x = x;
+    dragRef.current.y = y;
+
+    const el = stageRef.current;
+    if (!el) return;
+
+    const rot = clamp(x / 18, -14, 14);
+    el.style.setProperty("--dx", `${x}px`);
+    el.style.setProperty("--dy", `${y}px`);
+    el.style.setProperty("--rot", `${rot}deg`);
+
+    // badges opacity (calculés ici -> pas de re-render)
+    const likeAlpha = clamp((x - 18) / 48, 0, 1);
+    const nopeAlpha = clamp((-x - 18) / 48, 0, 1);
+    const superAlpha = clamp((-y - 42) / 72, 0, 1);
+
+    const likeEl = el.querySelector('[data-badge="like"]');
+    const nopeEl = el.querySelector('[data-badge="nope"]');
+    const superEl = el.querySelector('[data-badge="super"]');
+
+    if (likeEl) likeEl.style.opacity = String(likeAlpha);
+    if (nopeEl) nopeEl.style.opacity = String(nopeAlpha);
+    if (superEl) superEl.style.opacity = String(superAlpha);
+  };
+
+  const resetDragDom = () => {
+    applyDragDom(0, 0);
+  };
+
+  // ✅ Fly-out animation (Tinder feel)
+  const flyOut = async (dir) => {
+    const w = typeof window !== "undefined" ? window.innerWidth || 360 : 360;
+    const distX = Math.min(320, w * 0.75);
+    const distY = Math.min(420, w * 0.95);
+
+    if (dir === "right") applyDragDom(distX, -20);
+    if (dir === "left") applyDragDom(-distX, -20);
+    if (dir === "up") applyDragDom(0, -distY);
+
+    // laisse le temps à la transition
+    await sleep(220);
+  };
+
+  // ✅ Actions (optimisées: animation immédiate, appel réseau non-bloquant)
   const handleLike = async () => {
     const gate = guardAction();
     if (!gate.ok) return;
@@ -210,18 +273,17 @@ export function SwipeDeck({
 
     setBusy(true);
     try {
-      const ok = await onLikeProfile?.(currentProfile, { isSuper: false });
-      if (ok === false) return;
-
-      // ✅ feedback
       showFlash("like");
       vibrate([20]);
 
-      await sleep(140);
+      await flyOut("right");
       next();
+      resetDragDom();
+
+      // appel réseau sans bloquer l'UI
+      Promise.resolve(onLikeProfile?.(currentProfile, { isSuper: false })).catch(() => {});
     } finally {
       setBusy(false);
-      resetDrag();
     }
   };
 
@@ -230,54 +292,53 @@ export function SwipeDeck({
     if (!gate.ok) return;
     if (!currentProfile || busy) return;
 
-    // ✅ limite quotidienne (front)
     if (!canUseSuperlike()) {
       showGate(`Tu as atteint la limite de ${SUPERLIKE_DAILY_LIMIT} superlikes aujourd’hui ⭐`);
       vibrate([30, 20, 30]);
-      resetDrag();
+      resetDragDom();
       return;
     }
 
     setBusy(true);
     try {
-      const ok = await onLikeProfile?.(currentProfile, { isSuper: true });
-      if (ok === false) return;
-
-      // ✅ on consomme seulement si l'action a réussi
-      consumeSuperlike();
-
-      // ✅ feedback
       showFlash("super");
       vibrate([15, 35, 15]);
 
-      await sleep(160);
+      await flyOut("up");
       next();
+      resetDragDom();
+
+      consumeSuperlike();
+      Promise.resolve(onLikeProfile?.(currentProfile, { isSuper: true })).catch(() => {});
     } finally {
       setBusy(false);
-      resetDrag();
     }
   };
 
   const handleSkip = async () => {
     if (isShareCard) {
       if (busy) return;
+      await flyOut("left");
       next();
-      resetDrag();
+      resetDragDom();
       return;
     }
 
     const gate = guardAction();
     if (!gate.ok) return;
-
     if (busy) return;
 
-    // ✅ feedback
-    showFlash("nope");
-    vibrate([12]);
+    setBusy(true);
+    try {
+      showFlash("nope");
+      vibrate([12]);
 
-    await sleep(120);
-    next();
-    resetDrag();
+      await flyOut("left");
+      next();
+      resetDragDom();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleReset = () => setIndex(0);
@@ -305,20 +366,17 @@ export function SwipeDeck({
     };
   }, [zoomOpen]);
 
-  // ✅ Apply transform based on drag
-  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-  const rotate = clamp(drag.x / 18, -14, 14); // deg
-
+  // ✅ Stage style: transform via CSS vars (smooth & GPU)
   const stageStyle = {
-    transform: `translate3d(${drag.x}px, ${drag.y}px, 0) rotate(${rotate}deg)`,
-    transition: drag.active ? "none" : "transform 180ms ease",
+    transform: `translate3d(var(--dx, 0px), var(--dy, 0px), 0) rotate(var(--rot, 0deg))`,
+    transition: dragging ? "none" : "transform 220ms cubic-bezier(.2,.8,.2,1)",
     willChange: "transform",
-    cursor: isShareCard ? "default" : !isAuthenticated ? "default" : drag.active ? "grabbing" : "grab",
+    cursor: isShareCard ? "default" : !isAuthenticated ? "default" : dragging ? "grabbing" : "grab",
     touchAction: "pan-y",
     position: "relative"
   };
 
-  // ✅ "Pro mais fun" swipe badges
+  // ✅ Badge styles (opacity gérée via DOM dans applyDragDom)
   const badgeCommon = {
     position: "absolute",
     top: 14,
@@ -331,32 +389,30 @@ export function SwipeDeck({
     textTransform: "uppercase",
     userSelect: "none",
     pointerEvents: "none",
-    backdropFilter: "blur(10px)",
-    WebkitBackdropFilter: "blur(10px)",
     border: "1px solid rgba(255,255,255,.22)",
     textShadow: "0 6px 18px rgba(0,0,0,.35)"
   };
-
-  const likeAlpha = clamp((drag.x - 18) / 48, 0, 1);
-  const nopeAlpha = clamp((-drag.x - 18) / 48, 0, 1);
-  const superAlpha = clamp((-drag.y - 42) / 72, 0, 1);
 
   const badgeNope = {
     ...badgeCommon,
     left: 14,
     transform: "rotate(-10deg)",
-    opacity: nopeAlpha,
+    opacity: 0,
     background: "linear-gradient(180deg, rgba(255,80,92,.28), rgba(0,0,0,.10))",
-    boxShadow: "0 10px 26px rgba(255,80,92,.18), 0 0 0 1px rgba(255,80,92,.14)"
+    boxShadow: "0 10px 26px rgba(255,80,92,.18), 0 0 0 1px rgba(255,80,92,.14)",
+    backdropFilter: dragging ? "none" : "blur(10px)",
+    WebkitBackdropFilter: dragging ? "none" : "blur(10px)"
   };
 
   const badgeLike = {
     ...badgeCommon,
     right: 14,
     transform: "rotate(10deg)",
-    opacity: likeAlpha,
+    opacity: 0,
     background: "linear-gradient(180deg, rgba(0,224,150,.26), rgba(0,0,0,.10))",
-    boxShadow: "0 10px 26px rgba(0,224,150,.16), 0 0 0 1px rgba(0,224,150,.12)"
+    boxShadow: "0 10px 26px rgba(0,224,150,.16), 0 0 0 1px rgba(0,224,150,.12)",
+    backdropFilter: dragging ? "none" : "blur(10px)",
+    WebkitBackdropFilter: dragging ? "none" : "blur(10px)"
   };
 
   const badgeSuper = {
@@ -364,9 +420,11 @@ export function SwipeDeck({
     left: "50%",
     transform: "translateX(-50%)",
     top: 12,
-    opacity: superAlpha,
+    opacity: 0,
     background: "linear-gradient(180deg, rgba(255,215,0,.22), rgba(0,0,0,.10))",
-    boxShadow: "0 10px 26px rgba(255,215,0,.14), 0 0 0 1px rgba(255,215,0,.12)"
+    boxShadow: "0 10px 26px rgba(255,215,0,.14), 0 0 0 1px rgba(255,215,0,.12)",
+    backdropFilter: dragging ? "none" : "blur(10px)",
+    WebkitBackdropFilter: dragging ? "none" : "blur(10px)"
   };
 
   // ✅ Flash overlay styles (validation)
@@ -399,7 +457,6 @@ export function SwipeDeck({
           "radial-gradient(circle at 50% 10%, rgba(255,215,0,.20), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(255,215,0,.10), rgba(0,0,0,0))"
       };
     }
-    // nope
     return {
       ...common,
       background:
@@ -417,8 +474,8 @@ export function SwipeDeck({
       letterSpacing: 1.2,
       border: "1px solid rgba(255,255,255,.22)",
       background: "rgba(10,10,14,.55)",
-      backdropFilter: "blur(12px)",
-      WebkitBackdropFilter: "blur(12px)",
+      backdropFilter: dragging ? "none" : "blur(12px)",
+      WebkitBackdropFilter: dragging ? "none" : "blur(12px)",
       boxShadow: "0 12px 30px rgba(0,0,0,.22)"
     };
 
@@ -433,11 +490,10 @@ export function SwipeDeck({
     if (!currentProfile || busy) return;
     if (isShareCard) return;
 
-    // ✅ NO AUTH => pas de swipe (même pas de drag)
     if (!isAuthenticated) {
       onRequireAuth?.();
       showGate("Connecte-toi pour swiper 💪");
-      resetDrag();
+      resetDragDom();
       return;
     }
 
@@ -451,7 +507,9 @@ export function SwipeDeck({
     pointerRef.current.moved = false;
     pointerRef.current.pointerId = e.pointerId;
 
-    setDrag({ x: 0, y: 0, active: true });
+    setDragging(true);
+    lockScroll();
+    resetDragDom();
 
     try {
       e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -472,63 +530,60 @@ export function SwipeDeck({
     if (dragRafRef.current) return;
     dragRafRef.current = requestAnimationFrame(() => {
       dragRafRef.current = null;
-      setDrag({
-        x: clamp(dx, -220, 220),
-        y: clamp(dy, -220, 160),
-        active: true
-      });
+      applyDragDom(clamp(dx, -220, 220), clamp(dy, -220, 160));
     });
+  };
+
+  const endPointer = () => {
+    pointerRef.current.active = false;
+    setDragging(false);
+    unlockScroll();
   };
 
   const onPointerUp = async () => {
     if (!pointerRef.current.active) return;
-    pointerRef.current.active = false;
+    endPointer();
 
-    // ✅ Si pas connecté => on remet au centre et on stop
     if (!isAuthenticated) {
-      resetDrag();
+      resetDragDom();
       return;
     }
 
     if (!currentProfile || busy) {
-      resetDrag();
+      resetDragDom();
       return;
     }
 
     const dx = pointerRef.current.lastX - pointerRef.current.startX;
     const dy = pointerRef.current.lastY - pointerRef.current.startY;
 
-    // tap (pas un swipe) => zoom
     if (!pointerRef.current.moved) {
-      resetDrag();
+      resetDragDom();
       return;
     }
 
-    // superlike up
     if (dy < -SWIPE_Y && Math.abs(dx) < SWIPE_X) {
       await handleSuperLike();
       return;
     }
 
-    // right = like
     if (dx > SWIPE_X) {
       await handleLike();
       return;
     }
 
-    // left = nope
     if (dx < -SWIPE_X) {
       await handleSkip();
       return;
     }
 
-    // not enough => back to center
-    resetDrag();
+    resetDragDom();
   };
 
   const onPointerCancel = () => {
-    pointerRef.current.active = false;
-    resetDrag();
+    if (!pointerRef.current.active) return;
+    endPointer();
+    resetDragDom();
   };
 
   return (
@@ -536,6 +591,7 @@ export function SwipeDeck({
       {currentProfile ? (
         <>
           <div
+            ref={stageRef}
             className="swipeStage"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -548,24 +604,31 @@ export function SwipeDeck({
             }}
             style={stageStyle}
           >
-            {/* ✅ Flash feedback (validation) */}
+            {/* ✅ Flash feedback */}
             {!isShareCard && <div style={flashStyle}>{flashLabel}</div>}
 
-            {/* ✅ Badges visibles pendant le swipe */}
+            {/* ✅ Badges */}
             {!isShareCard && (
               <>
-                <div style={badgeNope}>NON</div>
-                <div style={badgeLike}>OUI</div>
-                <div style={badgeSuper}>SUPERLIKE ★</div>
+                <div data-badge="nope" style={badgeNope}>
+                  NON
+                </div>
+                <div data-badge="like" style={badgeLike}>
+                  OUI
+                </div>
+                <div data-badge="super" style={badgeSuper}>
+                  SUPERLIKE ★
+                </div>
               </>
             )}
 
             {isShareCard ? (
-              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} />
+              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={dragging} />
             ) : (
               <SwipeCard
                 key={currentProfile.id}
                 profile={currentProfile}
+                reduceEffects={dragging}
                 onReport={(payload) => onReportProfile?.(currentProfile, payload)}
               />
             )}
@@ -694,6 +757,7 @@ export function SwipeDeck({
                   <div style={{ height: "calc(100% - 46px)" }}>
                     <SwipeCard
                       profile={zoomProfile}
+                      reduceEffects={false}
                       onReport={(payload) => onReportProfile?.(zoomProfile, payload)}
                     />
                   </div>
@@ -749,4 +813,3 @@ export function SwipeDeck({
     </div>
   );
 }
-
