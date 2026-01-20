@@ -1019,3 +1019,29 @@ input:focus, select:focus, textarea:focus{
 }
 .previewCardWrap .swipeCard{ height: 100%; }
 .previewCardWrap .cardMedia{ height: 100%; }
+
+
+/* =========================================================
+   ✅ FIX iOS PWA: bandes blanches (safe-area + background fixed)
+   - change uniquement ce qui est nécessaire, en override iOS
+   ========================================================= */
+@supports (-webkit-touch-callout: none) {
+  /* iOS PWA: background-attachment fixed peut laisser des zones blanches */
+  html, body {
+    background-attachment: scroll !important;
+    background-color: var(--bg1); /* fallback solide */
+  }
+
+  /* Peindre les safe-areas (encoche + home indicator) */
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  #root {
+    background-color: var(--bg1);
+    min-height: 100dvh;
+  }
+}
