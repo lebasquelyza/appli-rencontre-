@@ -22,7 +22,7 @@ export function SwipeDeck({
 
   const scrollYRef = useRef(0);
 
-  // ✅ Drag sans re-render
+  // ✅ Drag sans re-render pendant le move (DOM only)
   const stageRef = useRef(null);
   const dragRafRef = useRef(null);
 
@@ -30,14 +30,11 @@ export function SwipeDeck({
   const heartRef = useRef(null);
   const crossRef = useRef(null);
 
-  // ✅ state léger
-  const [dragging, setDragging] = useState(false);
-
   // ✅ Flash feedback
   const [flash, setFlash] = useState({ type: null, on: false });
   const flashTimerRef = useRef(null);
 
-  // ✅ Pointer tracking
+  // ✅ Pointer tracking (+ vitesse pour un swipe plus "Tinder-like")
   const pointerRef = useRef({
     active: false,
     startX: 0,
@@ -45,11 +42,16 @@ export function SwipeDeck({
     lastX: 0,
     lastY: 0,
     moved: false,
-    pointerId: null
+    pointerId: null,
+    lastT: 0, // perf.now()
+    vx: 0 // px/ms
   });
 
   const SWIPE_X = 95;
   const SWIPE_Y = 115;
+
+  // ✅ Seuil de vitesse (px/ms) : swipe rapide validé même si distance faible
+  const V_SWIPE = 0.45;
 
   // ✅ Superlike limit (front only)
   const SUPERLIKE_DAILY_LIMIT = 5;
@@ -201,7 +203,7 @@ export function SwipeDeck({
   // ✅ utils
   const clamp = (v, min, max) => (v < min ? min : v > max ? max : v);
 
-  // ✅ lock scroll (iOS)
+  // ✅ lock scroll (iOS/webview)
   const lockScrollRef = useRef({ prevOverflow: "" });
   const lockScroll = () => {
     try {
@@ -246,19 +248,27 @@ export function SwipeDeck({
 
   const resetDragDom = () => applyDragDom(0, 0);
 
-  const flyOut = async (dir) => {
+  // ✅ fly-out "plus fluide" : part de la position actuelle et continue vers l'extérieur (momentum)
+  const flyOut = async (dir, meta = { dx: 0, dy: 0, vx: 0 }) => {
     const w = typeof window !== "undefined" ? window.innerWidth || 360 : 360;
-    const distX = Math.min(320, w * 0.75);
-    const distY = Math.min(420, w * 0.95);
 
-    if (dir === "right") applyDragDom(distX, -20);
-    if (dir === "left") applyDragDom(-distX, -20);
-    if (dir === "up") applyDragDom(0, -distY);
+    const base = Math.min(340, w * 0.85);
+    const extra = clamp(Math.abs(meta.vx || 0) * 800, 0, 380); // momentum (px)
+    const outX = dir === "right" ? base + extra : dir === "left" ? -(base + extra) : 0;
 
-    await sleep(220);
+    const outY = dir === "up" ? -Math.min(520, w * 1.05) : -20 + clamp(meta.dy * 0.10, -40, 40);
+
+    // réactive transition (car on coupe pendant le drag)
+    if (stageRef.current) stageRef.current.style.transition = "transform 220ms cubic-bezier(.2,.8,.2,1)";
+
+    if (dir === "right") applyDragDom(outX, outY);
+    if (dir === "left") applyDragDom(outX, outY);
+    if (dir === "up") applyDragDom(0, outY);
+
+    await sleep(230);
   };
 
-  const handleLike = async () => {
+  const handleLike = async (meta) => {
     const gate = guardAction();
     if (!gate.ok) return;
     if (!currentProfile || busy) return;
@@ -268,7 +278,7 @@ export function SwipeDeck({
       showFlash("like");
       vibrate([20]);
 
-      await flyOut("right");
+      await flyOut("right", meta);
       next();
       resetDragDom();
 
@@ -278,7 +288,7 @@ export function SwipeDeck({
     }
   };
 
-  const handleSuperLike = async () => {
+  const handleSuperLike = async (meta) => {
     const gate = guardAction();
     if (!gate.ok) return;
     if (!currentProfile || busy) return;
@@ -295,7 +305,7 @@ export function SwipeDeck({
       showFlash("super");
       vibrate([15, 35, 15]);
 
-      await flyOut("up");
+      await flyOut("up", meta);
       next();
       resetDragDom();
 
@@ -306,10 +316,10 @@ export function SwipeDeck({
     }
   };
 
-  const handleSkip = async () => {
+  const handleSkip = async (meta) => {
     if (isShareCard) {
       if (busy) return;
-      await flyOut("left");
+      await flyOut("left", meta);
       next();
       resetDragDom();
       return;
@@ -324,7 +334,7 @@ export function SwipeDeck({
       showFlash("nope");
       vibrate([12]);
 
-      await flyOut("left");
+      await flyOut("left", meta);
       next();
       resetDragDom();
     } finally {
@@ -358,9 +368,9 @@ export function SwipeDeck({
 
   const stageStyle = {
     transform: `translate3d(var(--dx, 0px), var(--dy, 0px), 0) rotate(var(--rot, 0deg))`,
-    transition: dragging ? "none" : "transform 220ms cubic-bezier(.2,.8,.2,1)",
+    transition: "transform 220ms cubic-bezier(.2,.8,.2,1)", // sera mis à "none" pendant le drag via JS
     willChange: "transform",
-    cursor: isShareCard ? "default" : !isAuthenticated ? "default" : dragging ? "grabbing" : "grab",
+    cursor: isShareCard ? "default" : !isAuthenticated ? "default" : "grab",
     touchAction: "pan-y",
     position: "relative"
   };
@@ -441,7 +451,7 @@ export function SwipeDeck({
     return <div style={boxBase}>NON ✕</div>;
   })();
 
-  // ✅ pointer handlers
+  // ✅ pointer handlers (avec pointerId + vitesse)
   const onPointerDown = (e) => {
     if (zoomOpen) return;
     if (!currentProfile || busy) return;
@@ -464,7 +474,12 @@ export function SwipeDeck({
     pointerRef.current.moved = false;
     pointerRef.current.pointerId = e.pointerId;
 
-    setDragging(true);
+    pointerRef.current.lastT = performance.now();
+    pointerRef.current.vx = 0;
+
+    // coupe la transition pendant le drag (zéro re-render)
+    if (stageRef.current) stageRef.current.style.transition = "none";
+
     lockScroll();
     resetDragDom();
 
@@ -475,9 +490,16 @@ export function SwipeDeck({
 
   const onPointerMove = (e) => {
     if (!pointerRef.current.active) return;
+    if (pointerRef.current.pointerId != null && e.pointerId !== pointerRef.current.pointerId) return;
 
     const dx = e.clientX - pointerRef.current.startX;
     const dy = e.clientY - pointerRef.current.startY;
+
+    // vitesse horizontale (px/ms)
+    const now = performance.now();
+    const dt = Math.max(1, now - (pointerRef.current.lastT || now));
+    pointerRef.current.vx = (e.clientX - pointerRef.current.lastX) / dt;
+    pointerRef.current.lastT = now;
 
     pointerRef.current.lastX = e.clientX;
     pointerRef.current.lastY = e.clientY;
@@ -493,12 +515,14 @@ export function SwipeDeck({
 
   const endPointer = () => {
     pointerRef.current.active = false;
-    setDragging(false);
     unlockScroll();
   };
 
-  const onPointerUp = async () => {
+  const onPointerUp = async (e) => {
     if (!pointerRef.current.active) return;
+    if (pointerRef.current.pointerId != null && e?.pointerId != null && e.pointerId !== pointerRef.current.pointerId)
+      return;
+
     endPointer();
 
     if (!isAuthenticated) {
@@ -513,31 +537,41 @@ export function SwipeDeck({
 
     const dx = pointerRef.current.lastX - pointerRef.current.startX;
     const dy = pointerRef.current.lastY - pointerRef.current.startY;
+    const vx = pointerRef.current.vx || 0;
 
     if (!pointerRef.current.moved) {
       resetDragDom();
       return;
     }
 
-    if (dy < -SWIPE_Y && Math.abs(dx) < SWIPE_X) {
-      await handleSuperLike();
+    const meta = { dx, dy, vx };
+
+    const shouldSuper = dy < -SWIPE_Y && Math.abs(dx) < SWIPE_X;
+    const shouldLike = dx > SWIPE_X || vx > V_SWIPE;
+    const shouldNope = dx < -SWIPE_X || vx < -V_SWIPE;
+
+    if (shouldSuper) {
+      await handleSuperLike(meta);
       return;
     }
-    if (dx > SWIPE_X) {
-      await handleLike();
+    if (shouldLike) {
+      await handleLike(meta);
       return;
     }
-    if (dx < -SWIPE_X) {
-      await handleSkip();
+    if (shouldNope) {
+      await handleSkip(meta);
       return;
     }
 
+    // retour au centre (transition réactivée)
+    if (stageRef.current) stageRef.current.style.transition = "transform 220ms cubic-bezier(.2,.8,.2,1)";
     resetDragDom();
   };
 
   const onPointerCancel = () => {
     if (!pointerRef.current.active) return;
     endPointer();
+    if (stageRef.current) stageRef.current.style.transition = "transform 220ms cubic-bezier(.2,.8,.2,1)";
     resetDragDom();
   };
 
@@ -574,12 +608,12 @@ export function SwipeDeck({
             )}
 
             {isShareCard ? (
-              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={dragging} />
+              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={false} />
             ) : (
               <SwipeCard
                 key={currentProfile.id}
                 profile={currentProfile}
-                reduceEffects={dragging}
+                reduceEffects={false}
                 onReport={(payload) => onReportProfile?.(currentProfile, payload)}
               />
             )}
@@ -639,13 +673,28 @@ export function SwipeDeck({
             </div>
           ) : (
             <div className="actions" onClick={(e) => e.stopPropagation()}>
-              <button type="button" className="swBtn swBtnBad" onClick={handleSkip} disabled={busy}>
+              <button
+                type="button"
+                className="swBtn swBtnBad"
+                onClick={() => handleSkip({ dx: 0, dy: 0, vx: 0 })}
+                disabled={busy}
+              >
                 ✕
               </button>
-              <button type="button" className="swBtn swBtnPrimary" onClick={handleLike} disabled={busy}>
+              <button
+                type="button"
+                className="swBtn swBtnPrimary"
+                onClick={() => handleLike({ dx: 0, dy: 0, vx: 0 })}
+                disabled={busy}
+              >
                 ❤
               </button>
-              <button type="button" className="swBtn swBtnGood" onClick={handleSuperLike} disabled={busy}>
+              <button
+                type="button"
+                className="swBtn swBtnGood"
+                onClick={() => handleSuperLike({ dx: 0, dy: 0, vx: 0 })}
+                disabled={busy}
+              >
                 ★
               </button>
             </div>
@@ -717,4 +766,3 @@ export function SwipeDeck({
     </div>
   );
 }
-
