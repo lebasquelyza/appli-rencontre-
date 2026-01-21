@@ -14,75 +14,63 @@ Notifications.setNotificationHandler({
 
 export async function registerPushTokenWithSupabase() {
   if (!Device.isDevice) {
-    console.log("⚠️ Push: il faut un appareil réel");
+    console.log("Push uniquement sur vrai téléphone");
     return;
   }
 
-  // ✅ Android channel obligatoire
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#FF231F7C",
-    });
-  }
+  const { status: existingStatus } =
+    await Notifications.getPermissionsAsync();
 
-  // 1️⃣ Permission
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
   if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
+    const { status } =
+      await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
 
   if (finalStatus !== "granted") {
-    console.log("❌ Permission notifications refusée");
+    console.log("Permission refusée");
     return;
   }
 
-  // 2️⃣ Expo projectId (EAS)
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ??
     Constants.easConfig?.projectId;
 
   if (!projectId) {
-    console.log("❌ projectId introuvable (extra.eas.projectId)");
+    console.log("projectId manquant");
     return;
   }
 
-  const expoToken = (
+  const token = (
     await Notifications.getExpoPushTokenAsync({ projectId })
   ).data;
 
-  console.log("✅ Expo push token :", expoToken);
-
-  // 3️⃣ User connecté
   const { data: userRes } = await supabase.auth.getUser();
-  const userId = userRes.user?.id;
 
-  if (!userId) {
-    console.log("❌ Aucun utilisateur connecté");
+  if (!userRes.user) {
+    console.log("Utilisateur non connecté");
     return;
   }
 
-  // 4️⃣ Enregistrement DB (iOS + Android)
   const { error } = await supabase
     .from("user_push_tokens")
     .upsert(
       {
-        user_id: userId,
-        expo_push_token: expoToken,
-        platform: Platform.OS, // ✅ ios / android
+        user_id: userRes.user.id,
+        expo_push_token: token,
+        platform: Platform.OS,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "expo_push_token" }
+      {
+        onConflict: "expo_push_token",
+      }
     );
 
   if (error) {
-    console.log("❌ Erreur Supabase push token :", error);
+    console.error("❌ PUSH ERROR", error);
   } else {
-    console.log("✅ Push token enregistré !");
+    console.log("✅ Push token enregistré");
   }
 }
