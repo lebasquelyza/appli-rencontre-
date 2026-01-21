@@ -1,9 +1,9 @@
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 import { supabase } from "./supabaseClient";
 
-// Important: iOS exige souvent d'avoir un handler pour l'affichage en foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -18,7 +18,17 @@ export async function registerPushTokenWithSupabase() {
     return;
   }
 
-  // 1) Permission
+  // ✅ Android channel obligatoire
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#FF231F7C",
+    });
+  }
+
+  // 1️⃣ Permission
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -32,39 +42,47 @@ export async function registerPushTokenWithSupabase() {
     return;
   }
 
-  // 2) Token (projectId requis sur beaucoup de projets Expo/EAS)
+  // 2️⃣ Expo projectId (EAS)
   const projectId =
-    Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    Constants.expoConfig?.extra?.eas?.projectId ??
+    Constants.easConfig?.projectId;
 
   if (!projectId) {
-    console.log("❌ projectId introuvable (eas.projectId).");
-    console.log("Va dans app.json/app.config.js -> extra.eas.projectId");
+    console.log("❌ projectId introuvable (extra.eas.projectId)");
     return;
   }
 
-  const expoToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-  console.log("✅ Expo push token:", expoToken);
+  const expoToken = (
+    await Notifications.getExpoPushTokenAsync({ projectId })
+  ).data;
 
-  // 3) User connecté ?
+  console.log("✅ Expo push token :", expoToken);
+
+  // 3️⃣ User connecté
   const { data: userRes } = await supabase.auth.getUser();
   const userId = userRes.user?.id;
 
   if (!userId) {
-    console.log("❌ Aucun user connecté Supabase");
+    console.log("❌ Aucun utilisateur connecté");
     return;
   }
 
-  // 4) Upsert en DB
-  const { error } = await supabase.from("user_push_tokens").upsert({
-    user_id: userId,
-    expo_push_token: expoToken,
-    platform: "ios",
-    updated_at: new Date().toISOString(),
-  });
+  // 4️⃣ Enregistrement DB (iOS + Android)
+  const { error } = await supabase
+    .from("user_push_tokens")
+    .upsert(
+      {
+        user_id: userId,
+        expo_push_token: expoToken,
+        platform: Platform.OS, // ✅ ios / android
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "expo_push_token" }
+    );
 
   if (error) {
-    console.log("❌ Erreur upsert token:", error);
+    console.log("❌ Erreur Supabase push token :", error);
   } else {
-    console.log("✅ Token enregistré dans Supabase !");
+    console.log("✅ Push token enregistré !");
   }
 }
