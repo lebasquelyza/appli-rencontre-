@@ -61,7 +61,7 @@ export function Subscription({ user, premiumLikes = [] }) {
                             padding: 10,
                             borderRadius: 14,
                             background: "rgba(255,255,255,0.04)",
-                            border: "1px solid rgba(255,255,255,0.08)",
+                            border: "1px solid rgba(255,255,255,0.08)"
                           }}
                         >
                           {url ? (
@@ -73,7 +73,7 @@ export function Subscription({ user, premiumLikes = [] }) {
                                 height: 44,
                                 borderRadius: 999,
                                 objectFit: "cover",
-                                flex: "0 0 auto",
+                                flex: "0 0 auto"
                               }}
                             />
                           ) : (
@@ -86,14 +86,22 @@ export function Subscription({ user, premiumLikes = [] }) {
                                 placeItems: "center",
                                 background: "rgba(255,255,255,0.08)",
                                 border: "1px solid rgba(255,255,255,0.10)",
-                                fontWeight: 700,
+                                fontWeight: 700
                               }}
                             >
                               {(p.name || "?").slice(0, 1).toUpperCase()}
                             </div>
                           )}
 
-                          <div style={{ minWidth: 0, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div
+                            style={{
+                              minWidth: 0,
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis"
+                            }}
+                          >
                             {p.name || "Profil"}
                           </div>
                         </div>
@@ -105,7 +113,6 @@ export function Subscription({ user, premiumLikes = [] }) {
             ) : null}
           </div>
 
-          {/* Premium inchangé */}
           <div className="card" style={{ padding: 14, marginTop: 14 }}>
             <h3 style={{ marginTop: 0 }}>Premium ⭐</h3>
             <p style={{ opacity: 0.85, marginTop: 6, lineHeight: 1.45 }}>
