@@ -1720,26 +1720,36 @@ const navigate = useNavigate();
         name: profile?.name || "Match",
         photoUrl: (profile?.photo_urls && profile.photo_urls[0]) || profile?.photo || ""
       });
-
-      // ✅ push téléphone à l'autre (si token enregistré)
+      // ✅ push téléphone à l'autre (via Edge Function "send-push")
       try {
         const to_user_id = profile?.user_id;
         if (to_user_id) {
-          await supabase.functions.invoke("notify", {
-            body: {
-              type: "match",
-              to_user_id,
-              title: "Nouveau match 🎉",
-              body: "Vous avez un nouveau match !",
-              data: { match_id: row?.match_id || row?.id || null }
-            }
-          });
+          // on récupère le match_id réel (id dans la table matches)
+          const { data: mRow } = await supabase
+            .from("matches")
+            .select("id")
+            .or(`and(user1_id.eq.${user.id},user2_id.eq.${to_user_id}),and(user1_id.eq.${to_user_id},user2_id.eq.${user.id})`)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const match_id = mRow?.id ?? null;
+
+          if (match_id != null) {
+            await supabase.functions.invoke("send-push", {
+              body: {
+                type: "match",
+                to_user_id,
+                match_id,
+                other_name: myProfile?.name || "Quelqu’un"
+              }
+            });
+          }
         }
       } catch (e) {
-        console.log("notify match error", e);
+        console.log("send-push match error", e);
       }
-
-    }
+}
 
     fetchSuperlikers();
     fetchMyLikesAndPremium();
