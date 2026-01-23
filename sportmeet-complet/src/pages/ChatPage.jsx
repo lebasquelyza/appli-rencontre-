@@ -33,23 +33,6 @@ export function ChatPage() {
     window.__chat_toast = window.setTimeout(() => setToast(""), 2200);
   };
 
-  // ✅ notif système (PWA/navigateur) si autorisé
-  const maybeNotifySystem = (body) => {
-    try {
-      if (!("Notification" in window)) return;
-      if (Notification.permission !== "granted") return;
-      // seulement si app en arrière-plan
-      if (!document.hidden) return;
-
-      new Notification(`Nouveau message • ${title}`, {
-        body: body || "Tu as reçu un message.",
-        icon: "/logo.png"
-      });
-    } catch {
-      // ignore
-    }
-  };
-
   // user
   useEffect(() => {
     let mounted = true;
@@ -60,15 +43,6 @@ export function ChatPage() {
     return () => {
       mounted = false;
     };
-  }, []);
-
-  // ✅ demander la permission notif (facultatif, mais pratique)
-  useEffect(() => {
-    if (!("Notification" in window)) return;
-    if (Notification.permission === "default") {
-      // on demande seulement quand l'utilisateur ouvre une conversation
-      Notification.requestPermission().catch(() => {});
-    }
   }, []);
 
   // ✅ si on arrive via refresh/lien direct: récupérer le crush depuis DB
@@ -178,8 +152,7 @@ export function ChatPage() {
               // déjà présent ?
               if (prev.some((m) => m.id === row.id)) return prev;
 
-              // ✅ anti-doublon : si on a un message optimiste "temp-"
-              // même sender + même body + créé très récemment -> on remplace
+              // ✅ anti-doublon : remplace un message optimiste temp- si même body/sender et proche dans le temps
               const idxTemp = prev.findIndex((m) => {
                 if (!String(m.id || "").startsWith("temp-")) return false;
                 if (m.sender_id !== row.sender_id) return false;
@@ -199,12 +172,9 @@ export function ChatPage() {
               return [...prev, row];
             });
 
-            // ✅ notif in-app / système si message de l'autre
+            // ✅ toast si message de l'autre
             const isMine = row.sender_id === me?.id;
-            if (!isMine) {
-              showToast("Nouveau message 💬");
-              maybeNotifySystem(row.body);
-            }
+            if (!isMine) showToast("Nouveau message 💬");
           }
         )
         .subscribe();
@@ -214,7 +184,7 @@ export function ChatPage() {
 
     run();
     return cleanup;
-  }, [isDemo, matchIdNum, stateCrush?.message, me?.id]); // ✅ ajoute me?.id
+  }, [isDemo, matchIdNum, stateCrush?.message, me?.id]);
 
   // autoscroll
   useEffect(() => {
@@ -260,6 +230,24 @@ export function ChatPage() {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       showToast("Erreur d’envoi ❌");
       return;
+    }
+
+    // ✅ push téléphone au destinataire (si token enregistré)
+    try {
+      const to_user_id = crush?.user_id;
+      if (to_user_id) {
+        await supabase.functions.invoke("notify", {
+          body: {
+            type: "message",
+            to_user_id,
+            title: `Message • ${title || "Match"}`,
+            body: text,
+            data: { match_id: matchIdNum }
+          }
+        });
+      }
+    } catch (e) {
+      console.log("notify message error", e);
     }
   };
 
