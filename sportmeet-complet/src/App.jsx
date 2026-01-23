@@ -628,13 +628,11 @@ const navigate = useNavigate();
     if (!user?.id || !t) return;
 
     try {
-      const { error } = await supabase.from("user_devices").upsert(
+      const { error } = await supabase.from("user_push_tokens").upsert(
         {
           user_id: user.id,
           expo_push_token: t,
-          platform: "expo",
-          updated_at: new Date().toISOString()
-        },
+          platform: "expo",        },
         { onConflict: "expo_push_token" }
       );
 
