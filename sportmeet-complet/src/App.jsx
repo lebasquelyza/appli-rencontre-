@@ -681,68 +681,7 @@ const navigate = useNavigate();
   }, [user?.id]);
 
 
-  /* -------------------------------
-     ✅ PUSH téléphone (Expo) : recevoir + sauvegarder le push token
-     Le code natif (Expo) doit envoyer un message WebView:
-     { type: "EXPO_PUSH_TOKEN", token: "ExponentPushToken[...]" }
-  -------------------------------- */
-  const upsertExpoPushToken = async (token) => {
-    const t = String(token || "").trim();
-    if (!user?.id || !t) return;
-
-    try {
-      const { error } = await supabase.from("user_devices").upsert(
-        {
-          user_id: user.id,
-          expo_push_token: t,
-          platform: "expo",
-          updated_at: new Date().toISOString()
-        },
-        { onConflict: "expo_push_token" }
-      );
-
-      if (error) console.error("upsertExpoPushToken error:", error);
-    } catch (e) {
-      console.error("upsertExpoPushToken exception:", e);
-    }
-  };
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const onMsg = (event) => {
-      try {
-        const raw = event?.data;
-        const msg = typeof raw === "string" ? JSON.parse(raw) : raw;
-        if (!msg) return;
-
-        if (msg.type === "EXPO_PUSH_TOKEN" && msg.token) {
-          upsertExpoPushToken(msg.token);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    window.addEventListener("message", onMsg);
-    document.addEventListener("message", onMsg); // ✅ support ReactNativeWebView
-
-    // ✅ demande au natif d'envoyer le token (si implémenté côté Expo)
-    try {
-      if (window.ReactNativeWebView?.postMessage) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: "REQUEST_EXPO_PUSH_TOKEN" }));
-      }
-    } catch {
-      // ignore
-    }
-
-    return () => {
-      window.removeEventListener("message", onMsg);
-      document.removeEventListener("message", onMsg);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
+  
   /* -------------------------------
      Auth session
   -------------------------------- */
