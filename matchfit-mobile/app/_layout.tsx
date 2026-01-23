@@ -23,7 +23,7 @@ function NotificationRouter() {
       // Ouvre le chat directement
       if ((type === "NEW_MESSAGE" || type === "NEW_MATCH") && matchId) {
   const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || "https://matchfit.app";
-  router.push(`/(tabs)/index?open=${encodeURIComponent(`${WEB_URL}/chat/${matchId}`)}`);
+router.push(`/(tabs)/index?open=${encodeURIComponent(`${WEB_URL}/chat/${matchId}`)}`);
 }
 
     };
