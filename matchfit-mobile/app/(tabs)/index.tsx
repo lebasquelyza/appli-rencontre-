@@ -1,9 +1,14 @@
-import { useState } from "react";
-import { Button, Text, View } from "react-native";
-import * as Device from "expo-device";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Platform, View } from "react-native";
+import { WebView } from "react-native-webview";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "@/lib/supabase";
+
+const WEB_URL = "https://appli-rencontre.netlify.app";
+const WEB_MESSAGES_PATH = "/crushes"; // liste
+const SAVE_PUSH_TOKEN_URL =
+  "https://vnzlovsnxxoacvjaekjv.functions.supabase.co/save-push-token";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -13,18 +18,38 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export default function HomeScreen() {
-  const [token, setToken] = useState<string>("");
-  const [status, setStatus] = useState<string>("");
+export default function HomeWeb() {
+  const webRef = useRef<WebView>(null);
 
-  const getTokenAndSave = async () => {
+  const [loading, setLoading] = useState(true);
+
+  // éviter appels multiples
+  const savingRef = useRef(false);
+  const lastSavedUserRef = useRef<string | null>(null);
+
+  // éviter de traiter 3 fois la même session envoyée par le web
+  const lastAccessTokenRef = useRef<string | null>(null);
+
+  const gotoWeb = (url: string) => {
+    webRef.current?.injectJavaScript(`
+      try { window.location.href = "${url}"; } catch(e) {}
+      true;
+    `);
+  };
+
+  const maybeRegisterAndSavePushToken = async () => {
     try {
-      setStatus("Demande permission...");
+      if (savingRef.current) return;
 
-      if (!Device.isDevice) {
-        setStatus("❌ Il faut un iPhone réel");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+
+      if (!userId) {
+        console.log("ℹ️ No session yet (mobile), skip save token");
         return;
       }
+
+      if (lastSavedUserRef.current === userId) return;
 
       const perm = await Notifications.getPermissionsAsync();
       let finalStatus = perm.status;
@@ -35,7 +60,7 @@ export default function HomeScreen() {
       }
 
       if (finalStatus !== "granted") {
-        setStatus("❌ Permission notifications refusée");
+        console.log("❌ Notification permission not granted");
         return;
       }
 
@@ -43,52 +68,124 @@ export default function HomeScreen() {
         (Constants.expoConfig as any)?.extra?.eas?.projectId ??
         (Constants as any).easConfig?.projectId;
 
-      if (!projectId) {
-        setStatus("❌ projectId introuvable (app.json → extra.eas.projectId)");
-        return;
-      }
-
-      setStatus("Récupération du token...");
-
-      const expoToken = (await Notifications.getExpoPushTokenAsync({ projectId }))
-        .data;
+      const expoToken = projectId
+        ? (await Notifications.getExpoPushTokenAsync({ projectId })).data
+        : (await Notifications.getExpoPushTokenAsync()).data;
 
       console.log("✅ ExpoPushToken:", expoToken);
-      setToken(expoToken);
 
-      setStatus("Enregistrement dans Supabase...");
+      savingRef.current = true;
 
-      const { data: userRes } = await supabase.auth.getUser();
-      const userId = userRes.user?.id;
-
-      if (!userId) {
-        setStatus("⚠️ Pas connecté à Supabase (il faut un login pour associer le token)");
-        return;
-      }
-
-      const { error } = await supabase.from("user_push_tokens").upsert({
-        user_id: userId,
-        expo_push_token: expoToken,
-        platform: "ios",
-        updated_at: new Date().toISOString(),
+      const res = await fetch(SAVE_PUSH_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: expoToken,
+          user_id: userId,
+          platform: Platform.OS,
+        }),
       });
 
-      if (error) setStatus("❌ Supabase error: " + error.message);
-      else setStatus("✅ Token enregistré dans Supabase !");
-    } catch (e: any) {
-      console.log("❌ Erreur:", e);
-      setStatus("❌ Erreur: " + (e?.message ?? String(e)));
+      const txt = await res.text();
+      console.log("✅ save-push-token:", res.status, txt);
+
+      if (res.ok) lastSavedUserRef.current = userId;
+    } catch (e) {
+      console.log("❌ maybeRegisterAndSavePushToken error:", e);
+    } finally {
+      savingRef.current = false;
     }
   };
 
+  // Réception session depuis le web
+  const onMessage = async (event: any) => {
+    try {
+      const raw = event?.nativeEvent?.data;
+      if (!raw) return;
+
+      let msg: any;
+      try {
+        msg = JSON.parse(raw);
+      } catch {
+        msg = raw;
+      }
+
+      if (msg?.type === "SUPABASE_SESSION") {
+        console.log("📩 Session reçue depuis le web");
+
+        if (!msg?.access_token) return;
+
+        // ✅ anti doublon (sinon ça resave 2-3 fois)
+        if (lastAccessTokenRef.current === msg.access_token) return;
+        lastAccessTokenRef.current = msg.access_token;
+
+        await supabase.auth.setSession({
+          access_token: msg.access_token,
+          refresh_token: msg.refresh_token ?? msg.access_token,
+        });
+
+        await maybeRegisterAndSavePushToken();
+      }
+    } catch (e) {
+      console.log("❌ onMessage error:", e);
+    }
+  };
+
+  const onNavigationStateChange = (nav: any) => {
+    if (nav?.url) console.log("🌐 WEBVIEW URL:", nav.url);
+  };
+
+  // ✅ Tap notification => /chat/<matchId> sinon /crushes
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data: any = response?.notification?.request?.content?.data;
+      console.log("👉 notif tap data:", data);
+
+      const matchId = data?.match_id ?? data?.matchId ?? data?.matchID;
+
+      if (matchId) {
+        gotoWeb(`${WEB_URL}/chat/${matchId}`);
+      } else {
+        gotoWeb(`${WEB_URL}${WEB_MESSAGES_PATH}`);
+      }
+    });
+
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    maybeRegisterAndSavePushToken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <View style={{ flex: 1, padding: 20, justifyContent: "center" }}>
-      <Text style={{ fontSize: 22, marginBottom: 12 }}>MatchFit Mobile</Text>
-      <Button title="Activer notifications + sauver" onPress={getTokenAndSave} />
-      <Text style={{ marginTop: 16 }}>{status}</Text>
-      <Text style={{ marginTop: 16 }} selectable>
-        {token}
-      </Text>
+    <View style={{ flex: 1 }}>
+      <WebView
+        ref={webRef}
+        source={{ uri: WEB_URL }}
+        onLoadEnd={() => setLoading(false)}
+        onMessage={onMessage}
+        onNavigationStateChange={onNavigationStateChange}
+        javaScriptEnabled
+        domStorageEnabled
+      />
+
+      {loading && (
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ActivityIndicator />
+        </View>
+      )}
     </View>
   );
 }
+
