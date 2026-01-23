@@ -18,11 +18,37 @@ export function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
 
+  // ✅ mini toast in-app
+  const [toast, setToast] = useState("");
+
   const scrollRef = useRef(null);
   const channelRef = useRef(null);
 
   const title = crush?.name || "Messages";
   const avatar = crush?.photo_urls?.[0] || crush?.photo || "/logo.png";
+
+  const showToast = (txt) => {
+    setToast(txt);
+    window.clearTimeout(window.__chat_toast);
+    window.__chat_toast = window.setTimeout(() => setToast(""), 2200);
+  };
+
+  // ✅ notif système (PWA/navigateur) si autorisé
+  const maybeNotifySystem = (body) => {
+    try {
+      if (!("Notification" in window)) return;
+      if (Notification.permission !== "granted") return;
+      // seulement si app en arrière-plan
+      if (!document.hidden) return;
+
+      new Notification(`Nouveau message • ${title}`, {
+        body: body || "Tu as reçu un message.",
+        icon: "/logo.png"
+      });
+    } catch {
+      // ignore
+    }
+  };
 
   // user
   useEffect(() => {
@@ -34,6 +60,15 @@ export function ChatPage() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  // ✅ demander la permission notif (facultatif, mais pratique)
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      // on demande seulement quand l'utilisateur ouvre une conversation
+      Notification.requestPermission().catch(() => {});
+    }
   }, []);
 
   // ✅ si on arrive via refresh/lien direct: récupérer le crush depuis DB
@@ -137,7 +172,39 @@ export function ChatPage() {
           { event: "INSERT", schema: "public", table: "messages", filter: `match_id=eq.${matchIdNum}` },
           (payload) => {
             const row = payload.new;
-            setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+            if (!row?.id) return;
+
+            setMessages((prev) => {
+              // déjà présent ?
+              if (prev.some((m) => m.id === row.id)) return prev;
+
+              // ✅ anti-doublon : si on a un message optimiste "temp-"
+              // même sender + même body + créé très récemment -> on remplace
+              const idxTemp = prev.findIndex((m) => {
+                if (!String(m.id || "").startsWith("temp-")) return false;
+                if (m.sender_id !== row.sender_id) return false;
+                if ((m.body || "") !== (row.body || "")) return false;
+
+                const t1 = new Date(m.created_at).getTime();
+                const t2 = new Date(row.created_at).getTime();
+                return Math.abs(t2 - t1) < 15000; // 15s
+              });
+
+              if (idxTemp !== -1) {
+                const copy = [...prev];
+                copy[idxTemp] = row;
+                return copy;
+              }
+
+              return [...prev, row];
+            });
+
+            // ✅ notif in-app / système si message de l'autre
+            const isMine = row.sender_id === me?.id;
+            if (!isMine) {
+              showToast("Nouveau message 💬");
+              maybeNotifySystem(row.body);
+            }
           }
         )
         .subscribe();
@@ -147,7 +214,7 @@ export function ChatPage() {
 
     run();
     return cleanup;
-  }, [isDemo, matchIdNum, stateCrush?.message]);
+  }, [isDemo, matchIdNum, stateCrush?.message, me?.id]); // ✅ ajoute me?.id
 
   // autoscroll
   useEffect(() => {
@@ -180,6 +247,7 @@ export function ChatPage() {
       created_at: new Date().toISOString()
     };
     setMessages((prev) => [...prev, optimistic]);
+    setDraft("");
 
     const { error } = await supabase.from("messages").insert({
       match_id: matchIdNum,
@@ -190,16 +258,35 @@ export function ChatPage() {
     if (error) {
       console.error("send message error:", error);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      showToast("Erreur d’envoi ❌");
       return;
     }
-
-    setDraft("");
   };
 
   return (
     <main className="page">
       <div className="shell">
-        <div className="card" style={{ padding: 14 }}>
+        <div className="card" style={{ padding: 14, position: "relative" }}>
+          {/* ✅ Toast */}
+          {toast ? (
+            <div
+              style={{
+                position: "absolute",
+                top: 10,
+                left: "50%",
+                transform: "translateX(-50%)",
+                padding: "8px 12px",
+                borderRadius: 999,
+                background: "rgba(0,0,0,0.65)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                fontSize: 13,
+                zIndex: 10
+              }}
+            >
+              {toast}
+            </div>
+          ) : null}
+
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button type="button" className="btn-ghost btn-sm" onClick={() => navigate(-1)}>
               Retour
