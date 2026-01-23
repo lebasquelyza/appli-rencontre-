@@ -6,7 +6,9 @@ export function Subscription({ user, premiumLikes = [] }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
 
-  const items = useMemo(() => (Array.isArray(premiumLikes) ? premiumLikes : []), [premiumLikes]);
+  const items = useMemo(() => {
+    return Array.isArray(premiumLikes) ? premiumLikes : [];
+  }, [premiumLikes]);
 
   return (
     <main className="page">
@@ -25,21 +27,29 @@ export function Subscription({ user, premiumLikes = [] }) {
             </p>
           ) : null}
 
-          {/* ✅ Accordéon: même design que Premium */}
+          {/* ✅ Accordéon: profils likés (sans match) */}
           <div className="card" style={{ padding: 14, marginTop: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Mes likes (sans match)</h3>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => setOpen((v) => !v)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                padding: 0
+              }}
+              aria-expanded={open}
+            >
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <h3 style={{ margin: 0 }}>Mes likes (sans match)</h3>
+                <span style={{ opacity: 0.75, fontSize: 13 }}>({items.length})</span>
+              </div>
 
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                onClick={() => setOpen((v) => !v)}
-                aria-expanded={open}
-                title={open ? "Réduire" : "Ouvrir"}
-              >
-                {open ? "Masquer" : "Afficher"} ({items.length})
-              </button>
-            </div>
+              <span style={{ fontSize: 18, opacity: 0.8 }}>{open ? "▾" : "▸"}</span>
+            </button>
 
             {open ? (
               <div style={{ marginTop: 12 }}>
@@ -93,16 +103,10 @@ export function Subscription({ user, premiumLikes = [] }) {
                             </div>
                           )}
 
-                          <div
-                            style={{
-                              minWidth: 0,
-                              fontWeight: 700,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis"
-                            }}
-                          >
-                            {p.name || "Profil"}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {p.name || "Profil"}
+                            </div>
                           </div>
                         </div>
                       );
