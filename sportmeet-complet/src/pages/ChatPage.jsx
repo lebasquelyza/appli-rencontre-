@@ -14,6 +14,7 @@ export function ChatPage() {
   const stateCrush = location.state?.crush || null;
 
   const [me, setMe] = useState(null);
+  const [myName, setMyName] = useState("");
   const [crush, setCrush] = useState(stateCrush); // on sécurise via DB si absent
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
@@ -44,6 +45,25 @@ export function ChatPage() {
       mounted = false;
     };
   }, []);
+
+  // ✅ mon nom (pour les notifications push)
+  useEffect(() => {
+    const run = async () => {
+      if (!me?.id) return;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("name, created_at")
+        .eq("user_id", me.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) return;
+      if (data?.name) setMyName(data.name);
+    };
+    run();
+  }, [me?.id]);
+
 
   // ✅ si on arrive via refresh/lien direct: récupérer le crush depuis DB
   useEffect(() => {
@@ -236,16 +256,16 @@ export function ChatPage() {
     try {
       const to_user_id = crush?.user_id;
       if (to_user_id) {
-        await supabase.functions.invoke("notify", {
+        await supabase.functions.invoke("send-push", {
           body: {
             type: "message",
             to_user_id,
-            title: `Message • ${title || "Match"}`,
-            body: text,
-            data: { match_id: matchIdNum }
+            match_id: matchIdNum,
+            sender_name: myName || "Quelqu’un",
+            body: text
           }
         });
-      }
+}
     } catch (e) {
       console.log("notify message error", e);
     }
