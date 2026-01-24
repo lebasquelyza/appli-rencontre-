@@ -6,33 +6,66 @@ import Constants from "expo-constants";
 import { supabase } from "@/lib/supabase";
 
 const WEB_URL = "https://appli-rencontre.netlify.app";
-const WEB_MESSAGES_PATH = "/crushes"; // liste
-const SAVE_PUSH_TOKEN_URL =
-  "https://vnzlovsnxxoacvjaekjv.functions.supabase.co/save-push-token";
+const WEB_MESSAGES_PATH = "/crushes";
+const SAVE_PUSH_TOKEN_URL = "https://vnzlovsnxxoacvjaekjv.functions.supabase.co/save-push-token";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+    shouldSetBadge: false
+  })
 });
 
 export default function HomeWeb() {
   const webRef = useRef<WebView>(null);
-
   const [loading, setLoading] = useState(true);
 
-  // éviter appels multiples
   const savingRef = useRef(false);
   const lastSavedUserRef = useRef<string | null>(null);
-
-  // éviter de traiter 3 fois la même session envoyée par le web
   const lastAccessTokenRef = useRef<string | null>(null);
+
+  // garde le token Expo en mémoire
+  const expoTokenRef = useRef<string | null>(null);
 
   const gotoWeb = (url: string) => {
     webRef.current?.injectJavaScript(`
       try { window.location.href = "${url}"; } catch(e) {}
+      true;
+    `);
+  };
+
+  const getExpoPushToken = async () => {
+    const perm = await Notifications.getPermissionsAsync();
+    let status = perm.status;
+
+    if (status !== "granted") {
+      const req = await Notifications.requestPermissionsAsync();
+      status = req.status;
+    }
+    if (status !== "granted") return null;
+
+    const projectId =
+      (Constants.expoConfig as any)?.extra?.eas?.projectId ?? (Constants as any).easConfig?.projectId;
+
+    const token = projectId
+      ? (await Notifications.getExpoPushTokenAsync({ projectId })).data
+      : (await Notifications.getExpoPushTokenAsync()).data;
+
+    expoTokenRef.current = token;
+    return token;
+  };
+
+  const postExpoTokenToWeb = (token: string) => {
+    if (!token) return;
+    const payload = JSON.stringify({ type: "EXPO_PUSH_TOKEN", token });
+
+    // Android
+    webRef.current?.postMessage(payload);
+
+    // iOS (fallback)
+    webRef.current?.injectJavaScript(`
+      try { window.postMessage(${JSON.stringify(payload)}, "*"); } catch(e) {}
       true;
     `);
   };
@@ -48,31 +81,16 @@ export default function HomeWeb() {
         console.log("ℹ️ No session yet (mobile), skip save token");
         return;
       }
-
       if (lastSavedUserRef.current === userId) return;
 
-      const perm = await Notifications.getPermissionsAsync();
-      let finalStatus = perm.status;
-
-      if (finalStatus !== "granted") {
-        const req = await Notifications.requestPermissionsAsync();
-        finalStatus = req.status;
-      }
-
-      if (finalStatus !== "granted") {
-        console.log("❌ Notification permission not granted");
+      const expoToken = expoTokenRef.current || (await getExpoPushToken());
+      if (!expoToken) {
+        console.log("❌ No push token (permission?)");
         return;
       }
 
-      const projectId =
-        (Constants.expoConfig as any)?.extra?.eas?.projectId ??
-        (Constants as any).easConfig?.projectId;
-
-      const expoToken = projectId
-        ? (await Notifications.getExpoPushTokenAsync({ projectId })).data
-        : (await Notifications.getExpoPushTokenAsync()).data;
-
-      console.log("✅ ExpoPushToken:", expoToken);
+      // utile si ta PWA veut aussi le token
+      postExpoTokenToWeb(expoToken);
 
       savingRef.current = true;
 
@@ -82,8 +100,8 @@ export default function HomeWeb() {
         body: JSON.stringify({
           token: expoToken,
           user_id: userId,
-          platform: Platform.OS,
-        }),
+          platform: Platform.OS
+        })
       });
 
       const txt = await res.text();
@@ -97,7 +115,6 @@ export default function HomeWeb() {
     }
   };
 
-  // Réception session depuis le web
   const onMessage = async (event: any) => {
     try {
       const raw = event?.nativeEvent?.data;
@@ -110,19 +127,28 @@ export default function HomeWeb() {
         msg = raw;
       }
 
-      if (msg?.type === "SUPABASE_SESSION") {
-        console.log("📩 Session reçue depuis le web");
+      // le web demande le token push
+      if (msg?.type === "REQUEST_EXPO_PUSH_TOKEN") {
+        const token = expoTokenRef.current || (await getExpoPushToken());
+        if (token) postExpoTokenToWeb(token);
+        return;
+      }
 
+      // le web envoie la session
+      if (msg?.type === "SUPABASE_SESSION") {
         if (!msg?.access_token) return;
 
-        // ✅ anti doublon (sinon ça resave 2-3 fois)
         if (lastAccessTokenRef.current === msg.access_token) return;
         lastAccessTokenRef.current = msg.access_token;
 
         await supabase.auth.setSession({
           access_token: msg.access_token,
-          refresh_token: msg.refresh_token ?? msg.access_token,
+          refresh_token: msg.refresh_token ?? msg.access_token
         });
+
+        // petit retry si auth pas encore prête
+        const { data: u1 } = await supabase.auth.getUser();
+        if (!u1?.user) await new Promise((r) => setTimeout(r, 500));
 
         await maybeRegisterAndSavePushToken();
       }
@@ -131,30 +157,23 @@ export default function HomeWeb() {
     }
   };
 
-  const onNavigationStateChange = (nav: any) => {
-    if (nav?.url) console.log("🌐 WEBVIEW URL:", nav.url);
-  };
-
-  // ✅ Tap notification => /chat/<matchId> sinon /crushes
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data: any = response?.notification?.request?.content?.data;
-      console.log("👉 notif tap data:", data);
-
       const matchId = data?.match_id ?? data?.matchId ?? data?.matchID;
 
-      if (matchId) {
-        gotoWeb(`${WEB_URL}/chat/${matchId}`);
-      } else {
-        gotoWeb(`${WEB_URL}${WEB_MESSAGES_PATH}`);
-      }
+      if (matchId) gotoWeb(`${WEB_URL}/chat/${matchId}`);
+      else gotoWeb(`${WEB_URL}${WEB_MESSAGES_PATH}`);
     });
 
     return () => sub.remove();
   }, []);
 
   useEffect(() => {
-    maybeRegisterAndSavePushToken();
+    (async () => {
+      await getExpoPushToken();
+      await maybeRegisterAndSavePushToken();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -165,7 +184,6 @@ export default function HomeWeb() {
         source={{ uri: WEB_URL }}
         onLoadEnd={() => setLoading(false)}
         onMessage={onMessage}
-        onNavigationStateChange={onNavigationStateChange}
         javaScriptEnabled
         domStorageEnabled
       />
@@ -179,7 +197,7 @@ export default function HomeWeb() {
             top: 0,
             bottom: 0,
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "center"
           }}
         >
           <ActivityIndicator />
@@ -188,4 +206,3 @@ export default function HomeWeb() {
     </View>
   );
 }
-
