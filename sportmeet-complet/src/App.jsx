@@ -17,12 +17,16 @@ import { HowItWorks } from "./pages/HowItWorks";
 const sendSessionToNative = (session) => {
   try {
     const access_token = session?.access_token ?? null;
+    const refresh_token = session?.refresh_token ?? null;
+    const expires_at = session?.expires_at ?? null;
 
     if (window.ReactNativeWebView?.postMessage) {
       window.ReactNativeWebView.postMessage(
         JSON.stringify({
           type: "SUPABASE_SESSION",
           access_token,
+          refresh_token,
+          expires_at
         })
       );
     }
@@ -617,69 +621,6 @@ const navigate = useNavigate();
     }
   }
 
-
-  /* -------------------------------
-     ✅ PUSH téléphone (Expo) : recevoir + sauvegarder le push token
-     Le code natif (Expo) doit envoyer un message WebView:
-     { type: "EXPO_PUSH_TOKEN", token: "ExponentPushToken[...]" }
-  -------------------------------- */
-  const upsertExpoPushToken = async (token) => {
-    const t = String(token || "").trim();
-    if (!user?.id || !t) return;
-
-    try {
-      const { error } = await supabase.from("user_push_tokens").upsert(
-        {
-          user_id: user.id,
-          expo_push_token: t,
-          platform: "expo",        },
-        { onConflict: "expo_push_token" }
-      );
-
-      if (error) console.error("upsertExpoPushToken error:", error);
-    } catch (e) {
-      console.error("upsertExpoPushToken exception:", e);
-    }
-  };
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const onMsg = (event) => {
-      try {
-        const raw = event?.data;
-        const msg = typeof raw === "string" ? JSON.parse(raw) : raw;
-        if (!msg) return;
-
-        if (msg.type === "EXPO_PUSH_TOKEN" && msg.token) {
-          upsertExpoPushToken(msg.token);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    window.addEventListener("message", onMsg);
-    document.addEventListener("message", onMsg); // ✅ support ReactNativeWebView
-
-    // ✅ demande au natif d'envoyer le token (si implémenté côté Expo)
-    try {
-      if (window.ReactNativeWebView?.postMessage) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: "REQUEST_EXPO_PUSH_TOKEN" }));
-      }
-    } catch {
-      // ignore
-    }
-
-    return () => {
-      window.removeEventListener("message", onMsg);
-      document.removeEventListener("message", onMsg);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-
-  
   /* -------------------------------
      Auth session
   -------------------------------- */
@@ -956,34 +897,6 @@ const navigate = useNavigate();
     fetchCrushes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
-
-  /* -------------------------------
-     ✅ Realtime: nouveau MATCH (in-app)
-  -------------------------------- */
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const ch = supabase
-      .channel(`rt-matches-${user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "matches" }, async (payload) => {
-        const m = payload?.new;
-        if (!m) return;
-
-        if (m.user1_id !== user.id && m.user2_id !== user.id) return;
-
-        await fetchCrushes();
-        setProfileToast("Nouveau match ✅");
-        window.clearTimeout(window.__rt_toast);
-        window.__rt_toast = window.setTimeout(() => setProfileToast(""), 2500);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(ch);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
 
   /* -------------------------------
      Masquer un match
@@ -1720,36 +1633,7 @@ const navigate = useNavigate();
         name: profile?.name || "Match",
         photoUrl: (profile?.photo_urls && profile.photo_urls[0]) || profile?.photo || ""
       });
-      // ✅ push téléphone à l'autre (via Edge Function "send-push")
-      try {
-        const to_user_id = profile?.user_id;
-        if (to_user_id) {
-          // on récupère le match_id réel (id dans la table matches)
-          const { data: mRow } = await supabase
-            .from("matches")
-            .select("id")
-            .or(`and(user1_id.eq.${user.id},user2_id.eq.${to_user_id}),and(user1_id.eq.${to_user_id},user2_id.eq.${user.id})`)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          const match_id = mRow?.id ?? null;
-
-          if (match_id != null) {
-            await supabase.functions.invoke("send-push", {
-              body: {
-                type: "match",
-                to_user_id,
-                match_id,
-                other_name: myProfile?.name || "Quelqu’un"
-              }
-            });
-          }
-        }
-      } catch (e) {
-        console.log("send-push match error", e);
-      }
-}
+    }
 
     fetchSuperlikers();
     fetchMyLikesAndPremium();
