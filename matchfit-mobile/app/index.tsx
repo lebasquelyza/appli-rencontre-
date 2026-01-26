@@ -5,6 +5,15 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { supabase } from "@/lib/supabase";
 
+/**
+ * ✅ DESTINATION
+ * - matchfit-mobile/app/index.tsx
+ *
+ * Charge la PWA (Netlify) dans une WebView.
+ * Fix principal: cache-bust + cache désactivé pour éviter que l’app garde une ancienne version (Android/WebView/PWA SW).
+ */
+
+// ✅ URL web (prod)
 const WEB_URL = "https://appli-rencontre.netlify.app";
 const WEB_MESSAGES_PATH = "/crushes";
 
@@ -197,15 +206,22 @@ export default function HomeWeb() {
   /* -------------------------------------------------------
      Render
   ------------------------------------------------------- */
+  // ✅ cache-bust: force la WebView à charger la dernière version (évite ancien SW/cache)
+  const webUri = `${WEB_URL}?v=2`;
+
   return (
     <View style={{ flex: 1 }}>
       <WebView
         ref={webRef}
-        source={{ uri: WEB_URL }}
+        source={{ uri: webUri }}
         onLoadEnd={() => setLoading(false)}
         onMessage={onMessage}
         javaScriptEnabled
         domStorageEnabled
+
+        // ✅ important sur Android/WebView + PWA: évite de garder une ancienne version
+        cacheEnabled={false}
+        incognito
       />
 
       {loading && (
