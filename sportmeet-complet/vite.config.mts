@@ -8,32 +8,18 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      manifest: {
-        name: "MatchFit",
-        short_name: "MatchFit",
-        start_url: "/",
-        scope: "/",
-        display: "standalone",
-        background_color: "#000000",
-        theme_color: "#000000",
-        description: "MatchFit – rencontres sportives",
-
-        icons: [
-          {
-            src: "/pwa-192.png",
-            sizes: "192x192",
-            type: "image/png"
-          },
-          {
-            src: "/pwa-512.png",
-            sizes: "512x512",
-            type: "image/png"
-          }
-        ]
-      }
-    })
+      manifestFilename: "manifest.webmanifest",
+      // optionnel mais recommandé pour iOS
+      includeAssets: [
+        "icons/apple-touch-icon.png",
+        "icons/apple-touch-icon-120.png",
+        "icons/apple-touch-icon-152.png",
+        "icons/apple-touch-icon-167.png",
+        "icons/apple-touch-icon-180.png",
+      ],
+    }),
   ],
   server: {
-    port: 5173
-  }
+    port: 5173,
+  },
 });
