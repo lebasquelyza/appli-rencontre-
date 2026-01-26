@@ -548,9 +548,6 @@ const navigate = useNavigate();
 
   // ✅ profils que j'ai likés (par profile.id) -> retirer du feed
   const [likedProfileIds, setLikedProfileIds] = useState(() => new Set());
-
-  // ✅ profils likés mais pas matchés (pour l'écran "passe à premium")
-  const [premiumLikes, setPremiumLikes] = useState([]);
   // ✅ personnes qui m'ont superlike
   const [superlikers, setSuperlikers] = useState([]);
 
@@ -1047,16 +1044,14 @@ const navigate = useNavigate();
   }, [user?.id, myProfile?.id]);
 
   /* -------------------------------
-     ✅ Mes likes (pour retirer du feed + "passe à premium")
+     ✅ Mes likes (pour retirer du feed)
   -------------------------------- */
-  const fetchMyLikesAndPremium = async () => {
+  const fetchMyLikes = async () => {
     if (!user?.id) {
       setLikedProfileIds(new Set());
-      setPremiumLikes([]);
       return;
     }
 
-    // 1) récupérer tous mes likes
     const { data: likesRows, error: lErr } = await supabase
       .from("likes")
       .select("liked_profile_id, created_at")
@@ -1067,7 +1062,6 @@ const navigate = useNavigate();
     if (lErr) {
       console.error("fetchMyLikes error:", lErr);
       setLikedProfileIds(new Set());
-      setPremiumLikes([]);
       return;
     }
 
@@ -1076,42 +1070,12 @@ const navigate = useNavigate();
     );
 
     setLikedProfileIds(new Set(likedIds));
-
-    if (likedIds.length === 0) {
-      setPremiumLikes([]);
-      return;
-    }
-
-    // 2) charger les profils likés
-    const { data: likedProfiles, error: pErr } = await supabase
-      .from("profiles")
-      .select("id, user_id, name, photo_urls, created_at, status")
-      .in("id", likedIds)
-      .order("created_at", { ascending: false });
-
-    if (pErr) {
-      console.error("fetchMyLikes profiles error:", pErr);
-      setPremiumLikes([]);
-      return;
-    }
-
-    // 3) garder seulement ceux PAS matchés
-    const noMatch = (likedProfiles || []).filter((p) => {
-      if (!p?.id) return false;
-      if ((p.status ?? "active") !== "active") return false;
-      if (hiddenProfileIds.has(p.id)) return false;
-      if (p.user_id && matchedUserIds.has(p.user_id)) return false; // exclut les matchés
-      return true;
-    });
-
-    setPremiumLikes(noMatch);
   };
 
   useEffect(() => {
-    fetchMyLikesAndPremium();
+    fetchMyLikes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, matchedUserIds, hiddenProfileIds]);
-
+  }, [user?.id]);
 
   /* -------------------------------
      Fetch tous les profils
@@ -1645,7 +1609,6 @@ const navigate = useNavigate();
     }
 
     fetchSuperlikers();
-    fetchMyLikesAndPremium();
     return true;
   };
 
@@ -1743,7 +1706,7 @@ const navigate = useNavigate();
         />
 
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
-        <Route path="/subscription" element={<Subscription user={userForUI} premiumLikes={premiumLikes} />} />
+        <Route path="/subscription" element={<Subscription user={userForUI} />} />
       </Routes>
 
       <MatchBoomModal
