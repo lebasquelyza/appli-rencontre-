@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "matchfit-mobile",
-    "slug": "matchfit-mobile",
+    "name": "Matchfit",
+    "slug": "matchfit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "matchfitmobile",
+    "scheme": "matchfit",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
