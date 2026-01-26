@@ -1,29 +1,17 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, View } from "react-native";
 import { WebView } from "react-native-webview";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { supabase } from "@/lib/supabase";
+import { useLocalSearchParams } from "expo-router";
 
-/**
- * ✅ DESTINATION
- * - matchfit-mobile/app/index.tsx
- *
- * Charge la PWA (Netlify) dans une WebView.
- * Fix principal: cache-bust + cache désactivé pour éviter que l’app garde une ancienne version (Android/WebView/PWA SW).
- */
-
-// ✅ URL web (prod)
-const WEB_URL = "https://appli-rencontre.netlify.app";
+const WEB_URL = "https://match-fit.org";
 const WEB_MESSAGES_PATH = "/crushes";
 
-// ⚠️ URL DE TA FONCTION SUPABASE
 const SAVE_PUSH_TOKEN_URL =
   "https://vnzlovsnxxoacvjaekjv.functions.supabase.co/save-push-token";
 
-/* -------------------------------------------------------
-   Notifications config
-------------------------------------------------------- */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -35,6 +23,7 @@ Notifications.setNotificationHandler({
 export default function HomeWeb() {
   console.log("🔥 HomeWeb mounted on", Platform.OS);
 
+  const params = useLocalSearchParams();
   const webRef = useRef<WebView>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,22 +31,14 @@ export default function HomeWeb() {
   const lastSavedUserRef = useRef<string | null>(null);
   const lastAccessTokenRef = useRef<string | null>(null);
 
-  /* -------------------------------------------------------
-     Navigation WebView
-  ------------------------------------------------------- */
   const gotoWeb = (url: string) => {
     console.log("🌐 gotoWeb:", url);
     webRef.current?.injectJavaScript(`
-      try {
-        window.location.href = "${url}";
-      } catch(e) {}
+      try { window.location.href = "${url}"; } catch(e) {}
       true;
     `);
   };
 
-  /* -------------------------------------------------------
-     Register + save Expo push token
-  ------------------------------------------------------- */
   const maybeRegisterAndSavePushToken = async () => {
     try {
       if (savingRef.current) return;
@@ -80,7 +61,6 @@ export default function HomeWeb() {
         return;
       }
 
-      // Permissions
       const perm = await Notifications.getPermissionsAsync();
       let status = perm.status;
 
@@ -133,9 +113,6 @@ export default function HomeWeb() {
     }
   };
 
-  /* -------------------------------------------------------
-     Receive session from Web (PWA)
-  ------------------------------------------------------- */
   const onMessage = async (event: any) => {
     try {
       const raw = event?.nativeEvent?.data;
@@ -172,54 +149,42 @@ export default function HomeWeb() {
     }
   };
 
-  /* -------------------------------------------------------
-     Notification tap → open chat
-  ------------------------------------------------------- */
   useEffect(() => {
-    const sub =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        const data: any =
-          response?.notification?.request?.content?.data;
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data: any = response?.notification?.request?.content?.data;
 
-        console.log("👉 Notification tap:", data);
+      console.log("👉 Notification tap:", data);
 
-        const matchId =
-          data?.match_id || data?.matchId || data?.matchID;
+      const matchId = data?.match_id || data?.matchId || data?.matchID;
 
-        if (matchId) {
-          gotoWeb(`${WEB_URL}/chat/${matchId}`);
-        } else {
-          gotoWeb(`${WEB_URL}${WEB_MESSAGES_PATH}`);
-        }
-      });
+      if (matchId) gotoWeb(`${WEB_URL}/chat/${matchId}`);
+      else gotoWeb(`${WEB_URL}${WEB_MESSAGES_PATH}`);
+    });
 
     return () => sub.remove();
   }, []);
 
-  /* -------------------------------------------------------
-     Initial token check
-  ------------------------------------------------------- */
   useEffect(() => {
     maybeRegisterAndSavePushToken();
   }, []);
 
-  /* -------------------------------------------------------
-     Render
-  ------------------------------------------------------- */
-  // ✅ cache-bust: force la WebView à charger la dernière version (évite ancien SW/cache)
-  const webUri = `${WEB_URL}?v=2`;
+  // ✅ support /?open=<url> envoyé par _layout.tsx (notif)
+  const initialUri = useMemo(() => {
+    const open = typeof params.open === "string" ? params.open : "";
+    const base = open || WEB_URL;
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}v=1`; // change v=2 si besoin un jour
+  }, [params.open]);
 
   return (
     <View style={{ flex: 1 }}>
       <WebView
         ref={webRef}
-        source={{ uri: webUri }}
+        source={{ uri: initialUri }}
         onLoadEnd={() => setLoading(false)}
         onMessage={onMessage}
         javaScriptEnabled
         domStorageEnabled
-
-        // ✅ important sur Android/WebView + PWA: évite de garder une ancienne version
         cacheEnabled={false}
         incognito
       />
