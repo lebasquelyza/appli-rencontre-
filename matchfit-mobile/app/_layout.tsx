@@ -17,8 +17,7 @@ function NotificationRouter() {
       const matchId = data?.match_id ?? data?.matchId;
 
       if ((type === "NEW_MESSAGE" || type === "NEW_MATCH") && matchId) {
-        const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || "https://appli-rencontre.netlify.app";
-        // 👉 on ouvre la WebView directement sur /chat/:matchId
+        const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || "https://match-fit.org";
         router.push(`/?open=${encodeURIComponent(`${WEB_URL}/chat/${matchId}`)}`);
       }
     };
