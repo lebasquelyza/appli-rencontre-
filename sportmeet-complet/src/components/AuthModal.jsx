@@ -391,10 +391,10 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 />
 
                 {/* ✅ lien discret "Mot de passe oublié ?" */}
-                {mode === "signin" && (
+                {(mode === "signin" || mode === "reset") && (
                   <button
                     type="button"
-                    onClick={handleForgotPassword}
+                    onClick={mode === "reset" ? () => setMode("signin") : handleForgotPassword}
                     disabled={loading}
                     style={{
                       marginTop: 8,
