@@ -518,12 +518,6 @@ const navigate = useNavigate();
     myLocation: null
   });
 
-// ✅ Demande de localisation après connexion (pour proposer des profils autour)
-const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-const [locationError, setLocationError] = useState("");
-
-const locAskedKey = (uid) => `matchfit_loc_asked_${uid || "anon"}`;
-
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -668,78 +662,7 @@ const locAskedKey = (uid) => `matchfit_loc_asked_${uid || "anon"}`;
     };
   }, []);
 
-  
-/* -------------------------------
-   Localisation (prompt après connexion)
--------------------------------- */
-useEffect(() => {
-  if (!user?.id) return;
-
-  // Si déjà position connue, pas besoin de redemander
-  if (filters?.myLocation) return;
-
-  // Ne pas redemander à chaque session (par user)
-  let alreadyAsked = false;
-  try {
-    alreadyAsked = localStorage.getItem(locAskedKey(user.id)) === "1";
-  } catch {
-    alreadyAsked = false;
-  }
-  if (alreadyAsked) return;
-
-  setIsLocationModalOpen(true);
-}, [user?.id, filters?.myLocation]);
-
-const acceptLocation = () => {
-  setLocationError("");
-
-  try {
-    localStorage.setItem(locAskedKey(user?.id), "1");
-  } catch {
-    // ignore
-  }
-
-  if (!("geolocation" in navigator)) {
-    setLocationError("La géolocalisation n’est pas supportée sur cet appareil.");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-
-      // ✅ On alimente uniquement les filtres existants (sans changer la logique)
-      setFilters((prev) => ({
-        ...prev,
-        myLocation: { lat, lon },
-        // Si aucun rayon n'est défini, on en met un par défaut pour activer le "près de moi"
-        radiusKm: prev.radiusKm && Number(prev.radiusKm) > 0 ? prev.radiusKm : 10
-      }));
-
-      setIsLocationModalOpen(false);
-    },
-    (err) => {
-      const msg =
-        err?.code === 1
-          ? "Autorisation refusée. Tu peux l’activer plus tard dans les réglages du navigateur."
-          : "Impossible de récupérer ta position pour le moment.";
-      setLocationError(msg);
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-  );
-};
-
-const laterLocation = () => {
-  try {
-    localStorage.setItem(locAskedKey(user?.id), "1");
-  } catch {
-    // ignore
-  }
-  setIsLocationModalOpen(false);
-};
-
-/* -------------------------------
+  /* -------------------------------
      LOGOUT
   -------------------------------- */
   const handleLogout = async () => {
@@ -1822,46 +1745,6 @@ const laterLocation = () => {
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
         <Route path="/subscription" element={<Subscription user={userForUI} premiumLikes={premiumLikes} />} />
       </Routes>
-{/* ✅ Modal : autoriser la localisation (pour n'afficher que les profils proches) */}
-{isLocationModalOpen && (
-  <div className="modal-backdrop" onClick={laterLocation}>
-    <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
-      <div className="modal-header">
-        <h3>Activer la localisation ?</h3>
-        <button className="btn-ghost" onClick={laterLocation}>
-          Plus tard
-        </button>
-      </div>
-
-      <div className="modal-body allowScroll">
-        <p className="form-message" style={{ marginTop: 0 }}>
-          Autorises-tu MatchFit à accéder à ta localisation pour te proposer des profils près de toi ?
-        </p>
-
-        {locationError ? (
-          <p className="form-message error" style={{ marginTop: 10 }}>
-            {locationError}
-          </p>
-        ) : null}
-
-        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-          <button className="btn-primary" onClick={acceptLocation}>
-            Autoriser
-          </button>
-          <button className="btn-ghost" onClick={laterLocation}>
-            Plus tard
-          </button>
-        </div>
-
-        <p style={{ fontSize: 12, opacity: 0.75, marginTop: 12, lineHeight: 1.3 }}>
-          Ta position est utilisée uniquement pour calculer la distance et afficher des profils proches.
-        </p>
-      </div>
-    </div>
-  </div>
-)}
-
-
 
       <MatchBoomModal
         open={matchBoom.open}
