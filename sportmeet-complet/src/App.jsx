@@ -588,7 +588,16 @@ const navigate = useNavigate();
     const h = window.location.hash || "";
     const isRecovery =
       h.includes("type=recovery") || (h.includes("access_token=") && h.includes("refresh_token="));
-    if (isRecovery) setIsAuthModalOpen(true);
+    if (isRecovery) {
+      setIsAuthModalOpen(true);
+
+      // ✅ important sur Expo Go (WebView persistante) : éviter de rester bloqué en reset au prochain lancement
+      try {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      } catch {
+        // ignore
+      }
+    }
   }, []);
 
   async function geocodeCity(cityText) {
