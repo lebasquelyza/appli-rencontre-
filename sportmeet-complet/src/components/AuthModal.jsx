@@ -337,6 +337,30 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 {loading ? "..." : "Mettre à jour le mot de passe"}
               </button>
 
+
+              {/* ✅ Afficher aussi le lien en mode reset (utile sur Expo Go si la modal démarre en reset) */}
+              <button
+                type="button"
+                onClick={() => setMode("signin")}
+                disabled={loading}
+                style={{
+                  marginTop: 8,
+                  padding: 0,
+                  border: 0,
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  opacity: 0.75,
+                  textDecoration: "underline",
+                  textAlign: "right",
+                  width: "100%"
+                }}
+                aria-label="Mot de passe oublié"
+                title="Mot de passe oublié"
+              >
+                Mot de passe oublié ?
+              </button>
+
               {/* ✅ FIX build: pas de template string */}
               <p className={"form-message " + (msg ? (isError ? "error" : "success") : "")}>{msg}</p>
             </form>
