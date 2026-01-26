@@ -1,14 +1,9 @@
 // sportmeet-complet/src/pages/Subscription.jsx
-import React, { useMemo, useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 
-export function Subscription({ user, premiumLikes = [] }) {
+export function Subscription({ user }) {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(true);
-
-  const items = useMemo(() => {
-    return Array.isArray(premiumLikes) ? premiumLikes : [];
-  }, [premiumLikes]);
 
   return (
     <main className="page">
@@ -26,96 +21,6 @@ export function Subscription({ user, premiumLikes = [] }) {
               Connecte-toi pour gérer ton abonnement.
             </p>
           ) : null}
-
-          {/* ✅ Accordéon: profils likés (sans match) */}
-          <div className="card" style={{ padding: 14, marginTop: 14 }}>
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={() => setOpen((v) => !v)}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 10,
-                padding: 0
-              }}
-              aria-expanded={open}
-            >
-              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                <h3 style={{ margin: 0 }}>Mes likes (sans match)</h3>
-                <span style={{ opacity: 0.75, fontSize: 13 }}>({items.length})</span>
-              </div>
-
-              <span style={{ fontSize: 18, opacity: 0.8 }}>{open ? "▾" : "▸"}</span>
-            </button>
-
-            {open ? (
-              <div style={{ marginTop: 12 }}>
-                {items.length === 0 ? (
-                  <p className="form-message" style={{ margin: 0 }}>
-                    Aucun like en attente.
-                  </p>
-                ) : (
-                  <div style={{ display: "grid", gap: 10 }}>
-                    {items.map((p) => {
-                      const url = Array.isArray(p.photo_urls) ? p.photo_urls[0] : "";
-                      return (
-                        <div
-                          key={p.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 12,
-                            padding: 10,
-                            borderRadius: 14,
-                            background: "rgba(255,255,255,0.04)",
-                            border: "1px solid rgba(255,255,255,0.08)"
-                          }}
-                        >
-                          {url ? (
-                            <img
-                              src={url}
-                              alt={p.name || "Profil"}
-                              style={{
-                                width: 44,
-                                height: 44,
-                                borderRadius: 999,
-                                objectFit: "cover",
-                                flex: "0 0 auto"
-                              }}
-                            />
-                          ) : (
-                            <div
-                              style={{
-                                width: 44,
-                                height: 44,
-                                borderRadius: 999,
-                                display: "grid",
-                                placeItems: "center",
-                                background: "rgba(255,255,255,0.08)",
-                                border: "1px solid rgba(255,255,255,0.10)",
-                                fontWeight: 700
-                              }}
-                            >
-                              {(p.name || "?").slice(0, 1).toUpperCase()}
-                            </div>
-                          )}
-
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {p.name || "Profil"}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
 
           <div className="card" style={{ padding: 14, marginTop: 14 }}>
             <h3 style={{ marginTop: 0 }}>Premium ⭐</h3>
