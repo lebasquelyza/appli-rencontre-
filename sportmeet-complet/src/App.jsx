@@ -162,8 +162,12 @@ function safeFileExt(file) {
 }
 
 function randomId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  // ✅ Android/iOS safe (pas de crypto.randomUUID)
+  return (
+    Date.now().toString(36) +
+    "-" +
+    Math.random().toString(36).slice(2)
+  );
 }
 
 // ✅ Convertit une publicUrl Supabase en "path" storage (bucket relatif)
@@ -622,12 +626,48 @@ useEffect(() => {
   }
 }, []);
 
+// ✅ Debug mobile: affiche une erreur lisible si le JS crash (évite écran vide)
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  if (window.__MF_ERROR_HOOK__) return;
+  window.__MF_ERROR_HOOK__ = true;
+
+  const show = (msg) => {
+    try {
+      const id = "mf-fatal";
+      let el = document.getElementById(id);
+      if (!el) {
+        el = document.createElement("div");
+        el.id = id;
+        el.style.position = "fixed";
+        el.style.left = "12px";
+        el.style.right = "12px";
+        el.style.bottom = "12px";
+        el.style.zIndex = "99999";
+        el.style.padding = "10px 12px";
+        el.style.borderRadius = "12px";
+        el.style.background = "rgba(0,0,0,.78)";
+        el.style.color = "white";
+        el.style.fontSize = "12px";
+        el.style.lineHeight = "1.35";
+        el.style.whiteSpace = "pre-wrap";
+        document.body.appendChild(el);
+      }
+      el.textContent = "Erreur app (Android/iPhone) :\n" + String(msg || "inconnue");
+    } catch {}
+  };
+
+  window.addEventListener("error", (e) => show(e?.message || e?.error?.message));
+  window.addEventListener("unhandledrejection", (e) => show(e?.reason?.message || e?.reason));
+}, []);
+
+
 const navigate = useNavigate();
 
   // ✅ FIX iPhone: on verrouille la hauteur
   useEffect(() => {
     const setAppHeight = () => {
-      const h = window.visualViewport?.height ?? window.innerHeight;
+      const h = window.innerHeight || document.documentElement.clientHeight || 0;
       document.documentElement.style.setProperty("--appH", `${h}px`);
     };
 
