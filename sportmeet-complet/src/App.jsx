@@ -237,15 +237,47 @@ function withShareInterstitial(list, every = 8) {
   return out;
 }
 
-// ✅ Seed fallback batch (ids uniques) pour avoir du contenu même si peu de clients
-function makeSeedBatch(seedProfiles, start, count) {
+// ✅ Seed fallback batch (shuffle + pas de répétition immédiate) pour avoir du contenu même si peu de clients
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function makeSeedBatch(seedProfiles, poolRef, lastKeyRef, count) {
   const out = [];
   const n = Array.isArray(seedProfiles) ? seedProfiles.length : 0;
   if (!n || count <= 0) return out;
 
+  // init pool if empty
+  if (!Array.isArray(poolRef.current) || poolRef.current.length === 0) {
+    poolRef.current = shuffleArray(Array.from({ length: n }, (_, i) => i));
+  }
+
   for (let i = 0; i < count; i++) {
-    const base = seedProfiles[(start + i) % n];
-    const uid = `seed_${start + i}_${Date.now()}_${i}`;
+    // refill pool if exhausted
+    if (poolRef.current.length === 0) {
+      poolRef.current = shuffleArray(Array.from({ length: n }, (_, k) => k));
+    }
+
+    // pick next index
+    let idx = poolRef.current.shift();
+
+    // anti répétition immédiate: si on retombe sur la même seed que la dernière, on swap avec la suivante si possible
+    const candidateKey = `seed_base_${idx}`;
+    if (candidateKey === lastKeyRef.current && poolRef.current.length > 0) {
+      const idx2 = poolRef.current.shift();
+      poolRef.current.unshift(idx); // remettre idx dans la file
+      idx = idx2;
+    }
+
+    const base = seedProfiles[idx];
+    const uid = `seed_${Date.now()}_${Math.random().toString(16).slice(2)}_${i}`;
+    lastKeyRef.current = `seed_base_${idx}`;
+
     out.push({
       ...base,
       id: uid,
@@ -254,6 +286,7 @@ function makeSeedBatch(seedProfiles, start, count) {
       isCustom: false
     });
   }
+
   return out;
 }
 
@@ -620,6 +653,8 @@ const navigate = useNavigate();
   const [loadingMoreProfiles, setLoadingMoreProfiles] = useState(false);
   const seenUserIdsRef = useRef(new Set());
   const seedCursorRef = useRef(0);
+  const seedPoolRef = useRef([]);
+  const seedLastKeyRef = useRef("");
 
   const [filters, setFilters] = useState({
     sport: "",
@@ -1233,9 +1268,7 @@ const navigate = useNavigate();
         console.error("Supabase fetch profiles error:", error);
         setProfilesError("Impossible de charger les profils pour le moment.");
         // fallback immédiat seed
-        const seedBatch = makeSeedBatch(seedProfiles, seedCursorRef.current, 30);
-        seedCursorRef.current += seedBatch.length;
-        setProfiles(seedBatch.length ? seedBatch : seedProfiles);
+        const seedBatch = makeSeedBatch(seedProfiles, seedPoolRef, seedLastKeyRef, 30);        setProfiles(seedBatch.length ? seedBatch : seedProfiles);
         setLoadingProfiles(false);
         return;
       }
@@ -1278,9 +1311,7 @@ const navigate = useNavigate();
 
       if (reset) {
         const need = Math.max(0, MIN_PROFILES_TO_SHOW - nextReal.length);
-        const seedBatch = makeSeedBatch(seedProfiles, seedCursorRef.current, need);
-        seedCursorRef.current += seedBatch.length;
-        setProfiles([...nextReal, ...seedBatch]);
+        const seedBatch = makeSeedBatch(seedProfiles, seedPoolRef, seedLastKeyRef, need);        setProfiles([...nextReal, ...seedBatch]);
       } else {
         setProfiles((prev) => [...prev, ...nextReal]);
       }
@@ -1289,9 +1320,7 @@ const navigate = useNavigate();
       setLoadingProfiles(false);
     } catch (e) {
       console.error("fetchProfiles exception:", e);
-      const seedBatch = makeSeedBatch(seedProfiles, seedCursorRef.current, 30);
-      seedCursorRef.current += seedBatch.length;
-      setProfiles(seedBatch.length ? seedBatch : seedProfiles);
+      const seedBatch = makeSeedBatch(seedProfiles, seedPoolRef, seedLastKeyRef, 30);      setProfiles(seedBatch.length ? seedBatch : seedProfiles);
       setLoadingProfiles(false);
     }
   };
@@ -1309,9 +1338,7 @@ const navigate = useNavigate();
       if (hasMoreProfiles) {
         await fetchProfiles({ reset: false });
       } else {
-        const seedBatch = makeSeedBatch(seedProfiles, seedCursorRef.current, 20);
-        seedCursorRef.current += seedBatch.length;
-        if (seedBatch.length) setProfiles((prev) => [...prev, ...seedBatch]);
+        const seedBatch = makeSeedBatch(seedProfiles, seedPoolRef, seedLastKeyRef, 20);        if (seedBatch.length) setProfiles((prev) => [...prev, ...seedBatch]);
       }
     } finally {
       setLoadingMoreProfiles(false);
