@@ -763,7 +763,7 @@ export function SwipeDeck({
           {Array.isArray(profiles) && profiles.length > 0 ? (
             <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
           ) : (
-            <p style={{ marginBottom: 6, fontWeight: 700 }}>Aucun profil dans cette sélection.</p>
+            <p style={{ marginBottom: 6, fontWeight: 700 }}>Partage a tes amis en espérant que ton/ta gymcrush en entende parler</p>
           )}
           <div style={{ marginTop: 10, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
             <button type="button" className="btn-primary" onClick={handleShare}>
