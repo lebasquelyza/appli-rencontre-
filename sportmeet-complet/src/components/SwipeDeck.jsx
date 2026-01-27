@@ -9,7 +9,7 @@ export function SwipeDeck({
   onReportProfile,
   isAuthenticated,
   onRequireAuth,
-  onEmptyRetry,
+  onNeedMore,
   hasMyProfile = true
 }) {
   const [index, setIndex] = useState(0);
@@ -27,6 +27,9 @@ export function SwipeDeck({
   // ✅ Drag sans re-render pendant le move (DOM only)
   const stageRef = useRef(null);
   const dragRafRef = useRef(null);
+
+  // ✅ Infinite feed: demande plus de profils quand on approche de la fin
+  const needMoreLockRef = useRef({ key: "" });
 
   // ✅ refs DOM (pas de querySelector pendant le drag)
   const heartRef = useRef(null);
@@ -123,6 +126,19 @@ export function SwipeDeck({
   };
 
   useEffect(() => setIndex(0), [profiles]);
+
+  // ✅ Pré-charge quand il reste peu de cartes
+  useEffect(() => {
+    if (!onNeedMore) return;
+    const len = Array.isArray(profiles) ? profiles.length : 0;
+    const remaining = len - index;
+    if (remaining <= 3) {
+      const key = `${len}:${index}`;
+      if (needMoreLockRef.current.key === key) return;
+      needMoreLockRef.current.key = key;
+      onNeedMore();
+    }
+  }, [index, profiles, onNeedMore]);
 
   useEffect(() => {
     return () => {
@@ -773,10 +789,7 @@ export function SwipeDeck({
             <button type="button" className="btn-ghost" onClick={handleCopy}>
               Copier le lien
             </button>
-            <button type="button" className="btn-ghost" onClick={() => {
-                  setIndex(0);
-                  if (!Array.isArray(profiles) || profiles.length === 0) onEmptyRetry?.();
-                }}>
+            <button type="button" className="btn-ghost" onClick={() => setIndex(0)}>
               Revoir des profils
             </button>
           </div>
