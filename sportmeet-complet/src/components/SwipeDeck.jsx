@@ -242,9 +242,8 @@ export function SwipeDeck({
 
     const rot = clamp(x / 18, -14, 14);
 
-    el.style.setProperty("--dx", `${x}px`);
-    el.style.setProperty("--dy", `${y}px`);
-    el.style.setProperty("--rot", `${rot}deg`);
+    // ✅ Android: écrire transform directement (plus fluide que setProperty sur CSS vars)
+    el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${rot}deg)`;
 
     // progress 0..1
     const likeP = clamp((x - 18) / 120, 0, 1);
@@ -387,7 +386,7 @@ export function SwipeDeck({
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
 
   const stageStyle = {
-    transform: `translate3d(var(--dx, 0px), var(--dy, 0px), 0) rotate(var(--rot, 0deg))`,
+    transform: "translate3d(0px, 0px, 0) rotate(0deg)",
     transition: "transform 220ms cubic-bezier(.2,.8,.2,1)", // sera mis à "none" pendant le drag via JS
     willChange: "transform",
     cursor: isShareCard ? "default" : !isAuthenticated ? "default" : "grab",
@@ -639,12 +638,13 @@ export function SwipeDeck({
             )}
 
             {isShareCard ? (
-              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid || isDragging} />
+              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid || isDragging} isDragging={isDragging} />
             ) : (
               <SwipeCard
                 key={currentProfile.id}
                 profile={currentProfile}
                 reduceEffects={isAndroid || isDragging}
+                isDragging={isDragging}
                 onReport={(payload) => onReportProfile?.(currentProfile, payload)}
               />
             )}
