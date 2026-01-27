@@ -953,11 +953,23 @@ const navigate = useNavigate();
       return false;
     }
 
+        // 🚫 Profil seed / sans user_id → pas d'envoi en base, on masque seulement
+        if (!profile?.user_id) {
+          setHiddenProfileIds(prev => {
+            const next = new Set(prev);
+            next.add(profile.id);
+            return next;
+          });
+          setProfileToast("Profil masqué ✅");
+          return;
+        }
+
     const { error } = await supabase.from("profile_reports").insert({
       reporter_id: user.id,
       reported_profile_id: profile.id,
+      reported_user_id: profile.user_id ?? null,
       reason,
-      details: details || null
+      details: details || null,
     });
 
     const msg = String(error?.message || "").toLowerCase();
