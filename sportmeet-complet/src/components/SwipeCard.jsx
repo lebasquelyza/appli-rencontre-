@@ -17,9 +17,13 @@ const REPORT_REASONS = [
 ];
 
 // ✅ petit helper: évite re-render inutiles quand le parent bouge
-function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false }) {
+function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDragging = false }) {
   const photos = Array.isArray(profile?.photo_urls) ? profile.photo_urls : [];
   const hasPhotos = photos.length > 0;
+
+  const isAndroid =
+    typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+
 
   const [index, setIndex] = useState(0);
 
@@ -149,6 +153,7 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false }) {
       <div
         className={`cardMedia swipeMedia ${hasPhotos ? "has-photo" : "no-photo"}`}
         onClick={(e) => {
+          if (isDragging) return;
           if (hasPhotos) handleTapMedia(e);
           else onClickCard(e);
         }}
@@ -178,8 +183,8 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false }) {
               padding: "8px 10px",
               background: "rgba(0,0,0,.42)",
               color: "white",
-              backdropFilter: reduceEffects ? "none" : "blur(8px)",
-              WebkitBackdropFilter: reduceEffects ? "none" : "blur(8px)",
+              backdropFilter: reduceEffects || isAndroid ? "none" : "blur(8px)",
+              WebkitBackdropFilter: reduceEffects || isAndroid ? "none" : "blur(8px)",
               cursor: "pointer"
             }}
           >
