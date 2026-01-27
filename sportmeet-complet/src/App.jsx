@@ -961,7 +961,8 @@ const navigate = useNavigate();
     });
 
     const msg = String(error?.message || "").toLowerCase();
-    if (error && msg.includes("duplicate")) {
+    const isDup = msg.includes("duplicate") || msg.includes("unique") || msg.includes("already exists");
+    if (error && isDup) {
       setHiddenProfileIds((prev) => {
         const next = new Set(prev);
         next.add(profile.id);
@@ -969,8 +970,8 @@ const navigate = useNavigate();
       });
       setProfileToast("Tu as déjà signalé ce profil. Il est masqué ✅");
     } else if (error) {
-      console.error("reportProfile error:", error);
-      setProfileToast("Impossible de signaler ce profil.");
+      console.error("reportProfile error:", { error, profileId: profile?.id, reporterId: user?.id, payload });
+      setProfileToast(error?.message || "Impossible de signaler ce profil.");
     } else {
       setHiddenProfileIds((prev) => {
         const next = new Set(prev);
