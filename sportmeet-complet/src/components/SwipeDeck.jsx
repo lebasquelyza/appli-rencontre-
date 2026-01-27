@@ -254,7 +254,7 @@ export function SwipeDeck({
 
     const base = Math.min(340, w * 0.85);
     const extra = clamp(Math.abs(meta.vx || 0) * 800, 0, 380); // momentum (px)
-    const outX = dir === "right" ? base + extra : dir === "left" ? -(base + extra) : 0;
+    const outX = dir === "right" ? base + extra : dir === "left" ? -(base + extra) : dir === "up" ? 0 : 0;
 
     const outY = dir === "up" ? -Math.min(520, w * 1.05) : -20 + clamp(meta.dy * 0.10, -40, 40);
 
@@ -366,13 +366,19 @@ export function SwipeDeck({
     };
   }, [zoomOpen]);
 
+  const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+
   const stageStyle = {
     transform: `translate3d(var(--dx, 0px), var(--dy, 0px), 0) rotate(var(--rot, 0deg))`,
     transition: "transform 220ms cubic-bezier(.2,.8,.2,1)", // sera mis à "none" pendant le drag via JS
     willChange: "transform",
     cursor: isShareCard ? "default" : !isAuthenticated ? "default" : "grab",
-    touchAction: "pan-y",
-    position: "relative"
+    // Perf Android: empêcher le navigateur d'interpréter le geste (scroll/zoom) pendant le swipe
+    touchAction: "none",
+    position: "relative",
+    WebkitTapHighlightColor: "transparent",
+    userSelect: "none",
+    WebkitUserSelect: "none"
   };
 
   // ✅ icônes simples (pas de blur pendant drag)
@@ -466,6 +472,9 @@ export function SwipeDeck({
 
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
+    // Empêche le navigateur (Android WebView) de “voler” le geste
+    if (e.cancelable) e.preventDefault();
+
     pointerRef.current.active = true;
     pointerRef.current.startX = e.clientX;
     pointerRef.current.startY = e.clientY;
@@ -491,6 +500,8 @@ export function SwipeDeck({
   const onPointerMove = (e) => {
     if (!pointerRef.current.active) return;
     if (pointerRef.current.pointerId != null && e.pointerId !== pointerRef.current.pointerId) return;
+
+    if (e.cancelable) e.preventDefault();
 
     const dx = e.clientX - pointerRef.current.startX;
     const dy = e.clientY - pointerRef.current.startY;
@@ -608,12 +619,12 @@ export function SwipeDeck({
             )}
 
             {isShareCard ? (
-              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={false} />
+              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid} />
             ) : (
               <SwipeCard
                 key={currentProfile.id}
                 profile={currentProfile}
-                reduceEffects={false}
+                reduceEffects={isAndroid}
                 onReport={(payload) => onReportProfile?.(currentProfile, payload)}
               />
             )}
@@ -711,8 +722,9 @@ export function SwipeDeck({
                   inset: 0,
                   zIndex: 9999,
                   background: "rgba(0,0,0,.35)",
-                  backdropFilter: "blur(14px)",
-                  WebkitBackdropFilter: "blur(14px)",
+                  // ⚠️ blur peut lag sur Android, on le coupe
+                  backdropFilter: isAndroid ? "none" : "blur(14px)",
+                  WebkitBackdropFilter: isAndroid ? "none" : "blur(14px)",
                   display: "grid",
                   placeItems: "center",
                   padding: 14
@@ -734,7 +746,7 @@ export function SwipeDeck({
                   <div style={{ height: "calc(100% - 46px)" }}>
                     <SwipeCard
                       profile={zoomProfile}
-                      reduceEffects={false}
+                      reduceEffects={isAndroid}
                       onReport={(payload) => onReportProfile?.(zoomProfile, payload)}
                     />
                   </div>
@@ -745,7 +757,7 @@ export function SwipeDeck({
         </>
       ) : (
         <div className="swipe-empty" style={{ textAlign: "center" }}>
-          {hasAny ? (
+          {Array.isArray(profiles) && profiles.length > 0 ? (
             <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
           ) : (
             <p style={{ marginBottom: 6, fontWeight: 700 }}>Aucun profil dans cette sélection.</p>
@@ -757,7 +769,7 @@ export function SwipeDeck({
             <button type="button" className="btn-ghost" onClick={handleCopy}>
               Copier le lien
             </button>
-            <button type="button" className="btn-ghost" onClick={handleReset}>
+            <button type="button" className="btn-ghost" onClick={() => setIndex(0)}>
               Revoir des profils
             </button>
           </div>
