@@ -136,7 +136,16 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false }) {
   };
 
   return (
-    <article className="card swipeCard">
+    <article
+      className="card swipeCard"
+      style={{
+        // Perf Android: éviter la sélection/scroll “parasite” pendant un drag
+        touchAction: "none",
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTapHighlightColor: "transparent"
+      }}
+    >
       <div
         className={`cardMedia swipeMedia ${hasPhotos ? "has-photo" : "no-photo"}`}
         onClick={(e) => {
@@ -145,7 +154,8 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false }) {
         }}
         style={{
           ...(hasPhotos ? null : bgFallback),
-          touchAction: "pan-y",
+          // Laisser SwipeDeck gérer le geste global. Ici on évite juste le scroll parasite.
+          touchAction: "none",
           cursor: onOpen ? "pointer" : "default",
           position: "relative"
         }}
