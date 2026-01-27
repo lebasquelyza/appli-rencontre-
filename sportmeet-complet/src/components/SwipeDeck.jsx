@@ -13,6 +13,7 @@ export function SwipeDeck({
 }) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [gateMsg, setGateMsg] = useState("");
   const gateTimerRef = useRef(null);
@@ -400,7 +401,7 @@ export function SwipeDeck({
     willChange: "transform, opacity",
     border: "1px solid rgba(255,255,255,.18)",
     background: "rgba(10,10,14,.45)",
-    boxShadow: "0 14px 32px rgba(0,0,0,.22)"
+    boxShadow: isDragging ? "none" : "0 14px 32px rgba(0,0,0,.22)"
   };
 
   const heartStyle = { ...iconBase, right: 14 };
@@ -486,10 +487,11 @@ export function SwipeDeck({
     pointerRef.current.lastT = performance.now();
     pointerRef.current.vx = 0;
 
+    setIsDragging(true);
+
     // coupe la transition pendant le drag (zéro re-render)
     if (stageRef.current) stageRef.current.style.transition = "none";
 
-    lockScroll();
     resetDragDom();
 
     try {
@@ -526,7 +528,6 @@ export function SwipeDeck({
 
   const endPointer = () => {
     pointerRef.current.active = false;
-    unlockScroll();
   };
 
   const onPointerUp = async (e) => {
@@ -535,6 +536,7 @@ export function SwipeDeck({
       return;
 
     endPointer();
+    setIsDragging(false);
 
     if (!isAuthenticated) {
       resetDragDom();
@@ -582,6 +584,7 @@ export function SwipeDeck({
   const onPointerCancel = () => {
     if (!pointerRef.current.active) return;
     endPointer();
+    setIsDragging(false);
     if (stageRef.current) stageRef.current.style.transition = "transform 220ms cubic-bezier(.2,.8,.2,1)";
     resetDragDom();
   };
@@ -619,12 +622,12 @@ export function SwipeDeck({
             )}
 
             {isShareCard ? (
-              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid} />
+              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid || isDragging} />
             ) : (
               <SwipeCard
                 key={currentProfile.id}
                 profile={currentProfile}
-                reduceEffects={isAndroid}
+                reduceEffects={isAndroid || isDragging}
                 onReport={(payload) => onReportProfile?.(currentProfile, payload)}
               />
             )}
@@ -746,7 +749,7 @@ export function SwipeDeck({
                   <div style={{ height: "calc(100% - 46px)" }}>
                     <SwipeCard
                       profile={zoomProfile}
-                      reduceEffects={isAndroid}
+                      reduceEffects={isAndroid || isDragging}
                       onReport={(payload) => onReportProfile?.(zoomProfile, payload)}
                     />
                   </div>
