@@ -72,6 +72,88 @@ const STANDARD_SPORTS = [
   "Musculation"
 ];
 
+
+
+const LEVEL_ORDER = ["Débutant", "Intermédiaire", "Confirmé"];
+
+const SPORT_COMPAT = {
+  Running: ["Fitness", "Cyclisme", "Randonnée"],
+  Fitness: ["Running", "Musculation", "Natation"],
+  Football: ["Basket", "Running", "Fitness"],
+  Basket: ["Football", "Running", "Fitness"],
+  Tennis: ["Running", "Fitness"],
+  Cyclisme: ["Running", "Natation", "Randonnée"],
+  Randonnée: ["Running", "Cyclisme"],
+  Natation: ["Fitness", "Running", "Cyclisme"],
+  Musculation: ["Fitness"]
+};
+
+function availabilityTags(str = "") {
+  const s = String(str || "").toLowerCase();
+  const tags = new Set();
+  if (s.includes("soir")) tags.add("soir");
+  if (s.includes("matin")) tags.add("matin");
+  if (s.includes("midi")) tags.add("midi");
+  if (s.includes("week")) tags.add("weekend");
+  if (s.includes("semaine")) tags.add("semaine");
+  return tags;
+}
+
+function overlapScore(aTags, bTags) {
+  if (!aTags.size || !bTags.size) return 0;
+  let inter = 0;
+  for (const t of aTags) if (bTags.has(t)) inter++;
+  return inter / Math.max(aTags.size, bTags.size);
+}
+
+function levelDistance(a, b) {
+  const ia = LEVEL_ORDER.indexOf(a);
+  const ib = LEVEL_ORDER.indexOf(b);
+  if (ia === -1 || ib === -1) return 2;
+  return Math.abs(ia - ib);
+}
+
+// Score final (0..100)
+function scoreCandidate({ myProfile, p, distanceKm }) {
+  let score = 0;
+
+  // SPORT
+  if (myProfile?.sport && p?.sport) {
+    if (p.sport === myProfile.sport) score += 45;
+    else if ((SPORT_COMPAT[myProfile.sport] || []).includes(p.sport)) score += 25;
+  } else {
+    score += 5;
+  }
+
+  // NIVEAU
+  if (myProfile?.level && p?.level) {
+    const d = levelDistance(myProfile.level, p.level);
+    score += d === 0 ? 20 : d === 1 ? 12 : 4;
+  } else {
+    score += 6;
+  }
+
+  // DISPO (overlap)
+  const a = availabilityTags(myProfile?.availability || "");
+  const b = availabilityTags(p?.availability || "");
+  score += Math.round(overlapScore(a, b) * 20);
+
+  // DISTANCE
+  if (typeof distanceKm === "number" && isFinite(distanceKm)) {
+    const distBonus = Math.max(0, 15 - (distanceKm / 100) * 15);
+    score += distBonus;
+  } else {
+    score += 5;
+  }
+
+  // PROFIL COMPLET
+  const photosCount = Array.isArray(p?.photo_urls) ? p.photo_urls.length : 0;
+  if (photosCount >= 2) score += 5;
+  if (String(p?.bio || "").length >= 30) score += 5;
+
+  return score;
+}
+
 function safeFileExt(file) {
   const byMime = (file.type || "").split("/")[1];
   if (byMime) return byMime.replace("jpeg", "jpg");
@@ -1500,12 +1582,22 @@ const navigate = useNavigate();
       });
 
       if (!radiusKm || radiusKm <= 0) {
-        if (!cancelled) setFilteredProfiles(withShareInterstitial(base, 8));
+        const scored = base
+          .map((p) => ({ p, s: scoreCandidate({ myProfile, p, distanceKm: null }) }))
+          .sort((a, b) => b.s - a.s)
+          .map((x) => x.p);
+
+        if (!cancelled) setFilteredProfiles(withShareInterstitial(scored, 8));
         return;
       }
 
       if (!myLoc) {
-        if (!cancelled) setFilteredProfiles(withShareInterstitial(base, 8));
+        const scored = base
+          .map((p) => ({ p, s: scoreCandidate({ myProfile, p, distanceKm: null }) }))
+          .sort((a, b) => b.s - a.s)
+          .map((x) => x.p);
+
+        if (!cancelled) setFilteredProfiles(withShareInterstitial(scored, 8));
         return;
       }
 
@@ -1515,17 +1607,22 @@ const navigate = useNavigate();
         if (!coords) continue;
 
         const d = haversineKm({ lat: myLoc.lat, lon: myLoc.lon }, { lat: coords.lat, lon: coords.lon });
-        if (d <= radiusKm) kept.push(p);
+        if (d <= radiusKm) kept.push({ p, d });
       }
 
-      if (!cancelled) setFilteredProfiles(withShareInterstitial(kept, 8));
-    };
+      const scored = kept
+        .map(({ p, d }) => ({ p, s: scoreCandidate({ myProfile, p, distanceKm: d }) }))
+        .sort((a, b) => b.s - a.s)
+        .map((x) => x.p);
+
+      if (!cancelled) setFilteredProfiles(withShareInterstitial(scored, 8));
+      };
 
     run();
     return () => {
       cancelled = true;
     };
-  }, [profiles, filters, user, hiddenProfileIds, matchedUserIds, likedProfileIds]);
+  }, [profiles, filters, user, myProfile, hiddenProfileIds, matchedUserIds, likedProfileIds]);
 
   /* -------------------------------
      Like/Swipe ✅ LIKE + SUPERLIKE + LIMIT 5/JOUR + MATCH
