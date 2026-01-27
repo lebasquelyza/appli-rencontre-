@@ -9,6 +9,7 @@ export function SwipeDeck({
   onReportProfile,
   isAuthenticated,
   onRequireAuth,
+  onEmptyRetry,
   hasMyProfile = true
 }) {
   const [index, setIndex] = useState(0);
@@ -763,7 +764,7 @@ export function SwipeDeck({
           {Array.isArray(profiles) && profiles.length > 0 ? (
             <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
           ) : (
-            <p style={{ marginBottom: 6, fontWeight: 700 }}>Partage a tes amis en espérant que ton/ta gymcrush en entende parler</p>
+            <p style={{ marginBottom: 6, fontWeight: 700 }}>Partage à tes amis — avec un peu de chance, ton/ta gymcrush en entendra parler 💪✨</p>
           )}
           <div style={{ marginTop: 10, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
             <button type="button" className="btn-primary" onClick={handleShare}>
@@ -772,7 +773,10 @@ export function SwipeDeck({
             <button type="button" className="btn-ghost" onClick={handleCopy}>
               Copier le lien
             </button>
-            <button type="button" className="btn-ghost" onClick={() => setIndex(0)}>
+            <button type="button" className="btn-ghost" onClick={() => {
+                  setIndex(0);
+                  if (!Array.isArray(profiles) || profiles.length === 0) onEmptyRetry?.();
+                }}>
               Revoir des profils
             </button>
           </div>
