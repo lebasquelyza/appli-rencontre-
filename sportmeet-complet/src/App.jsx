@@ -237,6 +237,27 @@ function withShareInterstitial(list, every = 8) {
   return out;
 }
 
+// ✅ Seed fallback batch (ids uniques) pour avoir du contenu même si peu de clients
+function makeSeedBatch(seedProfiles, start, count) {
+  const out = [];
+  const n = Array.isArray(seedProfiles) ? seedProfiles.length : 0;
+  if (!n || count <= 0) return out;
+
+  for (let i = 0; i < count; i++) {
+    const base = seedProfiles[(start + i) % n];
+    const uid = `seed_${start + i}_${Date.now()}_${i}`;
+    out.push({
+      ...base,
+      id: uid,
+      user_id: null,
+      isSeed: true,
+      isCustom: false
+    });
+  }
+  return out;
+}
+
+
 /* -------------------------------
    ✅ LocalStorage helpers (profils masqués)
 -------------------------------- */
@@ -290,7 +311,8 @@ function HomePage({
   resumeError,
   isPreviewModalOpen,
   setIsPreviewModalOpen,
-  onDeleteMyProfile
+  onDeleteMyProfile,
+  onNeedMoreProfiles
 }) {
   const navigate = useNavigate();
 
@@ -591,6 +613,13 @@ const navigate = useNavigate();
   }, []);
 
   const [profiles, setProfiles] = useState([]);
+
+  // ✅ Infinite feed (pagination + fallback seed)
+  const [profilesPage, setProfilesPage] = useState(0);
+  const [hasMoreProfiles, setHasMoreProfiles] = useState(true);
+  const [loadingMoreProfiles, setLoadingMoreProfiles] = useState(false);
+  const seenUserIdsRef = useRef(new Set());
+  const seedCursorRef = useRef(0);
 
   const [filters, setFilters] = useState({
     sport: "",
@@ -1174,55 +1203,120 @@ const navigate = useNavigate();
   /* -------------------------------
      Fetch tous les profils
   -------------------------------- */
-  const fetchProfiles = async () => {
+  const fetchProfiles = async ({ reset = false } = {}) => {
+    // reset = true : recharge depuis la page 0
+    if (loadingMoreProfiles) return;
+
     setLoadingProfiles(true);
     setProfilesError(null);
 
-    const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Supabase fetch profiles error:", error);
-      setProfilesError("Impossible de charger les profils pour le moment.");
-      setProfiles(seedProfiles);
-      setLoadingProfiles(false);
-      return;
+    if (reset) {
+      setProfiles([]);
+      setProfilesPage(0);
+      setHasMoreProfiles(true);
+      seenUserIdsRef.current = new Set();
+      seedCursorRef.current = 0;
     }
 
-    const mapped = (data || []).map((p) => ({
-      id: p.id,
-      user_id: p.user_id ?? null,
-      name: p.name,
-      age: p.age ?? null,
-      height: p.height ?? null,
-      gender: p.gender ?? null,
-      status: p.status ?? "active",
-      city: p.city,
-      sport: p.sport,
-      level: p.level,
-      availability: p.availability || "",
-      bio: p.bio || "",
-      photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
-      isCustom: true,
-      createdAt: p.created_at
-    }));
+    const page = reset ? 0 : profilesPage;
+    const from = page * 30;
+    const to = from + 30 - 1;
 
-    const deduped = dedupeByUserLatest(mapped);
-    const realActive = deduped.filter((p) => (p.status ?? "active") === "active");
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
-    const MIN_PROFILES_TO_SHOW = 30;
-    const need = Math.max(0, MIN_PROFILES_TO_SHOW - realActive.length);
-    const demoSlice = seedProfiles.slice(0, need);
+      if (error) {
+        console.error("Supabase fetch profiles error:", error);
+        setProfilesError("Impossible de charger les profils pour le moment.");
+        // fallback immédiat seed
+        const seedBatch = makeSeedBatch(seedProfiles, seedCursorRef.current, 30);
+        seedCursorRef.current += seedBatch.length;
+        setProfiles(seedBatch.length ? seedBatch : seedProfiles);
+        setLoadingProfiles(false);
+        return;
+      }
 
-    const finalList = [...realActive, ...demoSlice];
+      const mapped = (data || []).map((p) => ({
+        id: p.id,
+        user_id: p.user_id ?? null,
+        name: p.name,
+        age: p.age ?? null,
+        height: p.height ?? null,
+        gender: p.gender ?? null,
+        status: p.status ?? "active",
+        city: p.city,
+        sport: p.sport,
+        level: p.level,
+        availability: p.availability || "",
+        bio: p.bio || "",
+        photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
+        isCustom: true,
+        createdAt: p.created_at
+      }));
 
-    setProfiles(finalList.length ? finalList : seedProfiles);
-    setLoadingProfiles(false);
+      // ✅ on garde seulement le plus récent par user_id (ordre desc => 1er rencontré)
+      const nextReal = [];
+      for (const p of mapped) {
+        if ((p.status ?? "active") !== "active") continue;
+        if (p.user_id) {
+          if (seenUserIdsRef.current.has(p.user_id)) continue;
+          seenUserIdsRef.current.add(p.user_id);
+        }
+        nextReal.push(p);
+      }
+
+      // ✅ plus de pages ?
+      if ((data || []).length < 30) setHasMoreProfiles(false);
+
+      // ✅ si tout début et pas assez de profils, on complète avec des seeds
+      const MIN_PROFILES_TO_SHOW = 30;
+      const merged = reset ? nextReal : null;
+
+      if (reset) {
+        const need = Math.max(0, MIN_PROFILES_TO_SHOW - nextReal.length);
+        const seedBatch = makeSeedBatch(seedProfiles, seedCursorRef.current, need);
+        seedCursorRef.current += seedBatch.length;
+        setProfiles([...nextReal, ...seedBatch]);
+      } else {
+        setProfiles((prev) => [...prev, ...nextReal]);
+      }
+
+      setProfilesPage(page + 1);
+      setLoadingProfiles(false);
+    } catch (e) {
+      console.error("fetchProfiles exception:", e);
+      const seedBatch = makeSeedBatch(seedProfiles, seedCursorRef.current, 30);
+      seedCursorRef.current += seedBatch.length;
+      setProfiles(seedBatch.length ? seedBatch : seedProfiles);
+      setLoadingProfiles(false);
+    }
   };
 
   useEffect(() => {
-    fetchProfiles();
+    fetchProfiles({ reset: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ✅ Charge plus de profils (réels si dispo, sinon seeds en attendant plus de clients)
+  const loadMoreProfiles = async () => {
+    if (loadingMoreProfiles) return;
+    setLoadingMoreProfiles(true);
+    try {
+      if (hasMoreProfiles) {
+        await fetchProfiles({ reset: false });
+      } else {
+        const seedBatch = makeSeedBatch(seedProfiles, seedCursorRef.current, 20);
+        seedCursorRef.current += seedBatch.length;
+        if (seedBatch.length) setProfiles((prev) => [...prev, ...seedBatch]);
+      }
+    } finally {
+      setLoadingMoreProfiles(false);
+    }
+  };
 
   /* -------------------------------
      Realtime profiles
@@ -1231,7 +1325,7 @@ const navigate = useNavigate();
     const channel = supabase
       .channel("profiles-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
-        fetchProfiles();
+        fetchProfiles({ reset: true });
       })
       .subscribe();
 
@@ -1785,6 +1879,7 @@ const navigate = useNavigate();
               isPreviewModalOpen={isPreviewModalOpen}
               setIsPreviewModalOpen={setIsPreviewModalOpen}
               onDeleteMyProfile={handleDeleteMyProfile}
+              onNeedMoreProfiles={loadMoreProfiles}
             />
           }
         />
