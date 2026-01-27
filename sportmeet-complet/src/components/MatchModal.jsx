@@ -26,7 +26,7 @@ export function MatchModal({ profile, onClose }) {
             <br />
             <br />
             <em>
-              &quot;Je t&apos;ai trouvé sur SportMeet, une app de mise en relation entre sportifs
+              &quot;Je t&apos;ai trouvé sur MatchFit, une app de mise en relation entre sportifs
               de la même ville. Ça te dit une session {profile.sport.toLowerCase()} ?&quot;
             </em>
           </p>
