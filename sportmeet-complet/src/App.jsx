@@ -953,17 +953,16 @@ const navigate = useNavigate();
       return false;
     }
 
-        // 🚫 Profil seed / sans user_id → pas d'envoi en base, on masque seulement
-        if (!profile?.user_id) {
-          setHiddenProfileIds(prev => {
-            const next = new Set(prev);
-            next.add(profile.id);
-            return next;
-          });
-          setProfileToast("Profil masqué ✅");
-          return;
-        }
-
+        // 🚫 Profil seed / sans user_id (donc pas en base) → pas d'envoi DB, on masque seulement
+    if (profile?.isSeed || !profile?.user_id) {
+      setHiddenProfileIds(prev => {
+        const next = new Set(prev);
+        next.add(profile.id);
+        return next;
+      });
+      setProfileToast("Profil masqué ✅");
+      return;
+    }
     const { error } = await supabase.from("profile_reports").insert({
       reporter_id: user.id,
       reported_profile_id: profile.id,
