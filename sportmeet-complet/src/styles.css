@@ -1055,19 +1055,12 @@ input:focus, select:focus, textarea:focus{
 }
 
 
+/* 🔥 Ajout minimal: flou de l'arrière-plan derrière une modale (sans flouter la modale elle-même)
+   Important: z-index = 49, juste sous .modal-backdrop (50) pour ne pas cacher la modale.
+*/
 .modal-backdrop--blur{
-  position: fixed;
-  inset: 0;
+  background: rgba(0,0,0,.35);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  background: rgba(0,0,0,0.35);
-  z-index: 9998;
-}
-
-
-/* 🔥 Connexion: garder la modale nette (désactive l'effet "glass" de .modal-card) */
-.modal-card--no-glass{
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  background: rgba(14,15,20,.92);
+  z-index: 49;
 }
