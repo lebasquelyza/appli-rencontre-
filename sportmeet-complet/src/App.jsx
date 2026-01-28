@@ -503,14 +503,95 @@ function HomePage({
         </div>
       </main>
 
+      {/* ---------- MODALS ---------- */}
+      {isProfileModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
+          <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <h3 style={{ marginRight: "auto" }}>Mon profil sportif</h3>
+
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => setIsPreviewModalOpen(true)}
+                disabled={!myProfile}
+                title="Voir l’aperçu (statique, sans swipe)"
+              >
+                Aperçu
+              </button>
+
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={onDeleteMyProfile}
+                disabled={!myProfile}
+                title="Supprimer mon profil"
+              >
+                Supprimer
+              </button>
+
+              <button className="btn-ghost" onClick={() => setIsProfileModalOpen(false)}>
+                Fermer
+              </button>
+            </div>
+
+            {/* ✅✅✅ allowScroll : autorise le scroll dans la modal même si la page est lock */}
+            <div className="modal-body modal-body--scroll allowScroll">
+              <ProfileForm
+                loadingExisting={loadingMyProfile}
+                existingProfile={myProfile}
+                onSaveProfile={handleSaveProfile}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Aperçu en GRAND + fond dégradé/blur */}
+      {isPreviewModalOpen && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setIsPreviewModalOpen(false)}
+          style={{
+            background: "linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.92))",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)"
+          }}
+        >
+          <div
+            className="modal-card modal-card--sheet"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(820px, 96vw)",
+              maxHeight: "calc(var(--appH, 100vh) - 40px)",
+              overflow: "hidden"
+            }}
+          >
+            <div className="modal-header">
+              <h3>Aperçu</h3>
+              <button className="btn-ghost" onClick={() => setIsPreviewModalOpen(false)}>
+                Fermer
+              </button>
+            </div>
+
+            {/* ✅ allowScroll (au cas où l’aperçu dépasse sur petits écrans) */}
+            <div className="modal-body allowScroll" style={{ paddingTop: 10 }}>
+              {!myProfile ? (
+                <p className="form-message">Aucun profil à prévisualiser.</p>
+              ) : (
+                <div style={{ maxWidth: 760, margin: "0 auto" }}>
+                  <SwipeCard profile={myProfile} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isAuthModalOpen &&
         createPortal(
           <>
-            {/* 🔥 Connexion au-dessus de tout + fond flou */}
-            <div
-              className="modal-backdrop modal-backdrop--blur"
-              onClick={() => setIsAuthModalOpen(false)}
-            />
+            <div className="modal-backdrop modal-backdrop--blur" onClick={() => setIsAuthModalOpen(false)} />
             <div className="modal-card" onClick={(e) => e.stopPropagation()}>
               <AuthModal onClose={() => setIsAuthModalOpen(false)} />
             </div>
@@ -1908,104 +1989,6 @@ const navigate = useNavigate();
         <Route path="/account" element={<AccountSettings user={userForUI} />} />
         <Route path="/subscription" element={<Subscription user={userForUI} />} />
       </Routes>
-
-      
-
-      {/* =============================== */}
-      {/* 🔥 MODALS GLOBALES (PORTAL) */}
-      {/* =============================== */}
-
-      {isProfileModalOpen &&
-        createPortal(
-          <div
-            className="modal-backdrop modal-backdrop--blur"
-            onClick={() => setIsProfileModalOpen(false)}
-          >
-            <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <h3 style={{ marginRight: "auto" }}>Mon profil sportif</h3>
-
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={() => setIsPreviewModalOpen(true)}
-                  disabled={!myProfile}
-                  title="Voir l’aperçu (statique, sans swipe)"
-                >
-                  Aperçu
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={handleDeleteMyProfile}
-                  disabled={!myProfile}
-                  title="Supprimer mon profil"
-                >
-                  Supprimer
-                </button>
-
-                <button className="btn-ghost" onClick={() => setIsProfileModalOpen(false)}>
-                  Fermer
-                </button>
-              </div>
-
-              {/* ✅✅✅ allowScroll : autorise le scroll dans la modal même si la page est lock */}
-              <div className="modal-body modal-body--scroll allowScroll">
-                <ProfileForm
-                  loadingExisting={loadingMyProfile}
-                  existingProfile={myProfile}
-                  onSaveProfile={handleSaveProfile}
-                />
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {/* ✅ Aperçu en GRAND + fond dégradé/blur */}
-      {isPreviewModalOpen &&
-        createPortal(
-          <div
-            className="modal-backdrop"
-            onClick={() => setIsPreviewModalOpen(false)}
-            style={{
-              background: "linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.92))",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)"
-            }}
-          >
-            <div
-              className="modal-card modal-card--sheet"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width: "min(820px, 96vw)",
-                maxHeight: "calc(var(--appH, 100vh) - 40px)",
-                overflow: "hidden"
-              }}
-            >
-              <div className="modal-header">
-                <h3>Aperçu</h3>
-                <button className="btn-ghost" onClick={() => setIsPreviewModalOpen(false)}>
-                  Fermer
-                </button>
-              </div>
-
-              {/* ✅ allowScroll (au cas où l’aperçu dépasse sur petits écrans) */}
-              <div className="modal-body allowScroll" style={{ paddingTop: 10 }}>
-                {!myProfile ? (
-                  <p className="form-message">Aucun profil à prévisualiser.</p>
-                ) : (
-                  <div style={{ maxWidth: 760, margin: "0 auto" }}>
-                    <SwipeCard profile={myProfile} />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
 
       <MatchBoomModal
         open={matchBoom.open}
