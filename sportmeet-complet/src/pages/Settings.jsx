@@ -115,7 +115,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
   };
 
   return (
-    <main className="page settings-page">
+    <main className="page ">
       <div className="shell">
         <section className="card" style={{ padding: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
