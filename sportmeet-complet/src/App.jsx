@@ -503,7 +503,20 @@ function HomePage({
         </div>
       </main>
 
-      {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} />}
+      {isAuthModalOpen &&
+        createPortal(
+          <>
+            {/* 🔥 Connexion au-dessus de tout + fond flou */}
+            <div
+              className="modal-backdrop modal-backdrop--blur"
+              onClick={() => setIsAuthModalOpen(false)}
+            />
+            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <AuthModal onClose={() => setIsAuthModalOpen(false)} />
+            </div>
+          </>,
+          document.body
+        )}
     </>
   );
 }
