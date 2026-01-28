@@ -109,6 +109,7 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDra
 
   const onClickCard = (e) => {
     if (!onOpen) return;
+    if (isDragging) return; // 🔥 évite d'ouvrir le profil pendant un swipe
     if (isInTextZone(e.target)) return;
 
     const dt = Date.now() - (lastTapRef.current || 0);
