@@ -616,6 +616,7 @@ const navigate = useNavigate();
 
   const [profiles, setProfiles] = useState([]);
 
+  const [premiumLikes, setPremiumLikes] = useState([]); // 🔥 ajouté: évite "Can\'t find variable: setPremiumLikes"
   // ✅ Infinite feed (pagination + fallback seed)
   const [profilesPage, setProfilesPage] = useState(0);
   const [hasMoreProfiles, setHasMoreProfiles] = useState(true);
