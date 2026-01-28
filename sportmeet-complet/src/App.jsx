@@ -503,20 +503,7 @@ function HomePage({
         </div>
       </main>
 
-      {isAuthModalOpen &&
-        createPortal(
-          <>
-            {/* 🔥 Connexion au-dessus de tout + fond flou */}
-            <div
-              className="modal-backdrop modal-backdrop--blur"
-              onClick={() => setIsAuthModalOpen(false)}
-            />
-            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-              <AuthModal onClose={() => setIsAuthModalOpen(false)} />
-            </div>
-          </>,
-          document.body
-        )}
+      {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} />}
     </>
   );
 }
@@ -616,7 +603,6 @@ const navigate = useNavigate();
 
   const [profiles, setProfiles] = useState([]);
 
-  const [premiumLikes, setPremiumLikes] = useState([]); // 🔥 ajouté: évite "Can\'t find variable: setPremiumLikes"
   // ✅ Infinite feed (pagination + fallback seed)
   const [profilesPage, setProfilesPage] = useState(0);
   const [hasMoreProfiles, setHasMoreProfiles] = useState(true);
@@ -1918,12 +1904,10 @@ const navigate = useNavigate();
 
       {isProfileModalOpen &&
         createPortal(
-          <>
-            <div
-              className="modal-backdrop modal-backdrop--blur"
-              onClick={() => setIsProfileModalOpen(false)}
-            />
-            <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
+          <div
+            className="modal-backdrop--blur"
+            onClick={() => setIsProfileModalOpen(false)}
+          >
             <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header" style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <h3 style={{ marginRight: "auto" }}>Mon profil sportif</h3>
@@ -1962,8 +1946,7 @@ const navigate = useNavigate();
                 />
               </div>
             </div>
-            </div>
-          </>,
+          </div>,
           document.body
         )}
 
