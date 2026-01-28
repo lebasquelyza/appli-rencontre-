@@ -1074,3 +1074,13 @@ input:focus, select:focus, textarea:focus{
   inset: 0;
   z-index: 9999;
 }
+
+
+/* 🔥 Ajout minimal: fond flouté derrière une modale (Mon profil sportif / Connexion)
+   Utilisation: class="modal-backdrop modal-backdrop--blur"
+*/
+.modal-backdrop--blur{
+  background: rgba(0,0,0,.35); /* au lieu de .65, comme les profils */
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
