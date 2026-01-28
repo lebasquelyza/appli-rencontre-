@@ -117,7 +117,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
   return (
     <main className="page">
       <div className="shell">
-        <section className="card" style={{ padding: 16 }}>
+        <section className="card settings-shell-card" style={{ padding: 16 }}> // 🔥 dégradé visible derrière
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button className="btn-ghost" onClick={() => navigate("/")}>
               ← Retour
