@@ -1074,3 +1074,15 @@ input:focus, select:focus, textarea:focus{
   inset: 0;
   z-index: 9999;
 }
+
+
+/* 🔥 Mon profil sportif : fond flouté derrière (comme les autres profils) */
+.modal-backdrop--blur{
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  /* au-dessus de tout */
+  z-index: 9998;
+}
+.modal-backdrop--blur .modal-card{
+  z-index: 9999;
+}
