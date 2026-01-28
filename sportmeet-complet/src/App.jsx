@@ -592,7 +592,7 @@ function HomePage({
         createPortal(
           <>
             <div className="modal-backdrop modal-backdrop--blur" onClick={() => setIsAuthModalOpen(false)} />
-            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-card modal-card--no-glass" onClick={(e) => e.stopPropagation()}>
               <AuthModal onClose={() => setIsAuthModalOpen(false)} />
             </div>
           </>,
