@@ -503,7 +503,14 @@ function HomePage({
         </div>
       </main>
 
-      {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} />}
+      {isAuthModalOpen &&
+        createPortal(
+          <>
+            <div className="blur-underlay" onClick={() => setIsAuthModalOpen(false)} />
+            <AuthModal onClose={() => setIsAuthModalOpen(false)} />
+          </>,
+          document.body
+        )}
     </>
   );
 }
@@ -1905,7 +1912,7 @@ const navigate = useNavigate();
       {isProfileModalOpen &&
         createPortal(
           <div
-            className="modal-backdrop--blur"
+            className="modal-backdrop modal-backdrop--blur"
             onClick={() => setIsProfileModalOpen(false)}
           >
             <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
