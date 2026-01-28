@@ -510,7 +510,7 @@ function HomePage({
             <div
               className="modal-backdrop modal-backdrop--blur"
               onClick={() => setIsProfileModalOpen(false)}
-            />
+            
             <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false
           </>,
           document.body
