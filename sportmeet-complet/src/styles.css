@@ -1055,42 +1055,11 @@ input:focus, select:focus, textarea:focus{
 }
 
 
-/* =============================== */
-/* 🔥 Overlay global : Profil sportif */
-/* (ajout minimal pour flouter l'arrière-plan) */
-/* =============================== */
-
-.profile-backdrop{
-  position: fixed;
-  inset: 0;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(0,0,0,.35);
-  z-index: 9998;
-}
-
-.profile-modal{
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-}
-
-
-/* 🔥 Mon profil sportif : fond flouté derrière (comme les autres profils) */
 .modal-backdrop--blur{
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  /* au-dessus de tout */
+  position: fixed;
+  inset: 0;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(0,0,0,0.35);
   z-index: 9998;
-}
-.modal-backdrop--blur .modal-card{
-  z-index: 9999;
-}
-
-
-/* 🔥 Important: quand le fond est flouté, garder la modale nette */
-.modal-backdrop--blur .modal-card{
-  backdrop-filter: none;          /* ne pas flouter à l'intérieur de la card */
-  -webkit-backdrop-filter: none;
-  background: rgba(14,15,20,.92); /* proche du design actuel, juste plus opaque */
 }
