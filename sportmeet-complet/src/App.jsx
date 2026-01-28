@@ -504,8 +504,17 @@ function HomePage({
       </main>
 
       {/* ---------- MODALS ---------- */}
-      {isProfileModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false)}>
+      {isProfileModalOpen &&
+        createPortal(
+          <>
+            <div
+              className="modal-backdrop modal-backdrop--blur"
+              onClick={() => setIsProfileModalOpen(false)}
+            />
+            <div className="modal-backdrop" onClick={() => setIsProfileModalOpen(false
+          </>,
+          document.body
+        )}>
           <div className="modal-card modal-card--sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header" style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <h3 style={{ marginRight: "auto" }}>Mon profil sportif</h3>
@@ -591,10 +600,13 @@ function HomePage({
       {isAuthModalOpen &&
         createPortal(
           <>
-            <div className="modal-backdrop modal-backdrop--blur" onClick={() => setIsAuthModalOpen(false)} />
-            <div className="modal-card modal-card--no-glass" onClick={(e) => e.stopPropagation()}>
-              <AuthModal onClose={() => setIsAuthModalOpen(false)} />
-            </div>
+            {/* 🔥 Blur derrière uniquement (ne couvre pas la modale) */}
+            <div
+              className="modal-backdrop modal-backdrop--blur"
+              onClick={() => setIsAuthModalOpen(false)}
+            />
+            {/* Modale connexion existante (reste nette) */}
+            <AuthModal onClose={() => setIsAuthModalOpen(false)} />
           </>,
           document.body
         )}
