@@ -1055,12 +1055,22 @@ input:focus, select:focus, textarea:focus{
 }
 
 
-/* 🔥 Ajout minimal: flou de l'arrière-plan derrière une modale (sans flouter la modale elle-même)
-   Important: z-index = 49, juste sous .modal-backdrop (50) pour ne pas cacher la modale.
-*/
-.modal-backdrop--blur{
+/* =============================== */
+/* 🔥 Overlay global : Profil sportif */
+/* (ajout minimal pour flouter l'arrière-plan) */
+/* =============================== */
+
+.profile-backdrop{
+  position: fixed;
+  inset: 0;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   background: rgba(0,0,0,.35);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  z-index: 49;
+  z-index: 9998;
+}
+
+.profile-modal{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
 }
