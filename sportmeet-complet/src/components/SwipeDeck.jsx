@@ -538,7 +538,7 @@ export function SwipeDeck({
     if (dragRafRef.current) return;
     dragRafRef.current = requestAnimationFrame(() => {
       dragRafRef.current = null;
-      applyDragDom(clamp(dx, -220, 220), clamp(dy, -220, 160));
+      applyDragDom(clamp(dx, -480, 480), clamp(dy, -260, 260)); // 🔥 plage élargie = moins de "butée" donc swipe plus fluide
     });
   };
 
