@@ -900,8 +900,6 @@ input:focus, select:focus, textarea:focus{
   min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-
-  max-height: 70vh;
 }
 
 /* Mobile */
@@ -1095,3 +1093,15 @@ input:focus, select:focus, textarea:focus{
   -webkit-backdrop-filter: blur(14px);
   z-index: 49;
 }
+
+/* ===============================
+   FIX DESKTOP – boutons texte
+   (ex: "Mot de passe oublié ?")
+   =============================== */
+
+.modal-card button {
+  height: auto !important;
+  min-height: unset !important;
+  line-height: 1.3;
+}
+
