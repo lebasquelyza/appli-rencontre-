@@ -1731,25 +1731,29 @@ const navigate = useNavigate();
     if (!profile?.id) return false;
 
     if (isSuper) {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
+  const startOfWeek = new Date();
+  startOfWeek.setHours(0, 0, 0, 0);
 
-      const { count, error: cntErr } = await supabase
-        .from("likes")
-        .select("id", { count: "exact", head: true })
-        .eq("liker_id", user.id)
-        .eq("is_super", true)
-        .gte("created_at", startOfToday.toISOString());
+  // Lundi 00:00 (semaine calendaire)
+  const day = (startOfWeek.getDay() + 6) % 7; // Lundi=0 ... Dimanche=6
+  startOfWeek.setDate(startOfWeek.getDate() - day);
 
-      if (cntErr) console.error("superlike count error:", cntErr);
+  const { count, error: cntErr } = await supabase
+    .from("likes")
+    .select("id", { count: "exact", head: true })
+    .eq("liker_id", user.id)
+    .eq("is_super", true)
+    .gte("created_at", startOfWeek.toISOString());
 
-      if ((count || 0) >= 5) {
-        setProfileToast("Limite atteinte : 5 superlikes par jour ⭐");
-        window.clearTimeout(handleLike.__t);
-        handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
-        return false;
-      }
-    }
+  if (cntErr) console.error("superlike count error:", cntErr);
+
+  if ((count || 0) >= 5) {
+    setProfileToast("Limite atteinte : 5 superlikes par semaine ⭐");
+    window.clearTimeout(handleLike.__t);
+    handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
+    return false;
+  }
+}
 
     const { error: likeErr } = await supabase.from("likes").insert({
       liker_id: user.id,
