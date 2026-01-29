@@ -66,12 +66,7 @@ export function HowItWorks() {
             <button type="button" className="btn-ghost btn-sm" onClick={() => navigate(-1)}>
               ← Retour
             </button>
-            <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <span style={pillStyle}>💪 MatchFit</span>
-              <span style={pillStyle}>🃏 Swipe & Match</span>
-              <span style={pillStyle}>⭐ 5 superlikes/semaine</span>
-            </div>
-          </div>
+</div>
 
           <h1 style={{ margin: "6px 0 8px", fontSize: 32, letterSpacing: -0.4 }}>
             Comment fonctionne MatchFit ?
