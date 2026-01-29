@@ -16,6 +16,9 @@ export function SwipeDeck({
   const [busy, setBusy] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  // ✅ bloque le swipe quand la modale "Signaler" est ouverte (pour permettre l'édition du texte)
+  const [reportOpen, setReportOpen] = useState(false);
+
   const [gateMsg, setGateMsg] = useState("");
   const gateTimerRef = useRef(null);
 
@@ -476,7 +479,8 @@ export function SwipeDeck({
 
   // ✅ pointer handlers (avec pointerId + vitesse)
   const onPointerDown = (e) => {
-    if (zoomOpen) return;
+    if (reportOpen) return;
+    if (zoomOpen || reportOpen) return;
     if (!currentProfile || busy) return;
     if (isShareCard) return;
 
@@ -516,6 +520,7 @@ export function SwipeDeck({
   };
 
   const onPointerMove = (e) => {
+    if (reportOpen) return;
     if (!pointerRef.current.active) return;
     if (pointerRef.current.pointerId != null && e.pointerId !== pointerRef.current.pointerId) return;
 
@@ -547,6 +552,7 @@ export function SwipeDeck({
   };
 
   const onPointerUp = async (e) => {
+    if (reportOpen) return;
     if (!pointerRef.current.active) return;
     if (pointerRef.current.pointerId != null && e?.pointerId != null && e.pointerId !== pointerRef.current.pointerId)
       return;
@@ -598,6 +604,7 @@ export function SwipeDeck({
   };
 
   const onPointerCancel = () => {
+    if (reportOpen) return;
     if (!pointerRef.current.active) return;
     endPointer();
     setIsDragging(false);
@@ -646,6 +653,8 @@ export function SwipeDeck({
                 reduceEffects={isAndroid || isDragging}
                 isDragging={isDragging}
                 onReport={(payload) => onReportProfile?.(currentProfile, payload)}
+                onReportOpen={() => setReportOpen(true)}
+                onReportClose={() => setReportOpen(false)}
               />
             )}
           </div>
@@ -708,7 +717,7 @@ export function SwipeDeck({
                 type="button"
                 className="swBtn swBtnBad"
                 onClick={() => handleSkip({ dx: 0, dy: 0, vx: 0 })}
-                disabled={busy}
+                disabled={busy || reportOpen}
               >
                 ✕
               </button>
@@ -716,7 +725,7 @@ export function SwipeDeck({
                 type="button"
                 className="swBtn swBtnPrimary"
                 onClick={() => handleLike({ dx: 0, dy: 0, vx: 0 })}
-                disabled={busy}
+                disabled={busy || reportOpen}
               >
                 ❤
               </button>
@@ -724,7 +733,7 @@ export function SwipeDeck({
                 type="button"
                 className="swBtn swBtnGood"
                 onClick={() => handleSuperLike({ dx: 0, dy: 0, vx: 0 })}
-                disabled={busy}
+                disabled={busy || reportOpen}
               >
                 ★
               </button>
@@ -768,6 +777,8 @@ export function SwipeDeck({
                       profile={zoomProfile}
                       reduceEffects={isAndroid || isDragging}
                       onReport={(payload) => onReportProfile?.(zoomProfile, payload)}
+                      onReportOpen={() => setReportOpen(true)}
+                      onReportClose={() => setReportOpen(false)}
                     />
                   </div>
                 </div>
