@@ -638,6 +638,7 @@ const navigate = useNavigate();
     } catch {
       return { ...EMPTY_FILTERS };
     }
+  });
 
   useEffect(() => {
     try {
@@ -646,8 +647,6 @@ const navigate = useNavigate();
       // ignore storage errors (private mode, quota, etc.)
     }
   }, [filters]);
-
-  });
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
