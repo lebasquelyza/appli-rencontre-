@@ -38,8 +38,8 @@ export function HowItWorks() {
     },
     {
       icon: "⭐",
-      title: "Superlike (5/jour)",
-      text: "Swipe vers le haut pour SUPERLIKE ★. Limite : 5 superlikes par jour. Garde-les pour les profils qui te motivent vraiment."
+      title: "Superlike (5/semaine)",
+      text: "Swipe vers le haut pour SUPERLIKE ★. Limite : 5 superlikes par semaine. Garde-les pour les profils qui te motivent vraiment."
     },
     {
       icon: "💬",
@@ -69,7 +69,7 @@ export function HowItWorks() {
             <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
               <span style={pillStyle}>💪 MatchFit</span>
               <span style={pillStyle}>🃏 Swipe & Match</span>
-              <span style={pillStyle}>⭐ 5 superlikes/jour</span>
+              <span style={pillStyle}>⭐ 5 superlikes/semaine</span>
             </div>
           </div>
 
@@ -106,7 +106,7 @@ export function HowItWorks() {
                 <div style={{ fontSize: 24, marginBottom: 6 }}>★</div>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>Haut = SUPERLIKE</div>
                 <div style={{ opacity: 0.9, lineHeight: 1.45 }}>
-                  Tu montres un intérêt fort. <strong>Limite : 5/jour</strong>.
+                  Tu montres un intérêt fort. <strong>Limite : 5/semaine</strong>.
                 </div>
               </div>
             </div>
