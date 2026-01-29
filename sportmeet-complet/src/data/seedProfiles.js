@@ -31,8 +31,8 @@ const FIRSTNAMES = [
 ];
 
 
-function pick\(arr, i\) {
-  return arr\[i % arr\.length\];
+function pick(arr, i) {
+  return arr[i % arr.length];
 }
 
 function makeBio({ name, age, sport, city, level }, i) {
