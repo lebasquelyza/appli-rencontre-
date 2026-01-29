@@ -900,6 +900,8 @@ input:focus, select:focus, textarea:focus{
   min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+
+  max-height: 70vh;
 }
 
 /* Mobile */
