@@ -315,7 +315,7 @@ const changeEmail = async () => {
             {/* ✅ Abonnement */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Abonnement</h3>
-              <p style={{ opacity: 0.85, marginTop: 6 }}>Découvre Premium et gère ton abonnement.</p>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>Gère ton abonnement (activation bientôt).</p>
               <button className="btn-primary" onClick={() => navigate("/subscription")} disabled={!user}>
                 Ouvrir
               </button>
