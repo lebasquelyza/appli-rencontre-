@@ -1,5 +1,6 @@
 // sportmeet-complet/src/components/SwipeCard.jsx
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 function hashToHue(str = "") {
   let h = 0;
@@ -315,104 +316,111 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDra
         </div>
 
         {/* ✅ Modal Signalement */}
-        {reportOpen && (
-          <div
-            className="reportModal"
-            onClick={(e) => {
-              e.stopPropagation();
-              closeReport();
-            }}
-            style={{
-              position: "absolute",
-              inset: 0,
-              zIndex: 10,
-              background: "rgba(0,0,0,.55)",
-              display: "grid",
-              placeItems: "center",
-              padding: 14
-            }}
-          >
+        {reportOpen &&
+          createPortal(
             <div
-              onClick={(e) => e.stopPropagation()}
+              className="reportModal"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeReport();
+              }}
               style={{
-                width: "min(460px, 100%)",
-                borderRadius: 16,
-                background: "rgba(20,20,20,.92)",
-                color: "white",
-                padding: 14,
-                boxShadow: "0 10px 30px rgba(0,0,0,.35)"
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                background: "rgba(0,0,0,.45)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                display: "grid",
+                placeItems: "center",
+                padding: 14
               }}
             >
-              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-                <div style={{ fontWeight: 800 }}>Signaler ce profil</div>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={closeReport}
-                  style={{ marginLeft: "auto" }}
-                >
-                  Fermer
-                </button>
-              </div>
-
-              <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 10, lineHeight: 1.35 }}>
-                {profile?.name ? (
-                  <span>
-                    Profil : <strong>{profile.name}</strong>
-                  </span>
-                ) : null}
-              </div>
-
-              <div style={{ display: "grid", gap: 8 }}>
-                <label style={{ fontSize: 13, opacity: 0.9 }}>Raison</label>
-                <select
-                  value={reportReason}
-                  onChange={(e) => setReportReason(e.target.value)}
-                  style={{
-                    width: "100%",
-                    borderRadius: 12,
-                    padding: "10px 12px",
-                    border: "1px solid rgba(255,255,255,.15)",
-                    background: "rgba(255,255,255,.06)",
-                    color: "white"
-                  }}
-                >
-                  {REPORT_REASONS.map((r) => (
-                    <option key={r} value={r} style={{ color: "black" }}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-
-                <label style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>Détails (optionnel)</label>
-                <textarea
-                  value={reportDetails}
-                  onChange={(e) => setReportDetails(e.target.value)}
-                  rows={3}
-                  placeholder="Explique brièvement ce qui pose problème…"
-                  style={{
-                    width: "100%",
-                    borderRadius: 12,
-                    padding: "10px 12px",
-                    border: "1px solid rgba(255,255,255,.15)",
-                    background: "rgba(255,255,255,.06)",
-                    color: "white",
-                    resize: "vertical"
-                  }}
-                />
-
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
-                  <button type="button" className="btn-ghost" onClick={closeReport}>
-                    Annuler
-                  </button>
-                  <button type="button" className="btn-primary" onClick={submitReport} disabled={!reportReason}>
-                    Envoyer
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="allowScroll"
+                style={{
+                  width: "min(620px, 92vw)",
+                  maxHeight: "calc(var(--appH, 100vh) - 40px)",
+                  overflow: "auto",
+                  borderRadius: 20,
+                  background: "rgba(20,20,20,.92)",
+                  color: "white",
+                  padding: 16,
+                  boxShadow: "0 18px 50px rgba(0,0,0,.5)"
+                }}
+              >
+                <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>Signaler ce profil</div>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    onClick={closeReport}
+                    style={{ marginLeft: "auto" }}
+                  >
+                    Fermer
                   </button>
                 </div>
+
+                <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 12, lineHeight: 1.35 }}>
+                  {profile?.name ? (
+                    <span>
+                      Profil : <strong>{profile.name}</strong>
+                    </span>
+                  ) : null}
+                </div>
+
+                <div style={{ display: "grid", gap: 8 }}>
+                  <label style={{ fontSize: 13, opacity: 0.9 }}>Raison</label>
+                  <select
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    style={{
+                      width: "100%",
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      border: "1px solid rgba(255,255,255,.15)",
+                      background: "rgba(255,255,255,.06)",
+                      color: "white"
+                    }}
+                  >
+                    {REPORT_REASONS.map((r) => (
+                      <option key={r} value={r} style={{ color: "black" }}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+
+                  <label style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>Détails (optionnel)</label>
+                  <textarea
+                    value={reportDetails}
+                    onChange={(e) => setReportDetails(e.target.value)}
+                    rows={4}
+                    placeholder="Explique brièvement ce qui pose problème…"
+                    style={{
+                      width: "100%",
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      border: "1px solid rgba(255,255,255,.15)",
+                      background: "rgba(255,255,255,.06)",
+                      color: "white",
+                      resize: "vertical"
+                    }}
+                  />
+
+                  <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 10 }}>
+                    <button type="button" className="btn-ghost" onClick={closeReport}>
+                      Annuler
+                    </button>
+                    <button type="button" className="btn-primary" onClick={submitReport} disabled={!reportReason}>
+                      Envoyer
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </div>,
+            document.body
+          )}
       </div>
     </article>
   );
