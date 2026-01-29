@@ -14,6 +14,7 @@ import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 import { Confirmed } from "./pages/Confirmed";
 import { HowItWorks } from "./pages/HowItWorks";
+import { HiddenProfiles } from "./pages/HiddenProfiles";
 
 const sendSessionToNative = (session) => {
   try {
@@ -330,6 +331,29 @@ function saveHiddenIds(userId, setObj) {
   try {
     const arr = Array.from(setObj || []);
     localStorage.setItem(hiddenKeyForUser(userId), JSON.stringify(arr));
+  } catch {
+    // ignore
+  }
+}
+
+
+function hiddenMetaKeyForUser(userId) {
+  return `matchfit_hidden_profiles_meta_${userId || "anon"}`;
+}
+
+function loadHiddenMeta(userId) {
+  try {
+    const raw = localStorage.getItem(hiddenMetaKeyForUser(userId));
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHiddenMeta(userId, list) {
+  try {
+    localStorage.setItem(hiddenMetaKeyForUser(userId), JSON.stringify(Array.isArray(list) ? list : []));
   } catch {
     // ignore
   }
@@ -680,6 +704,7 @@ const navigate = useNavigate();
 
   // ✅ profils masqués (signalés) — persistant localStorage
   const [hiddenProfileIds, setHiddenProfileIds] = useState(() => new Set());
+  const [hiddenProfilesMeta, setHiddenProfilesMeta] = useState(() => []);
 
   // ✅ Compte en cours de vérification (>=7 signalements)
   const [inReview, setInReview] = useState(false);
@@ -695,6 +720,7 @@ const navigate = useNavigate();
     if (typeof window === "undefined") return;
     const uid = user?.id || "anon";
     setHiddenProfileIds(loadHiddenIds(uid));
+    setHiddenProfilesMeta(loadHiddenMeta(uid));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -704,6 +730,13 @@ const navigate = useNavigate();
     const uid = user?.id || "anon";
     saveHiddenIds(uid, hiddenProfileIds);
   }, [hiddenProfileIds, user?.id]);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  const uid = user?.id || "anon";
+  saveHiddenMeta(uid, hiddenProfilesMeta);
+}, [hiddenProfilesMeta, user?.id]);
+
 
   useEffect(() => {
     const h = window.location.hash || "";
@@ -808,10 +841,12 @@ const navigate = useNavigate();
     const uid = user?.id || "anon";
 
     setHiddenProfileIds(new Set());
+      setHiddenProfilesMeta([]);
 
     if (typeof window !== "undefined") {
       try {
         localStorage.removeItem(hiddenKeyForUser(uid));
+      localStorage.removeItem(hiddenMetaKeyForUser(uid));
       } catch {
         // ignore
       }
@@ -1058,7 +1093,41 @@ const navigate = useNavigate();
   /* -------------------------------
      ✅ SIGNALER un profil (profile_reports) + cacher du feed
   -------------------------------- */
-  const reportProfile = async (profile, payload) => {
+  
+const upsertHiddenMeta = (profile, reason = "") => {
+  const snap = {
+    id: profile?.id,
+    name: profile?.name || "",
+    age: profile?.age ?? null,
+    city: profile?.city || "",
+    sport: profile?.sport || "",
+    level: profile?.level || "",
+    photo_url: Array.isArray(profile?.photo_urls) ? profile.photo_urls[0] : profile?.photo_url || "",
+    reason: reason || "",
+    at: new Date().toISOString(),
+    isSeed: !!profile?.isSeed,
+    user_id: profile?.user_id ?? null
+  };
+  setHiddenProfilesMeta((prev) => {
+    const arr = Array.isArray(prev) ? prev.slice() : [];
+    const idx = arr.findIndex((x) => x?.id === snap.id);
+    if (idx >= 0) arr[idx] = { ...arr[idx], ...snap };
+    else arr.unshift(snap);
+    return arr.slice(0, 200);
+  });
+};
+
+const unhideOneProfile = (profileId) => {
+  if (!profileId) return;
+  setHiddenProfileIds((prev) => {
+    const next = new Set(prev);
+    next.delete(profileId);
+    return next;
+  });
+  setHiddenProfilesMeta((prev) => (Array.isArray(prev) ? prev.filter((p) => p?.id !== profileId) : []));
+};
+
+const reportProfile = async (profile, payload) => {
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
       else setIsAuthModalOpen(true);
@@ -1084,6 +1153,7 @@ const navigate = useNavigate();
         next.add(profile.id);
         return next;
       });
+      upsertHiddenMeta(profile, reason);
       setProfileToast("Profil masqué ✅");
       return;
     }
@@ -1915,10 +1985,22 @@ const navigate = useNavigate();
 
         <Route
           path="/settings"
-          element={<Settings user={userForUI} onClearHiddenProfiles={clearHiddenProfiles} />}
+          element={<Settings user={userForUI} onClearHiddenProfiles={clearHiddenProfiles} hiddenCount={hiddenProfilesMeta.length} />}
         />
 
-        <Route path="/account" element={<AccountSettings user={userForUI} />} />
+        
+<Route
+  path="/hidden-profiles"
+  element={
+    <HiddenProfiles
+      user={userForUI}
+      hiddenProfiles={hiddenProfilesMeta}
+      onUnhideOne={unhideOneProfile}
+      onClearAll={clearHiddenProfiles}
+    />
+  }
+/>
+<Route path="/account" element={<AccountSettings user={userForUI} />} />
         <Route path="/subscription" element={<Subscription user={userForUI} />} />
       </Routes>
 
