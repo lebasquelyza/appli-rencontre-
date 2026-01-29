@@ -28,7 +28,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
   const isRecoveryUrl = useMemo(() => {
     const h = window.location.hash || "";
     // Supabase met souvent access_token/refresh_token dans le hash
-    return h.includes("type=recovery") || (h.includes("access_token=") && h.includes("refresh_token="));
+    return h.includes("type=recovery");
   }, []);
 
   useEffect(() => {
@@ -343,20 +343,10 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 type="button"
                 onClick={() => setMode("signin")}
                 disabled={loading}
-                style={{
-                  marginTop: 8,
-                  padding: 0,
-                  border: 0,
-                  background: "transparent",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  opacity: 0.75,
-                  textDecoration: "underline",
-                  textAlign: "right",
-                  width: "100%"
-                }}
-                aria-label="Mot de passe oublié"
-                title="Mot de passe oublié"
+                className="btn-link"
+                style={{ marginTop: 8 }}
+                aria-label="Retour à la connexion"
+                title="Retour à la connexion"
               >
                 Mot de passe oublié ?
               </button>
@@ -395,23 +385,12 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                   <button
                     type="button"
                     onClick={() => {
-                      // si on est en signup, on repasse d'abord en signin
                       if (mode === "signup") setMode("signin");
                       handleForgotPassword();
                     }}
                     disabled={loading}
-                    style={{
-                      marginTop: 8,
-                      padding: 0,
-                      border: 0,
-                      background: "transparent",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      opacity: 0.75,
-                      textDecoration: "underline",
-                      textAlign: "right",
-                      width: "100%"
-                    }}
+                    className="btn-link"
+                    style={{ marginTop: 8 }}
                     aria-label="Mot de passe oublié"
                     title="Mot de passe oublié"
                   >
