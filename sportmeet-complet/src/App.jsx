@@ -1756,7 +1756,6 @@ const navigate = useNavigate();
     }
 
     if (!profile?.id) return false;
-    }
 
     const { error: likeErr } = await supabase.from("likes").insert({
       liker_id: user.id,
