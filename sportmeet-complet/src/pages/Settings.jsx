@@ -173,7 +173,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Comment ça marche</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>
-                Comprendre le swipe, les superlikes (5/jour), les matchs et la sécurité.
+                Comprendre le swipe, les superlikes (5/semaine), les matchs et la sécurité.
               </p>
 
               <button className="btn-primary" onClick={() => navigate("/comment-ca-marche")}>
