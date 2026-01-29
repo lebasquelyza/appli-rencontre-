@@ -394,11 +394,12 @@ export function SwipeDeck({
     willChange: "transform",
     cursor: isShareCard ? "default" : !isAuthenticated ? "default" : "grab",
     // Perf Android: empêcher le navigateur d'interpréter le geste (scroll/zoom) pendant le swipe
-    touchAction: "none",
+    touchAction: reportOpen ? "auto" : "none",
+    pointerEvents: reportOpen ? "none" : "auto",
     position: "relative",
     WebkitTapHighlightColor: "transparent",
-    userSelect: "none",
-    WebkitUserSelect: "none"
+    userSelect: reportOpen ? "text" : "none",
+    WebkitUserSelect: reportOpen ? "text" : "none"
   };
 
   // ✅ icônes simples (pas de blur pendant drag)
@@ -413,7 +414,7 @@ export function SwipeDeck({
     placeItems: "center",
     fontSize: 28,
     fontWeight: 900,
-    userSelect: "none",
+    userSelect: reportOpen ? "text" : "none",
     pointerEvents: "none",
     opacity: 0,
     transform: "translate3d(0,0,0) scale(.92)",
