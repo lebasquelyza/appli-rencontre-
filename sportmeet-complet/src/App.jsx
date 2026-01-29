@@ -734,8 +734,6 @@ const navigate = useNavigate();
   const isInReview = !!user && !!inReview && !isSuspended;
 
   // 👉 on conserve userForUI pour l’affichage, mais on bloque les actions si review
-  const userForUI = isSuspended ? null : user;
-
   // ✅ charger les profils masqués quand l'utilisateur change
   useEffect(() => {
     if (typeof window === "undefined") return;
