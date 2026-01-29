@@ -15,6 +15,7 @@ export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
 
   // ✅ Mes infos (lecture seule, toujours visible)
   const [email, setEmail] = useState(user?.email || "");
+  const [newEmail, setNewEmail] = useState("");
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
 
@@ -71,6 +72,39 @@ export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
       cancelled = true;
     };
   }, [user?.id]);
+
+
+const changeEmail = async () => {
+  if (!user) return;
+
+  const next = (newEmail || "").trim().toLowerCase();
+  if (!next || !next.includes("@")) {
+    return setBanner("Adresse email invalide.", true);
+  }
+  if ((email || "").trim().toLowerCase() === next) {
+    return setBanner("C’est déjà ton email actuel.", true);
+  }
+
+  setLoading(true);
+  try {
+    const { error } = await supabase.auth.updateUser(
+      { email: next },
+      { emailRedirectTo: `${window.location.origin}/auth/callback` }
+    );
+
+    if (error) {
+      console.error("update email error:", error);
+      return setBanner("Impossible de modifier l’email.", true);
+    }
+
+    setNewEmail("");
+    setBanner(
+      "Un email de confirmation vient d’être envoyé. Le changement sera effectif après validation ✅"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const changePassword = async () => {
     if (!user) return;
@@ -141,19 +175,38 @@ export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
             {/* ✅ Mes infos (toujours visible, non modifiable) */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Mes infos</h3>
-              <p style={{ opacity: 0.85, marginTop: 6 }}>Informations de ton compte (lecture seule).</p>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>Informations de ton compte.</p>
 
               <div className="form" style={{ marginTop: 12 }}>
                 <div className="form-group">
-                  <label>Email</label>
-                  <input
-                    type="email"
-                    value={email || "Non renseigné"}
-                    disabled
-                    readOnly
-                    style={whiteDisabledInputStyle}
-                  />
-                </div>
+  <label>Email actuel</label>
+  <input
+    type="email"
+    value={email || "Non renseigné"}
+    disabled
+    readOnly
+    style={whiteDisabledInputStyle}
+  />
+</div>
+
+<div className="form-group">
+  <label>Nouvelle adresse email</label>
+  <input
+    type="email"
+    value={newEmail}
+    onChange={(e) => setNewEmail(e.target.value)}
+    disabled={!user || loading}
+    placeholder="nouvel@email.com"
+    autoComplete="email"
+  />
+  <small style={{ display: "block", marginTop: 6, opacity: 0.75, lineHeight: 1.3 }}>
+    Tu devras confirmer via un email (comme à l’inscription). Ton compte et ton ID ne changent pas.
+  </small>
+</div>
+
+<button className="btn-primary" onClick={changeEmail} disabled={!user || loading || !newEmail}>
+  Modifier l’email
+</button>
 
                 <div className="form-group">
                   <label>Nom</label>
@@ -224,44 +277,7 @@ export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
                 </div>
               )}
             </div>
-
-            {/* ✅ Profils masqués (signalements) */}
-            {user ? (
-              <div className="card" style={{ padding: 14 }}>
-                <h3 style={{ marginTop: 0 }}>Profils masqués</h3>
-                <p style={{ opacity: 0.85, marginTop: 6 }}>
-                  Réaffiche tous les profils que tu avais masqués après un signalement.
-                </p>
-
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-  <button
-    type="button"
-    className="btn-primary"
-    onClick={() => navigate("/hidden-profiles")}
-    disabled={!user || hiddenCount === 0}
-  >
-    Voir ({hiddenCount})
-  </button>
-
-  <button
-    className="btn-ghost"
-    onClick={() => {
-                    const ok = window.confirm(
-                      "Réinitialiser les profils masqués ? Ils réapparaîtront dans ton fil."
-                    );
-                    if (!ok) return;
-                    onClearHiddenProfiles?.();
-                    setBanner("Profils masqués réinitialisés ✅");
-                  }}
-                  disabled={!onClearHiddenProfiles}
-                >
-                  Réinitialiser
-                </button>
-                </div>
-              </div>
-            ) : null}
-
-            {/* ✅ Configuration */}
+{/* ✅ Configuration */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Configuration</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>Modifier ton profil, tes infos et tes préférences.</p>
