@@ -359,6 +359,36 @@ function saveHiddenMeta(userId, list) {
   }
 }
 
+
+function filtersKeyForUser(userId) {
+  return `matchfit_filters_${userId || "anon"}`;
+}
+
+function loadFilters(userId) {
+  try {
+    const raw = localStorage.getItem(filtersKeyForUser(userId));
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      sport: parsed.sport || "",
+      level: parsed.level || "",
+      city: parsed.city || "",
+      radiusKm: Number(parsed.radiusKm || 0),
+      myLocation: parsed.myLocation || null
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveFilters(userId, filters) {
+  try {
+    localStorage.setItem(filtersKeyForUser(userId), JSON.stringify(filters || {}));
+  } catch {
+    // ignore
+  }
+}
+
 function HomePage({
   filters,
   onFiltersChange,
@@ -529,6 +559,7 @@ function HomePage({
               <p className="form-message">Chargement des profils…</p>
             ) : (
               <SwipeDeck
+                userId={user?.id || "anon"}
                 profiles={filteredProfiles}
                 onLikeProfile={handleLike}
                 onReportProfile={onReportProfile}
@@ -658,12 +689,18 @@ const navigate = useNavigate();
   const seedPoolRef = useRef([]);
   const seedLastKeyRef = useRef("");
 
-  const [filters, setFilters] = useState({
-    sport: "",
-    level: "",
-    city: "",
-    radiusKm: 0,
-    myLocation: null
+  const [filters, setFilters] = useState(() => {
+    // ✅ garder les derniers filtres même après déconnexion/reconnexion
+    const saved = typeof window !== "undefined" ? loadFilters("anon") : null;
+    return (
+      saved || {
+        sport: "",
+        level: "",
+        city: "",
+        radiusKm: 0,
+        myLocation: null
+      }
+    );
   });
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -721,6 +758,10 @@ const navigate = useNavigate();
     const uid = user?.id || "anon";
     setHiddenProfileIds(loadHiddenIds(uid));
     setHiddenProfilesMeta(loadHiddenMeta(uid));
+
+    // ✅ restaurer les filtres de cet utilisateur (sinon fallback anon)
+    const f = loadFilters(uid) || loadFilters("anon");
+    if (f) setFilters(f);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -820,6 +861,7 @@ useEffect(() => {
      LOGOUT
   -------------------------------- */
   const handleLogout = async () => {
+    try { saveFilters("anon", filters); } catch {}
     await supabase.auth.signOut();
     setUser(null);
     setMyProfile(null);
