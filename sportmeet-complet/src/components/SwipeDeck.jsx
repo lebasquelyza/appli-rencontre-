@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SwipeCard } from "./SwipeCard";
 
-export function SwipeDeck({
+export function SwipeDeck({ userId = "anon", 
   profiles,
   onLikeProfile,
   onReportProfile,
@@ -63,7 +63,7 @@ export function SwipeDeck({
 
   // ✅ Superlike limit (front only) — 5 / semaine (lundi → dimanche)
 const SUPERLIKE_WEEKLY_LIMIT = 5;
-const SUPERLIKE_LS_KEY = "matchfit_superlikes_v2_week";
+const SUPERLIKE_LS_KEY = `matchfit_superlikes_v2_week_${userId || "anon"}`;
 
 const weekKey = () => {
   const d = new Date();
