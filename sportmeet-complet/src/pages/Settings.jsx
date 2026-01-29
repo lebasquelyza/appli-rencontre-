@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-export function Settings({ user, onClearHiddenProfiles }) {
+export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -233,9 +233,19 @@ export function Settings({ user, onClearHiddenProfiles }) {
                   Réaffiche tous les profils que tu avais masqués après un signalement.
                 </p>
 
-                <button
-                  className="btn-ghost"
-                  onClick={() => {
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+  <button
+    type="button"
+    className="btn-primary"
+    onClick={() => navigate("/hidden-profiles")}
+    disabled={!user || hiddenCount === 0}
+  >
+    Voir ({hiddenCount})
+  </button>
+
+  <button
+    className="btn-ghost"
+    onClick={() => {
                     const ok = window.confirm(
                       "Réinitialiser les profils masqués ? Ils réapparaîtront dans ton fil."
                     );
@@ -247,6 +257,7 @@ export function Settings({ user, onClearHiddenProfiles }) {
                 >
                   Réinitialiser
                 </button>
+                </div>
               </div>
             ) : null}
 
