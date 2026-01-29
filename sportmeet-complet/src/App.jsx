@@ -803,7 +803,6 @@ const navigate = useNavigate();
     setHiddenProfileIds(new Set());
     setMatchedUserIds(new Set());
     setLikedProfileIds(new Set());
-    setPremiumLikes([]);
     navigate("/", { replace: true });
   };
 
