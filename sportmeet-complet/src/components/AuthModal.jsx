@@ -390,11 +390,15 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 />
 
-                {/* ✅ lien discret "Mot de passe oublié ?" */}
-                {(mode === "signin" || mode === "reset") && (
+                {/* ✅ lien discret "Mot de passe oublié ?" (visible aussi si on est en signup) */}
+                {(
                   <button
                     type="button"
-                    onClick={mode === "reset" ? () => setMode("signin") : handleForgotPassword}
+                    onClick={() => {
+                      // si on est en signup, on repasse d'abord en signin
+                      if (mode === "signup") setMode("signin");
+                      handleForgotPassword();
+                    }}
                     disabled={loading}
                     style={{
                       marginTop: 8,
