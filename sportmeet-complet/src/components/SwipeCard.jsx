@@ -22,7 +22,7 @@ const REPORT_REASONS = [
 ];
 
 // ✅ petit helper: évite re-render inutiles quand le parent bouge
-function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDragging = false }) {
+function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose, reduceEffects = false, isDragging = false }) {
   const photos = Array.isArray(profile?.photo_urls) ? profile.photo_urls : [];
   const hasPhotos = photos.length > 0;
 
@@ -128,11 +128,13 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDra
   const openReport = (e) => {
     e?.stopPropagation?.();
     if (!onReport) return;
+    onReportOpen?.();
     setReportOpen(true);
   };
 
   const closeReport = () => {
     setReportOpen(false);
+    onReportClose?.();
   };
 
   const submitReport = async () => {
