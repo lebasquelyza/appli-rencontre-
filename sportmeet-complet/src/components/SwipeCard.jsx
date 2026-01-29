@@ -380,12 +380,12 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDra
                       borderRadius: 12,
                       padding: "10px 12px",
                       border: "1px solid rgba(255,255,255,.15)",
-                      background: "rgba(255,255,255,.06)",
+                      background: "rgba(0,0,0,.35)",
                       color: "white"
                     }}
                   >
                     {REPORT_REASONS.map((r) => (
-                      <option key={r} value={r} style={{ color: "black" }}>
+                      <option key={r} value={r} style={{ color: "#111", background: "#fff" }}>
                         {r}
                       </option>
                     ))}
@@ -402,7 +402,7 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDra
                       borderRadius: 12,
                       padding: "10px 12px",
                       border: "1px solid rgba(255,255,255,.15)",
-                      background: "rgba(255,255,255,.06)",
+                      background: "rgba(0,0,0,.35)",
                       color: "white",
                       resize: "vertical"
                     }}
