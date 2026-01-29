@@ -1,7 +1,7 @@
 // sportmeet-complet/src/App.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 
 import { Header } from "./components/Header";
 import { ProfileForm } from "./components/ProfileForm";
@@ -88,6 +88,18 @@ const SPORT_COMPAT = {
   Natation: ["Fitness", "Running", "Cyclisme"],
   Musculation: ["Fitness"]
 };
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    // ✅ Toujours en haut quand on change de page
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
 
 function availabilityTags(str = "") {
   const s = String(str || "").toLowerCase();
@@ -353,6 +365,9 @@ function HomePage({
   onNeedMoreProfiles
 }) {
   const navigate = useNavigate();
+
+  <ScrollToTop />
+
 
   // ✅✅✅ LOCK scroll vertical page (Home uniquement) sans casser swipe horizontal ni pinch zoom
   useEffect(() => {
@@ -1748,7 +1763,7 @@ const navigate = useNavigate();
   if (cntErr) console.error("superlike count error:", cntErr);
 
   if ((count || 0) >= 5) {
-    setProfileToast("Limite atteinte : 5 superlikes par semaine ⭐");
+    setProfileToast("Tu as atteint la limite des 5 superlikes pour la semaine 😉");
     window.clearTimeout(handleLike.__t);
     handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
     return false;
