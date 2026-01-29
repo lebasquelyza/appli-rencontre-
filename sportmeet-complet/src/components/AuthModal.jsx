@@ -28,7 +28,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
   const isRecoveryUrl = useMemo(() => {
     const h = window.location.hash || "";
     // Supabase met souvent access_token/refresh_token dans le hash
-    return h.includes("type=recovery");
+    return h.includes("type=recovery") || (h.includes("access_token=") && h.includes("refresh_token="));
   }, []);
 
   useEffect(() => {
