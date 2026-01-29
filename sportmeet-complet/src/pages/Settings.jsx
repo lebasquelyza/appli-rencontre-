@@ -150,7 +150,7 @@ const changeEmail = async () => {
   };
 
   return (
-    <main className="page ">
+    <main className="page" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
       <div className="shell">
         <section className="card" style={{ padding: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
