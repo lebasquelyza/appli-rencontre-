@@ -619,12 +619,34 @@ const navigate = useNavigate();
   const seedPoolRef = useRef([]);
   const seedLastKeyRef = useRef("");
 
-  const [filters, setFilters] = useState({
-    sport: "",
-    level: "",
-    city: "",
-    radiusKm: 0,
-    myLocation: null
+  // ✅ Persist filters locally (option 1: localStorage)
+  const FILTERS_STORAGE_KEY = "app.filters.v1";
+  const EMPTY_FILTERS = { sport: "", level: "", city: "", radiusKm: 0, myLocation: null };
+
+  const [filters, setFilters] = useState(() => {
+    try {
+      const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+      if (!raw) return { ...EMPTY_FILTERS };
+      const parsed = JSON.parse(raw);
+      return {
+        sport: parsed?.sport ?? "",
+        level: parsed?.level ?? "",
+        city: parsed?.city ?? "",
+        radiusKm: parsed?.radiusKm ?? 0,
+        myLocation: parsed?.myLocation ?? null
+      };
+    } catch {
+      return { ...EMPTY_FILTERS };
+    }
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+    } catch {
+      // ignore storage errors (private mode, quota, etc.)
+    }
+  }, [filters]);
+
   });
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -1633,7 +1655,14 @@ const navigate = useNavigate();
      Filtres
   -------------------------------- */
   const handleFiltersChange = (partial) => setFilters((prev) => ({ ...prev, ...partial }));
-  const handleResetFilters = () => setFilters({ sport: "", level: "", city: "", radiusKm: 0, myLocation: null });
+  const handleResetFilters = () => {
+    setFilters({ ...EMPTY_FILTERS });
+    try {
+      localStorage.removeItem(FILTERS_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
