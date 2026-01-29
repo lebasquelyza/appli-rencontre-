@@ -61,50 +61,54 @@ export function SwipeDeck({
   // ✅ Seuil de vitesse (px/ms) : swipe rapide validé même si distance faible
   const V_SWIPE = 0.45;
 
-  // ✅ Superlike limit (front only)
-  const SUPERLIKE_DAILY_LIMIT = 5;
-  const SUPERLIKE_LS_KEY = "matchfit_superlikes_v1";
+  // ✅ Superlike limit (front only) — 5 / semaine (lundi → dimanche)
+const SUPERLIKE_WEEKLY_LIMIT = 5;
+const SUPERLIKE_LS_KEY = "matchfit_superlikes_v2_week";
 
-  const todayKey = () => {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
+const weekKey = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const day = (d.getDay() + 6) % 7; // Lundi=0 ... Dimanche=6
+  d.setDate(d.getDate() - day);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`; // date du lundi
+};
+
+const readSuperlikeState = () => {
+  try {
+    if (typeof window === "undefined") return { week: weekKey(), count: 0 };
+    const raw = window.localStorage.getItem(SUPERLIKE_LS_KEY);
+    if (!raw) return { week: weekKey(), count: 0 };
+    const parsed = JSON.parse(raw);
+    if (!parsed?.week || typeof parsed?.count !== "number") return { week: weekKey(), count: 0 };
+    if (parsed.week !== weekKey()) return { week: weekKey(), count: 0 };
+    return parsed;
+  } catch {
+    return { week: weekKey(), count: 0 };
+  }
+};
+
+const writeSuperlikeState = (state) => {
+  try {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(SUPERLIKE_LS_KEY, JSON.stringify(state));
+  } catch {}
+};
+
+const canUseSuperlike = () => readSuperlikeState().count < SUPERLIKE_WEEKLY_LIMIT;
+
+const consumeSuperlike = () => {
+  const st = readSuperlikeState();
+  const nextState = {
+    week: weekKey(),
+    count: Math.min(SUPERLIKE_WEEKLY_LIMIT, (st.count || 0) + 1)
   };
+  writeSuperlikeState(nextState);
+  return nextState;
+};
 
-  const readSuperlikeState = () => {
-    try {
-      if (typeof window === "undefined") return { day: todayKey(), count: 0 };
-      const raw = window.localStorage.getItem(SUPERLIKE_LS_KEY);
-      if (!raw) return { day: todayKey(), count: 0 };
-      const parsed = JSON.parse(raw);
-      if (!parsed?.day || typeof parsed?.count !== "number") return { day: todayKey(), count: 0 };
-      if (parsed.day !== todayKey()) return { day: todayKey(), count: 0 };
-      return parsed;
-    } catch {
-      return { day: todayKey(), count: 0 };
-    }
-  };
-
-  const writeSuperlikeState = (state) => {
-    try {
-      if (typeof window === "undefined") return;
-      window.localStorage.setItem(SUPERLIKE_LS_KEY, JSON.stringify(state));
-    } catch {}
-  };
-
-  const canUseSuperlike = () => readSuperlikeState().count < SUPERLIKE_DAILY_LIMIT;
-
-  const consumeSuperlike = () => {
-    const st = readSuperlikeState();
-    const nextState = {
-      day: todayKey(),
-      count: Math.min(SUPERLIKE_DAILY_LIMIT, (st.count || 0) + 1)
-    };
-    writeSuperlikeState(nextState);
-    return nextState;
-  };
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -314,7 +318,7 @@ export function SwipeDeck({
     if (!currentProfile || busy) return;
 
     if (!canUseSuperlike()) {
-      showGate(`Tu as atteint la limite de ${SUPERLIKE_DAILY_LIMIT} superlikes aujourd’hui ⭐`);
+      showGate(`Tu as atteint la limite de ${SUPERLIKE_WEEKLY_LIMIT} superlikes pour la semaine ⭐`);
       vibrate([30, 20, 30]);
       resetDragDom();
       return;
