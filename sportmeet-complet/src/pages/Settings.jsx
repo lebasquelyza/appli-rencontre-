@@ -16,6 +16,7 @@ export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
   // ✅ Mes infos (lecture seule, toujours visible)
   const [email, setEmail] = useState(user?.email || "");
   const [newEmail, setNewEmail] = useState("");
+  const [openEmailEdit, setOpenEmailEdit] = useState(false);
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
 
@@ -179,34 +180,59 @@ const changeEmail = async () => {
 
               <div className="form" style={{ marginTop: 12 }}>
                 <div className="form-group">
-  <label>Email actuel</label>
-  <input
-    type="email"
-    value={email || "Non renseigné"}
-    disabled
-    readOnly
-    style={whiteDisabledInputStyle}
-  />
+  <label>Email</label>
+  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+    <input
+      type="email"
+      value={email || "Non renseigné"}
+      disabled
+      readOnly
+      style={{ ...whiteDisabledInputStyle, flex: "1 1 260px", minWidth: 240 }}
+    />
+
+    <button
+      type="button"
+      className="btn-ghost btn-sm"
+      onClick={() => {
+        setOpenEmailEdit((v) => !v);
+        setNewEmail("");
+      }}
+      disabled={!user || loading}
+      style={{ padding: "8px 10px" }}
+    >
+      {openEmailEdit ? "Annuler" : "Modifier"}
+    </button>
+  </div>
 </div>
 
-<div className="form-group">
-  <label>Nouvelle adresse email</label>
-  <input
-    type="email"
-    value={newEmail}
-    onChange={(e) => setNewEmail(e.target.value)}
-    disabled={!user || loading}
-    placeholder="nouvel@email.com"
-    autoComplete="email"
-  />
-  <small style={{ display: "block", marginTop: 6, opacity: 0.75, lineHeight: 1.3 }}>
-    Tu devras confirmer via un email (comme à l’inscription). Ton compte et ton ID ne changent pas.
-  </small>
-</div>
+{openEmailEdit && (
+  <>
+    <div className="form-group">
+      <label>Nouvelle adresse email</label>
+      <input
+        type="email"
+        value={newEmail}
+        onChange={(e) => setNewEmail(e.target.value)}
+        disabled={!user || loading}
+        placeholder="nouvel@email.com"
+        autoComplete="email"
+      />
+      <small style={{ display: "block", marginTop: 6, opacity: 0.75, lineHeight: 1.3 }}>
+        Tu devras confirmer via un email (comme à l’inscription). Ton compte et ton ID ne changent pas.
+      </small>
+    </div>
 
-<button className="btn-primary" onClick={changeEmail} disabled={!user || loading || !newEmail}>
-  Modifier l’email
-</button>
+    <button
+      type="button"
+      className="btn-primary btn-sm"
+      onClick={changeEmail}
+      disabled={!user || loading || !newEmail}
+      style={{ padding: "10px 12px", width: "fit-content" }}
+    >
+      Confirmer l’email
+    </button>
+  </>
+)}
 
                 <div className="form-group">
                   <label>Nom</label>
