@@ -28,7 +28,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
   const isRecoveryUrl = useMemo(() => {
     const h = window.location.hash || "";
     // Supabase met souvent access_token/refresh_token dans le hash
-    return h.includes("type=recovery");
+    return h.includes("type=recovery") || (h.includes("access_token=") && h.includes("refresh_token="));
   }, []);
 
   useEffect(() => {
@@ -348,7 +348,7 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 aria-label="Retour à la connexion"
                 title="Retour à la connexion"
               >
-                Mot de passe oublié ?
+                Retour à la connexion
               </button>
 
               {/* ✅ FIX build: pas de template string */}
@@ -380,17 +380,24 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 />
 
-                {/* ✅ lien discret "Mot de passe oublié ?" (visible aussi si on est en signup) */}
-                {(
+                {/* ✅ lien discret "Mot de passe oublié ?" */}
+                {(mode === "signin" || mode === "reset") && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (mode === "signup") setMode("signin");
-                      handleForgotPassword();
-                    }}
+                    onClick={mode === "reset" ? () => setMode("signin") : handleForgotPassword}
                     disabled={loading}
-                    className="btn-link"
-                    style={{ marginTop: 8 }}
+                    style={{
+                      marginTop: 8,
+                      padding: 0,
+                      border: 0,
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      opacity: 0.75,
+                      textDecoration: "underline",
+                      textAlign: "right",
+                      width: "100%"
+                    }}
                     aria-label="Mot de passe oublié"
                     title="Mot de passe oublié"
                   >
