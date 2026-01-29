@@ -320,14 +320,19 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDra
           createPortal(
             <div
               className="reportModal"
-              onClick={(e) => {
-                e.stopPropagation();
-                closeReport();
+              onMouseDown={(e) => {
+                // ✅ ferme seulement si on clique sur le fond (pas sur la popup)
+                if (e.target === e.currentTarget) closeReport();
+              }}
+              onTouchStart={(e) => {
+                if (e.target === e.currentTarget) closeReport();
               }}
               style={{
                 position: "fixed",
                 inset: 0,
                 zIndex: 9999,
+                pointerEvents: "auto",
+                touchAction: "auto",
                 background: "rgba(0,0,0,.45)",
                 backdropFilter: "blur(12px)",
                 WebkitBackdropFilter: "blur(12px)",
@@ -341,6 +346,8 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDra
                 className="allowScroll"
                 style={{
                   width: "min(620px, 92vw)",
+                  touchAction: "auto",
+                  pointerEvents: "auto",
                   maxHeight: "calc(var(--appH, 100vh) - 40px)",
                   overflow: "auto",
                   borderRadius: 20,
@@ -404,7 +411,9 @@ function SwipeCardImpl({ profile, onOpen, onReport, reduceEffects = false, isDra
                       border: "1px solid rgba(255,255,255,.15)",
                       background: "rgba(0,0,0,.35)",
                       color: "white",
-                      resize: "vertical"
+                      resize: "vertical",
+                      userSelect: "text",
+                      WebkitUserSelect: "text"
                     }}
                   />
 
