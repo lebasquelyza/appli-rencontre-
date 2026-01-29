@@ -8,11 +8,15 @@ function hashToHue(str = "") {
 }
 
 const REPORT_REASONS = [
-  "Faux profil / arnaque",
-  "Contenu inapproprié",
-  "Harcèlement",
-  "Mineur",
-  "Spam",
+  "Faux profil",
+  "Arnaque / Scam",
+  "Spam / publicité",
+  "Harcèlement / insultes",
+  "Contenu sexuel ou nudité",
+  "Discours haineux",
+  "Violence ou menaces",
+  "Profil de mineur",
+  "Usurpation d’identité",
   "Autre"
 ];
 
