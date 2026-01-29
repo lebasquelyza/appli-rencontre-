@@ -14,7 +14,6 @@ import { seedProfiles } from "./data/seedProfiles";
 import { supabase } from "./lib/supabase";
 import { Confirmed } from "./pages/Confirmed";
 import { HowItWorks } from "./pages/HowItWorks";
-import { HiddenProfiles } from "./pages/HiddenProfiles";
 
 const sendSessionToNative = (session) => {
   try {
@@ -89,8 +88,6 @@ const SPORT_COMPAT = {
   Natation: ["Fitness", "Running", "Cyclisme"],
   Musculation: ["Fitness"]
 };
-
-
 
 function availabilityTags(str = "") {
   const s = String(str || "").toLowerCase();
@@ -326,57 +323,6 @@ function saveHiddenIds(userId, setObj) {
   }
 }
 
-
-function hiddenMetaKeyForUser(userId) {
-  return `matchfit_hidden_profiles_meta_${userId || "anon"}`;
-}
-
-function loadHiddenMeta(userId) {
-  try {
-    const raw = localStorage.getItem(hiddenMetaKeyForUser(userId));
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr.filter(Boolean) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveHiddenMeta(userId, list) {
-  try {
-    localStorage.setItem(hiddenMetaKeyForUser(userId), JSON.stringify(Array.isArray(list) ? list : []));
-  } catch {
-    // ignore
-  }
-}
-
-
-function filtersKeyForUser(userId) {
-  return `matchfit_filters_${userId || "anon"}`;
-}
-
-function loadFilters(userId) {
-  try {
-    const raw = localStorage.getItem(filtersKeyForUser(userId));
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (!parsed || typeof parsed !== "object") return null;
-    return {
-      sport: parsed.sport || "",
-      level: parsed.level || "",
-      city: parsed.city || "",
-      radiusKm: Number(parsed.radiusKm || 0),
-      myLocation: parsed.myLocation || null
-    };
-  } catch {
-    return null;
-  }
-}
-
-function saveFilters(userId, filters) {
-  try {
-    localStorage.setItem(filtersKeyForUser(userId), JSON.stringify(filters || {}));
-  } catch {}
-}
-
 function HomePage({
   filters,
   onFiltersChange,
@@ -544,7 +490,6 @@ function HomePage({
               <p className="form-message">Chargement des profils…</p>
             ) : (
               <SwipeDeck
-                userId={userForUI?.id || "anon"}
                 profiles={filteredProfiles}
                 onLikeProfile={handleLike}
                 onReportProfile={onReportProfile}
@@ -674,17 +619,12 @@ const navigate = useNavigate();
   const seedPoolRef = useRef([]);
   const seedLastKeyRef = useRef("");
 
-  const [filters, setFilters] = useState(() => {
-    const saved = typeof window !== "undefined" ? loadFilters("anon") : null;
-    return (
-      saved || {
-        sport: "",
-        level: "",
-        city: "",
-        radiusKm: 0,
-        myLocation: null
-      }
-    );
+  const [filters, setFilters] = useState({
+    sport: "",
+    level: "",
+    city: "",
+    radiusKm: 0,
+    myLocation: null
   });
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -725,7 +665,6 @@ const navigate = useNavigate();
 
   // ✅ profils masqués (signalés) — persistant localStorage
   const [hiddenProfileIds, setHiddenProfileIds] = useState(() => new Set());
-  const [hiddenProfilesMeta, setHiddenProfilesMeta] = useState(() => []);
 
   // ✅ Compte en cours de vérification (>=7 signalements)
   const [inReview, setInReview] = useState(false);
@@ -734,15 +673,13 @@ const navigate = useNavigate();
   const isInReview = !!user && !!inReview && !isSuspended;
 
   // 👉 on conserve userForUI pour l’affichage, mais on bloque les actions si review
+  const userForUI = isSuspended ? null : user;
+
   // ✅ charger les profils masqués quand l'utilisateur change
   useEffect(() => {
     if (typeof window === "undefined") return;
     const uid = user?.id || "anon";
     setHiddenProfileIds(loadHiddenIds(uid));
-    setHiddenProfilesMeta(loadHiddenMeta(uid));
-
-    const f = loadFilters(uid) || loadFilters("anon");
-    if (f) setFilters(f);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -752,21 +689,6 @@ const navigate = useNavigate();
     const uid = user?.id || "anon";
     saveHiddenIds(uid, hiddenProfileIds);
   }, [hiddenProfileIds, user?.id]);
-
-useEffect(() => {
-  if (typeof window === "undefined") return;
-  const uid = user?.id || "anon";
-  saveHiddenMeta(uid, hiddenProfilesMeta);
-}, [hiddenProfilesMeta, user?.id]);
-
-useEffect(() => {
-  if (typeof window === "undefined") return;
-  const uid = user?.id || "anon";
-  saveFilters(uid, filters);
-  if (uid !== "anon") saveFilters("anon", filters);
-}, [filters, user?.id]);
-
-
 
   useEffect(() => {
     const h = window.location.hash || "";
@@ -850,7 +772,6 @@ useEffect(() => {
      LOGOUT
   -------------------------------- */
   const handleLogout = async () => {
-    try { saveFilters("anon", filters); } catch {}
     await supabase.auth.signOut();
     setUser(null);
     setMyProfile(null);
@@ -872,12 +793,10 @@ useEffect(() => {
     const uid = user?.id || "anon";
 
     setHiddenProfileIds(new Set());
-      setHiddenProfilesMeta([]);
 
     if (typeof window !== "undefined") {
       try {
         localStorage.removeItem(hiddenKeyForUser(uid));
-      localStorage.removeItem(hiddenMetaKeyForUser(uid));
       } catch {
         // ignore
       }
@@ -1124,41 +1043,7 @@ useEffect(() => {
   /* -------------------------------
      ✅ SIGNALER un profil (profile_reports) + cacher du feed
   -------------------------------- */
-  
-const upsertHiddenMeta = (profile, reason = "") => {
-  const snap = {
-    id: profile?.id,
-    name: profile?.name || "",
-    age: profile?.age ?? null,
-    city: profile?.city || "",
-    sport: profile?.sport || "",
-    level: profile?.level || "",
-    photo_url: Array.isArray(profile?.photo_urls) ? profile.photo_urls[0] : profile?.photo_url || "",
-    reason: reason || "",
-    at: new Date().toISOString(),
-    isSeed: !!profile?.isSeed,
-    user_id: profile?.user_id ?? null
-  };
-  setHiddenProfilesMeta((prev) => {
-    const arr = Array.isArray(prev) ? prev.slice() : [];
-    const idx = arr.findIndex((x) => x?.id === snap.id);
-    if (idx >= 0) arr[idx] = { ...arr[idx], ...snap };
-    else arr.unshift(snap);
-    return arr.slice(0, 200);
-  });
-};
-
-const unhideOneProfile = (profileId) => {
-  if (!profileId) return;
-  setHiddenProfileIds((prev) => {
-    const next = new Set(prev);
-    next.delete(profileId);
-    return next;
-  });
-  setHiddenProfilesMeta((prev) => (Array.isArray(prev) ? prev.filter((p) => p?.id !== profileId) : []));
-};
-
-const reportProfile = async (profile, payload) => {
+  const reportProfile = async (profile, payload) => {
     if (!user || isSuspended) {
       if (isSuspended) setProfileToast("Compte suspendu — clique sur REPRENDRE pour continuer.");
       else setIsAuthModalOpen(true);
@@ -1184,7 +1069,6 @@ const reportProfile = async (profile, payload) => {
         next.add(profile.id);
         return next;
       });
-      upsertHiddenMeta(profile, reason);
       setProfileToast("Profil masqué ✅");
       return;
     }
@@ -1847,29 +1731,25 @@ const reportProfile = async (profile, payload) => {
     if (!profile?.id) return false;
 
     if (isSuper) {
-  const startOfWeek = new Date();
-  startOfWeek.setHours(0, 0, 0, 0);
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
 
-  // Lundi 00:00 (semaine calendaire)
-  const day = (startOfWeek.getDay() + 6) % 7; // Lundi=0 ... Dimanche=6
-  startOfWeek.setDate(startOfWeek.getDate() - day);
+      const { count, error: cntErr } = await supabase
+        .from("likes")
+        .select("id", { count: "exact", head: true })
+        .eq("liker_id", user.id)
+        .eq("is_super", true)
+        .gte("created_at", startOfToday.toISOString());
 
-  const { count, error: cntErr } = await supabase
-    .from("likes")
-    .select("id", { count: "exact", head: true })
-    .eq("liker_id", user.id)
-    .eq("is_super", true)
-    .gte("created_at", startOfWeek.toISOString());
+      if (cntErr) console.error("superlike count error:", cntErr);
 
-  if (cntErr) console.error("superlike count error:", cntErr);
-
-  if ((count || 0) >= 5) {
-    setProfileToast("Tu as atteint la limite des 5 superlikes pour la semaine 😉");
-    window.clearTimeout(handleLike.__t);
-    handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
-    return false;
-  }
-}
+      if ((count || 0) >= 5) {
+        setProfileToast("Limite atteinte : 5 superlikes par jour ⭐");
+        window.clearTimeout(handleLike.__t);
+        handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
+        return false;
+      }
+    }
 
     const { error: likeErr } = await supabase.from("likes").insert({
       liker_id: user.id,
@@ -2016,22 +1896,10 @@ const reportProfile = async (profile, payload) => {
 
         <Route
           path="/settings"
-          element={<Settings user={userForUI} onClearHiddenProfiles={clearHiddenProfiles} hiddenCount={hiddenProfilesMeta.length} />}
+          element={<Settings user={userForUI} onClearHiddenProfiles={clearHiddenProfiles} />}
         />
 
-        
-<Route
-  path="/hidden-profiles"
-  element={
-    <HiddenProfiles
-      user={userForUI}
-      hiddenProfiles={hiddenProfilesMeta}
-      onUnhideOne={unhideOneProfile}
-      onClearAll={clearHiddenProfiles}
-    />
-  }
-/>
-<Route path="/account" element={<AccountSettings user={userForUI} />} />
+        <Route path="/account" element={<AccountSettings user={userForUI} />} />
         <Route path="/subscription" element={<Subscription user={userForUI} />} />
       </Routes>
 
