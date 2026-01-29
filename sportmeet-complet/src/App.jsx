@@ -419,10 +419,6 @@ function HomePage({
   onNeedMoreProfiles
 }) {
   const navigate = useNavigate();
-
-  <ScrollToTop />
-
-
   // ✅✅✅ LOCK scroll vertical page (Home uniquement) sans casser swipe horizontal ni pinch zoom
   useEffect(() => {
     const y = window.scrollY || 0;
@@ -1958,6 +1954,7 @@ const reportProfile = async (profile, payload) => {
 
   return (
     <div className="app-root">
+      <ScrollToTop />
       <Header
         onOpenProfile={openProfileModal}
         onOpenAuth={() => setIsAuthModalOpen(true)}
