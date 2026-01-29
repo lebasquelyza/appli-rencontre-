@@ -1756,26 +1756,6 @@ const navigate = useNavigate();
     }
 
     if (!profile?.id) return false;
-
-    if (isSuper) {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-
-      const { count, error: cntErr } = await supabase
-        .from("likes")
-        .select("id", { count: "exact", head: true })
-        .eq("liker_id", user.id)
-        .eq("is_super", true)
-        .gte("created_at", startOfToday.toISOString());
-
-      if (cntErr) console.error("superlike count error:", cntErr);
-
-      if ((count || 0) >= 5) {
-        setProfileToast("Limite atteinte : 5 superlikes par jour ⭐");
-        window.clearTimeout(handleLike.__t);
-        handleLike.__t = window.setTimeout(() => setProfileToast(""), 3000);
-        return false;
-      }
     }
 
     const { error: likeErr } = await supabase.from("likes").insert({
