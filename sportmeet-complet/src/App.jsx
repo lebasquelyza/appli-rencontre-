@@ -1,7 +1,7 @@
 // sportmeet-complet/src/App.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, useNavigate } from "react-router-dom";
 
 import { Header } from "./components/Header";
 import { ProfileForm } from "./components/ProfileForm";
@@ -90,16 +90,6 @@ const SPORT_COMPAT = {
   Musculation: ["Fitness"]
 };
 
-function ScrollToTop() {
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    // ✅ Toujours en haut quand on change de page
-    window.scrollTo(0, 0);
-  }, [pathname]);
-
-  return null;
-}
 
 
 function availabilityTags(str = "") {
@@ -384,9 +374,7 @@ function loadFilters(userId) {
 function saveFilters(userId, filters) {
   try {
     localStorage.setItem(filtersKeyForUser(userId), JSON.stringify(filters || {}));
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 function HomePage({
@@ -419,6 +407,7 @@ function HomePage({
   onNeedMoreProfiles
 }) {
   const navigate = useNavigate();
+
   // ✅✅✅ LOCK scroll vertical page (Home uniquement) sans casser swipe horizontal ni pinch zoom
   useEffect(() => {
     const y = window.scrollY || 0;
@@ -555,7 +544,7 @@ function HomePage({
               <p className="form-message">Chargement des profils…</p>
             ) : (
               <SwipeDeck
-                userId={user?.id || "anon"}
+                userId={userForUI?.id || "anon"}
                 profiles={filteredProfiles}
                 onLikeProfile={handleLike}
                 onReportProfile={onReportProfile}
@@ -686,7 +675,6 @@ const navigate = useNavigate();
   const seedLastKeyRef = useRef("");
 
   const [filters, setFilters] = useState(() => {
-    // ✅ garder les derniers filtres même après déconnexion/reconnexion
     const saved = typeof window !== "undefined" ? loadFilters("anon") : null;
     return (
       saved || {
@@ -755,7 +743,6 @@ const navigate = useNavigate();
     setHiddenProfileIds(loadHiddenIds(uid));
     setHiddenProfilesMeta(loadHiddenMeta(uid));
 
-    // ✅ restaurer les filtres de cet utilisateur (sinon fallback anon)
     const f = loadFilters(uid) || loadFilters("anon");
     if (f) setFilters(f);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -773,6 +760,14 @@ useEffect(() => {
   const uid = user?.id || "anon";
   saveHiddenMeta(uid, hiddenProfilesMeta);
 }, [hiddenProfilesMeta, user?.id]);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+  const uid = user?.id || "anon";
+  saveFilters(uid, filters);
+  if (uid !== "anon") saveFilters("anon", filters);
+}, [filters, user?.id]);
+
 
 
   useEffect(() => {
@@ -1954,7 +1949,6 @@ const reportProfile = async (profile, payload) => {
 
   return (
     <div className="app-root">
-      <ScrollToTop />
       <Header
         onOpenProfile={openProfileModal}
         onOpenAuth={() => setIsAuthModalOpen(true)}
