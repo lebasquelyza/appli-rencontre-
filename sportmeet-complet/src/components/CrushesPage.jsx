@@ -73,53 +73,7 @@ export function CrushesPage({
         </button>
       </div>
 
-      {/* ✅ Premium superlikes */}
-      <div className="card" style={{ marginTop: 14, padding: 14, borderRadius: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700 }}>Passe à Premium ⭐</div>
-            <div style={{ opacity: 0.85, marginTop: 4 }}>
-              pour voir qui t’a <strong>superlike</strong> et débloquer plus de superlikes.
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              {superlikers.length === 0 ? (
-                <div style={{ opacity: 0.8, fontSize: 14 }}>Aucun superlike pour le moment.</div>
-              ) : (
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {superlikers.slice(0, 8).map((p) => (
-                    <div
-                      key={p.user_id || p.id}
-                      style={{ display: "flex", gap: 8, alignItems: "center" }}
-                      title={`${p.name} t’a superlike ⭐`}
-                    >
-                      <img
-                        src={p.photo_urls?.[0] || p.photo || "/logo.png"}
-                        alt={p.name}
-                        style={{ width: 34, height: 34, borderRadius: 10, objectFit: "cover" }}
-                      />
-                      <div style={{ fontSize: 14, fontWeight: 700, display: "flex", gap: 6, alignItems: "center" }}>
-                        <span>{p.name}</span>
-                        <span style={{ opacity: 0.85 }}>⭐</span>
-                      </div>
-                    </div>
-                  ))}
-                  {superlikers.length > 8 ? (
-                    <div style={{ fontSize: 14, opacity: 0.85, alignSelf: "center" }}>
-                      +{superlikers.length - 8}
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ✅ ICI : redirection vers la page Abonnement */}
-          <button type="button" className="btn-primary btn-sm" onClick={() => navigate("/subscription")}>
-            Passer Premium
-          </button>
-        </div>
-      </div>
+      
 
       {/* ✅ Messages */}
       <div style={{ marginTop: 14 }}>
