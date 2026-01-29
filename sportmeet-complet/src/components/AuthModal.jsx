@@ -343,8 +343,21 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
                 type="button"
                 onClick={() => setMode("signin")}
                 disabled={loading}
-                className="btn-link"
-                style={{ marginTop: 8 }}
+                style={{
+                    marginTop: 8,
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    opacity: 0.85,
+                    textDecoration: "underline",
+                    textAlign: "right",
+                    width: "100%",
+                    height: "auto",
+                    minHeight: "unset",
+                    lineHeight: "1.3"
+                  }}
                 aria-label="Retour à la connexion"
                 title="Retour à la connexion"
               >
@@ -408,6 +421,31 @@ export function AuthModal({ onClose, initialMode = "signin" }) {
 
               <button className="btn-primary btn-block" type="submit" disabled={loading}>
                 {loading ? "..." : mode === "signup" ? "Créer mon compte" : "Se connecter"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                style={{
+                    marginTop: 8,
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    opacity: 0.85,
+                    textDecoration: "underline",
+                    textAlign: "right",
+                    width: "100%",
+                    height: "auto",
+                    minHeight: "unset",
+                    lineHeight: "1.3"
+                  }}
+                aria-label="Mot de passe oublié"
+                title="Mot de passe oublié"
+              >
+                Mot de passe oublié ?
               </button>
 
               <button
