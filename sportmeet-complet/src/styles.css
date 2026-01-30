@@ -1094,13 +1094,12 @@ input:focus, select:focus, textarea:focus{
   z-index: 49;
 }
 
-/* ===============================
-   Swipe partout sur la carte (même en bas)
-   =============================== */
-.cardOverlay,
-.swipeBio,
-.swipeAvail,
-.bioToggle,
-.availToggle{
-  touch-action: none;
+/* Settings : forcer le même dégradé que le reste de l'app */
+.page--settings{
+  background:
+    radial-gradient(1100px 600px at 20% 10%, rgba(255,77,109,.20), transparent 55%),
+    radial-gradient(900px 600px at 80% 30%, rgba(255,138,75,.16), transparent 55%),
+    radial-gradient(900px 700px at 50% 90%, rgba(124,58,237,.12), transparent 60%),
+    linear-gradient(180deg, var(--bg1), var(--bg0));
+  background-attachment: fixed;
 }
