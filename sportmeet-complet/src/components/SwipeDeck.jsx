@@ -496,6 +496,11 @@ const consumeSuperlike = () => {
     const dx = e.clientX - pointerRef.current.startX;
     const dy = e.clientY - pointerRef.current.startY;
 
+    // ✅ Swipe plus "normal" et fluide : on réduit la dérive verticale
+    // (surtout quand le doigt est en bas de la carte / sur la bio)
+    const horizDominant = Math.abs(dx) >= Math.abs(dy) * 1.15;
+    const dyOut = horizDominant ? dy * 0.12 : dy * 0.35;
+
     // vitesse horizontale (px/ms)
     const now = performance.now();
     const dt = Math.max(1, now - (pointerRef.current.lastT || now));
@@ -505,12 +510,12 @@ const consumeSuperlike = () => {
     pointerRef.current.lastX = e.clientX;
     pointerRef.current.lastY = e.clientY;
 
-    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) pointerRef.current.moved = true;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) pointerRef.current.moved = true;
 
     if (dragRafRef.current) return;
     dragRafRef.current = requestAnimationFrame(() => {
       dragRafRef.current = null;
-      applyDragDom(clamp(dx, -480, 480), clamp(dy, -260, 260)); // 🔥 plage élargie = moins de "butée" donc swipe plus fluide
+      applyDragDom(clamp(dx, -480, 480), clamp(dyOut, -260, 260)); // ✅ dérive verticale amortie = swipe plus fluide
     });
   };
 
