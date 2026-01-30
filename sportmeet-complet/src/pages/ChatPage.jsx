@@ -1,5 +1,7 @@
 // sportmeet-complet/src/pages/ChatPage.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { SwipeCard } from "../components/SwipeCard";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -21,6 +23,88 @@ export function ChatPage() {
 
   // ✅ mini toast in-app
   const [toast, setToast] = useState("");
+
+  // ✅ aperçu profil (clic sur photo)
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewProfile, setPreviewProfile] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setPreviewProfile(null);
+    setPreviewLoading(false);
+  };
+
+  const openPreview = async () => {
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+
+    if (isDemo) {
+      setPreviewProfile({
+        id: "demo",
+        user_id: null,
+        name: crush?.name || "Démo",
+        city: crush?.city || "",
+        sport: crush?.sport || "",
+        level: crush?.level || "",
+        availability: "",
+        bio: "",
+        photo_urls: Array.isArray(crush?.photo_urls) ? crush.photo_urls : []
+      });
+      setPreviewLoading(false);
+      return;
+    }
+
+    try {
+      const otherUserId = crush?.user_id;
+      if (!otherUserId) {
+        setPreviewProfile(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", otherUserId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) {
+        setPreviewProfile({
+          id: "unknown",
+          user_id: otherUserId,
+          name: crush?.name || "Profil",
+          city: crush?.city || "",
+          sport: crush?.sport || "",
+          level: "",
+          availability: "",
+          bio: "",
+          photo_urls: Array.isArray(crush?.photo_urls) ? crush.photo_urls : []
+        });
+      } else {
+        setPreviewProfile({
+          id: data.id,
+          user_id: data.user_id,
+          name: data.name,
+          age: data.age ?? null,
+          height: data.height ?? null,
+          gender: data.gender ?? null,
+          city: data.city,
+          sport: data.sport,
+          level: data.level,
+          availability: data.availability || "",
+          bio: data.bio || "",
+          photo_urls: Array.isArray(data.photo_urls) ? data.photo_urls : [],
+          isCustom: true,
+          createdAt: data.created_at
+        });
+      }
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
 
   const scrollRef = useRef(null);
   const channelRef = useRef(null);
@@ -300,7 +384,7 @@ export function ChatPage() {
               Retour
             </button>
 
-            <img src={avatar} alt={title} style={{ width: 42, height: 42, borderRadius: 12, objectFit: "cover" }} />
+            <img src={avatar} alt={title} onClick={openPreview} title="Voir le profil" style={{ width: 42, height: 42, borderRadius: 12, objectFit: "cover", cursor: "pointer" }} />
 
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800 }}>{title}</div>
@@ -362,5 +446,51 @@ export function ChatPage() {
         </div>
       </div>
     </main>
+
+
+      {/* ✅ Aperçu profil (même rendu que l'aperçu de mon profil) */}
+      {previewOpen &&
+        createPortal(
+          <div
+            className="modal-backdrop"
+            onClick={closePreview}
+            style={{
+              background: "linear-gradient(180deg, rgba(0,0,0,.78), rgba(0,0,0,.92))",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)"
+            }}
+          >
+            <div
+              className="modal-card modal-card--sheet"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(820px, 96vw)",
+                maxHeight: "calc(var(--appH, 100vh) - 40px)",
+                overflow: "hidden"
+              }}
+            >
+              <div className="modal-header">
+                <h3>Aperçu</h3>
+                <button className="btn-ghost" onClick={closePreview}>
+                  Fermer
+                </button>
+              </div>
+
+              <div className="modal-body allowScroll" style={{ paddingTop: 10 }}>
+                {previewLoading ? (
+                  <p className="form-message">Chargement…</p>
+                ) : !previewProfile ? (
+                  <p className="form-message">Profil indisponible.</p>
+                ) : (
+                  <div style={{ maxWidth: 760, margin: "0 auto" }}>
+                    <SwipeCard profile={previewProfile} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
   );
 }
