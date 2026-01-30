@@ -603,18 +603,6 @@ const consumeSuperlike = () => {
           >
             {!isShareCard && <div style={flashStyle}>{flashLabel}</div>}
 
-            {/* ✅ Icônes ❤️ / ✕ (refs directes) */}
-            {!isShareCard && (
-              <>
-                <div ref={crossRef} style={crossStyle}>
-                  ✕
-                </div>
-                <div ref={heartRef} style={heartStyle}>
-                  ❤
-                </div>
-              </>
-            )}
-
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid || isDragging} isDragging={isDragging} />
             ) : (
