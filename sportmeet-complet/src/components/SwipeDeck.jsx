@@ -129,7 +129,24 @@ const consumeSuperlike = () => {
     gateTimerRef.current = window.setTimeout(() => setGateMsg(""), 2200);
   };
 
-  useEffect(() => setIndex(0), [profiles]);
+    // ⚠️ Ne reset pas l’index quand des profils sont ajoutés (sinon ça “bug” après quelques swipes)
+  // On corrige seulement les cas où l’index sort des bornes.
+  const prevLenRef = useRef(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    const len = Array.isArray(profiles) ? profiles.length : 0;
+    const prevLen = prevLenRef.current;
+    prevLenRef.current = len;
+
+    // Si on a reçu plus de profils et qu’on peut afficher une carte, on coupe l’état loading
+    if (len > index) setLoadingMore(false);
+
+    // Si la liste a été réduite, clamp l’index pour éviter un “vide” permanent
+    if (len > 0 && index > len) setIndex(len);
+    // si plus rien du tout, on repart à 0
+    if (len === 0 && index !== 0) setIndex(0);
+  }, [profiles]);
 
   // ✅ Pré-charge quand il reste peu de cartes
   useEffect(() => {
@@ -140,6 +157,31 @@ const consumeSuperlike = () => {
       const key = `${len}:${index}`;
       if (needMoreLockRef.current.key === key) return;
       needMoreLockRef.current.key = key;
+      onNeedMore();
+    }
+  }, [index, profiles, onNeedMore]);
+
+  // ✅ Si on arrive au bout, demande plus et affiche un état de chargement
+  useEffect(() => {
+    if (!onNeedMore) return;
+    const len = Array.isArray(profiles) ? profiles.length : 0;
+
+    // Si aucune carte au départ
+    if (len === 0) {
+      const key = `empty:${len}:${index}`;
+      if (needMoreLockRef.current.key === key) return;
+      needMoreLockRef.current.key = key;
+      setLoadingMore(true);
+      onNeedMore();
+      return;
+    }
+
+    // Si on est au bout
+    if (index >= len) {
+      const key = `exhausted:${len}:${index}`;
+      if (needMoreLockRef.current.key === key) return;
+      needMoreLockRef.current.key = key;
+      setLoadingMore(true);
       onNeedMore();
     }
   }, [index, profiles, onNeedMore]);
@@ -601,6 +643,7 @@ const consumeSuperlike = () => {
             }}
             style={stageStyle}
           >
+            {!isShareCard && <div style={flashStyle}>{flashLabel}</div>}
 
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid || isDragging} isDragging={isDragging} />
@@ -746,7 +789,9 @@ const consumeSuperlike = () => {
         </>
       ) : (
         <div className="swipe-empty" style={{ textAlign: "center" }}>
-          {Array.isArray(profiles) && profiles.length > 0 ? (
+          {loadingMore ? (
+            <p style={{ marginBottom: 6, fontWeight: 700 }}>Chargement de nouveaux profils…</p>
+          ) : Array.isArray(profiles) && profiles.length > 0 ? (
             <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
           ) : (
             <p style={{ marginBottom: 6, fontWeight: 700 }}>Partage à tes amis — avec un peu de chance, ton/ta gymcrush en entendra parler 💪✨</p>
@@ -758,9 +803,13 @@ const consumeSuperlike = () => {
             <button type="button" className="btn-ghost" onClick={handleCopy}>
               Copier le lien
             </button>
+            {loadingMore ? (
+            <button type="button" className="btn-ghost" onClick={() => onNeedMore?.()}>Réessayer</button>
+          ) : (
             <button type="button" className="btn-ghost" onClick={() => setIndex(0)}>
               Revoir des profils
             </button>
+          )}
           </div>
         </div>
       )}
