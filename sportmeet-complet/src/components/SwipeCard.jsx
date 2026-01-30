@@ -255,6 +255,7 @@ function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose,
               <div
                 className={`swipeAvail ${availOpen ? "open" : "clamp"}`}
                 style={{ touchAction: "none" }}
+                onPointerDown={(e) => { if (e.cancelable) e.preventDefault(); }}
                 role="button"
                 tabIndex={0}
                 onClick={(e) => {
@@ -289,6 +290,7 @@ function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose,
               <div
                 className={`swipeBio ${bioOpen ? "open" : "clamp"}`}
                 style={{ touchAction: "none" }}
+                onPointerDown={(e) => { if (e.cancelable) e.preventDefault(); }}
                 role="button"
                 tabIndex={0}
                 onClick={(e) => {
