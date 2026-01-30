@@ -257,9 +257,10 @@ function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose,
                 role="button"
                 tabIndex={0}
                 onClick={(e) => {
+                  if (isDragging) return;
                   e.stopPropagation();
                   toggleAvail();
-                }}
+                  }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") toggleAvail();
                 }}
@@ -273,9 +274,10 @@ function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose,
                   type="button"
                   className="availToggle"
                   onClick={(e) => {
+                    if (isDragging) return;
                     e.stopPropagation();
                     toggleAvail();
-                  }}
+                    }}
                 >
                   {availOpen ? "Réduire" : "Voir +"}
                 </button>
@@ -290,9 +292,10 @@ function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose,
                 role="button"
                 tabIndex={0}
                 onClick={(e) => {
+                  if (isDragging) return;
                   e.stopPropagation();
                   toggleBio();
-                }}
+                  }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") toggleBio();
                 }}
@@ -306,9 +309,10 @@ function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose,
                   type="button"
                   className="bioToggle"
                   onClick={(e) => {
+                    if (isDragging) return;
                     e.stopPropagation();
                     toggleBio();
-                  }}
+                    }}
                 >
                   {bioOpen ? "Réduire" : "Voir +"}
                 </button>
