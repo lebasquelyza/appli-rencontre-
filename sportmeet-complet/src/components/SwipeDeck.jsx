@@ -628,6 +628,12 @@ const consumeSuperlike = () => {
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerCancel}
+            onClickCapture={(e) => {
+              if (pointerRef.current.moved) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
             onClick={() => {
               if (pointerRef.current.moved) return;
               if (isShareCard) return;
