@@ -149,7 +149,7 @@ function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose,
 
   return (
     <article
-      className="card swipeCard"
+      className={`card swipeCard ${isDragging ? "dragging" : ""}`}
       style={{
         // Perf Android: éviter la sélection/scroll “parasite” pendant un drag
         touchAction: "none",
