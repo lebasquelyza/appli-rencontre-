@@ -35,8 +35,6 @@ export function SwipeDeck({ userId = "anon",
   const needMoreLockRef = useRef({ key: "" });
 
   // ✅ refs DOM (pas de querySelector pendant le drag)
-  const heartRef = useRef(null);
-  const crossRef = useRef(null);
 
   // ✅ Flash feedback
   const [flash, setFlash] = useState({ type: null, on: false });
@@ -255,19 +253,6 @@ const consumeSuperlike = () => {
     // progress 0..1
     const likeP = clamp((x - 18) / 120, 0, 1);
     const nopeP = clamp((-x - 18) / 120, 0, 1);
-
-    // ❤️ / ✕ (aucun querySelector ici)
-    const heart = heartRef.current;
-    const cross = crossRef.current;
-
-    if (heart) {
-      heart.style.opacity = String(likeP);
-      heart.style.transform = `translate3d(0,0,0) scale(${0.92 + likeP * 0.14})`;
-    }
-    if (cross) {
-      cross.style.opacity = String(nopeP);
-      cross.style.transform = `translate3d(0,0,0) scale(${0.92 + nopeP * 0.14})`;
-    }
   };
 
   const resetDragDom = () => applyDragDom(0, 0);
@@ -407,29 +392,6 @@ const consumeSuperlike = () => {
   };
 
   // ✅ icônes simples (pas de blur pendant drag)
-  const iconBase = {
-    position: "absolute",
-    top: 18,
-    zIndex: 25,
-    width: 58,
-    height: 58,
-    borderRadius: 999,
-    display: "grid",
-    placeItems: "center",
-    fontSize: 28,
-    fontWeight: 900,
-    userSelect: reportOpen ? "text" : "none",
-    pointerEvents: "none",
-    opacity: 0,
-    transform: "translate3d(0,0,0) scale(.92)",
-    willChange: "transform, opacity",
-    border: "1px solid rgba(255,255,255,.18)",
-    background: "rgba(10,10,14,.45)",
-    boxShadow: isDragging ? "none" : "0 14px 32px rgba(0,0,0,.22)"
-  };
-
-  const heartStyle = { ...iconBase, right: 14 };
-  const crossStyle = { ...iconBase, left: 14 };
 
   // ✅ flash overlay (inchangé)
   const flashStyle = (() => {
@@ -543,7 +505,7 @@ const consumeSuperlike = () => {
     pointerRef.current.lastX = e.clientX;
     pointerRef.current.lastY = e.clientY;
 
-    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) pointerRef.current.moved = true;
+    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) pointerRef.current.moved = true;
 
     if (dragRafRef.current) return;
     dragRafRef.current = requestAnimationFrame(() => {
@@ -641,20 +603,7 @@ const consumeSuperlike = () => {
             }}
             style={stageStyle}
           >
-            {!isShareCard && <div style={flashStyle}>{flashLabel}</div>}
-
-            {/* ✅ Icônes ❤️ / ✕ (refs directes) */}
-            {!isShareCard && (
-              <>
-                <div ref={crossRef} style={crossStyle}>
-                  ✕
-                </div>
-                <div ref={heartRef} style={heartStyle}>
-                  ❤
-                </div>
-              </>
-            )}
-
+            
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid || isDragging} isDragging={isDragging} />
             ) : (
