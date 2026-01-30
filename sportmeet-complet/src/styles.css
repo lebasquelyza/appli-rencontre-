@@ -1111,3 +1111,24 @@ input:focus, select:focus, textarea:focus{
   text-align: right;
   width: 100%;
 }
+/* ===============================
+   PERF SWIPE – fluidité gauche / droite
+   (ajout uniquement)
+   =============================== */
+
+html,
+body {
+  overscroll-behavior: none;
+}
+
+.swipeCard.dragging {
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.swipeCard.dragging * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
