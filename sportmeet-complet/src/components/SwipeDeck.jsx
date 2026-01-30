@@ -757,8 +757,8 @@ const consumeSuperlike = () => {
                   zIndex: 9999,
                   background: "rgba(0,0,0,.35)",
                   // ⚠️ blur peut lag sur Android, on le coupe
-                  backdropFilter: isAndroid ? "none" : "blur(14px)",
-                  WebkitBackdropFilter: isAndroid ? "none" : "blur(14px)",
+                  backdropFilter: isAndroid || isDragging ? "none" : "blur(14px)",
+                  WebkitBackdropFilter: isAndroid || isDragging ? "none" : "blur(14px)",
                   display: "grid",
                   placeItems: "center",
                   padding: 14
