@@ -149,7 +149,7 @@ function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose,
 
   return (
     <article
-      className={`card swipeCard ${isDragging ? "dragging" : ""}`}
+      className="card swipeCard"
       style={{
         // Perf Android: éviter la sélection/scroll “parasite” pendant un drag
         touchAction: "none",
@@ -233,7 +233,7 @@ function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose,
           </div>
         )}
 
-        <div className={`cardOverlay ${overlayOpen ? "bio-open" : ""}`}>
+        <div className={`cardOverlay ${overlayOpen ? "bio-open" : ""}`} style={{ pointerEvents: isDragging ? "none" : "auto" }}>
           <div className="titleRow">
             <div className="h1">
               {profile?.name}
