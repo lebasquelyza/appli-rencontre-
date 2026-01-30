@@ -601,7 +601,6 @@ const consumeSuperlike = () => {
             }}
             style={stageStyle}
           >
-            {!isShareCard && <div style={flashStyle}>{flashLabel}</div>}
 
             {isShareCard ? (
               <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid || isDragging} isDragging={isDragging} />
