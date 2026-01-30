@@ -1,5 +1,5 @@
 // sportmeet-complet/src/components/CrushesPage.jsx
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export function CrushesPage({
@@ -10,6 +10,20 @@ export function CrushesPage({
   onHideMatch
 }) {
   const navigate = useNavigate();
+
+  // ✅ aperçu profil (au clic sur la photo)
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewCrush, setPreviewCrush] = useState(null);
+
+  const openPreview = (c) => {
+    setPreviewCrush(c || null);
+    setPreviewOpen(true);
+  };
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setPreviewCrush(null);
+  };
 
   // ✅ Démo Paul si aucun crush (preview UI)
   const demoCrush = {
@@ -108,7 +122,15 @@ export function CrushesPage({
                 <img
                   src={getAvatar(c)}
                   alt={c.name}
-                  style={{ width: 54, height: 54, borderRadius: 12, objectFit: "cover" }}
+                  onClick={() => openPreview(c)}
+                  title="Voir le profil"
+                  style={{
+                    width: 54,
+                    height: 54,
+                    borderRadius: 12,
+                    objectFit: "cover",
+                    cursor: "pointer"
+                  }}
                 />
 
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -149,6 +171,82 @@ export function CrushesPage({
           })}
         </div>
       </div>
+      {/* ✅ Aperçu profil (modal) */}
+      {previewOpen && previewCrush ? (
+        <div
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closePreview();
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) closePreview();
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0,0,0,.55)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            display: "grid",
+            placeItems: "center",
+            padding: 14
+          }}
+        >
+          <div
+            className="card"
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            style={{
+              width: "min(520px, 92vw)",
+              maxHeight: "calc(var(--appH, 100vh) - 40px)",
+              overflow: "auto",
+              borderRadius: 18,
+              padding: 14
+            }}
+          >
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <img
+                src={getAvatar(previewCrush)}
+                alt={previewCrush?.name || "Profil"}
+                style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover" }}
+              />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 18, lineHeight: 1.1 }}>
+                  {previewCrush?.name || "Profil"}
+                </div>
+                <div style={{ opacity: 0.85, marginTop: 4, fontSize: 14 }}>
+                  {[previewCrush?.city, previewCrush?.sport].filter(Boolean).join(" • ")}
+                </div>
+              </div>
+
+              <button type="button" className="btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={closePreview}>
+                Fermer
+              </button>
+            </div>
+
+            {/* ✅ Photos si dispo */}
+            {Array.isArray(previewCrush?.photo_urls) && previewCrush.photo_urls.length > 1 ? (
+              <div style={{ display: "flex", gap: 10, overflowX: "auto", marginTop: 12, paddingBottom: 4 }}>
+                {previewCrush.photo_urls.slice(0, 8).map((u, i) => (
+                  <img
+                    key={u || i}
+                    src={u}
+                    alt=""
+                    style={{ width: 110, height: 140, borderRadius: 14, objectFit: "cover", flex: "0 0 auto" }}
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" }}>
+              <button type="button" className="btn-ghost" onClick={() => openChat(previewCrush)}>
+                Ouvrir le chat
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </div>
   );
 }
