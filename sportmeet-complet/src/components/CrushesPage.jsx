@@ -27,7 +27,7 @@ function SwipeToDeleteRow({ children, onDelete, disabled }) {
     if (disabled) return;
 
     // ignore si on démarre sur un bouton/lien/champ
-    if (e.target?.closest?.("button, a, input, textarea, select")) return;
+    if (e.target?.closest?.("input, textarea, select")) return;
 
     dragging.current = true;
     moved.current = false;
@@ -80,7 +80,9 @@ function SwipeToDeleteRow({ children, onDelete, disabled }) {
           display: "flex",
           justifyContent: "flex-end",
           alignItems: "stretch",
-          background: "rgba(239,68,68,.18)"
+          background: "rgba(239,68,68,.18)",
+          opacity: Math.min(1, Math.abs(x) / MAX),
+          pointerEvents: x === 0 ? "none" : "auto",
         }}
       >
         <button
