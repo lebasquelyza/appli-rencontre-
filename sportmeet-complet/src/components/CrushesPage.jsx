@@ -203,9 +203,7 @@ export function CrushesPage({
     const mid = Number(c?.match_id);
     if (!Number.isFinite(mid)) return;
 
-    const ok = window.confirm("Supprimer cette conversation ?
-
-Les messages seront effacés définitivement.");
+    const ok = window.confirm("Supprimer cette conversation ?\n\nLes messages seront effacés définitivement.");
     if (!ok) return;
 
     try {
