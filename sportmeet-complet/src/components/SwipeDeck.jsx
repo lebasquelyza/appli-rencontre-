@@ -148,45 +148,46 @@ const consumeSuperlike = () => {
     if (len === 0 && index !== 0) setIndex(0);
   }, [profiles]);
 
-  // ✅ Pré-charge quand il reste peu de cartes
+  // ✅ Demande plus de profils (précharge + fin de liste) sans spammer
+  const needMoreInFlightRef = useRef(false);
+  const prevProfilesLenRef = useRef(0);
+
+  // Quand des profils arrivent, on coupe l'état "loading" et on autorise une nouvelle demande plus tard
+  useEffect(() => {
+    const len = Array.isArray(profiles) ? profiles.length : 0;
+    const prev = prevProfilesLenRef.current;
+    prevProfilesLenRef.current = len;
+
+    if (len > prev) {
+      needMoreInFlightRef.current = false;
+      if (len > index) setLoadingMore(false);
+    }
+  }, [profiles, index]);
+
   useEffect(() => {
     if (!onNeedMore) return;
+
     const len = Array.isArray(profiles) ? profiles.length : 0;
     const remaining = len - index;
-    if (remaining <= 3) {
-      const key = `${len}:${index}`;
-      if (needMoreLockRef.current.key === key) return;
-      needMoreLockRef.current.key = key;
+
+    const shouldNeedMore = len === 0 || index >= len || remaining <= 3;
+    if (!shouldNeedMore) return;
+
+    // évite d'appeler onNeedMore en boucle pendant que la requête est en cours / tant que la liste n'a pas grandi
+    if (needMoreInFlightRef.current) return;
+    needMoreInFlightRef.current = true;
+
+    setLoadingMore(true);
+    try {
       onNeedMore();
+    } catch {
+      // si ça throw, on autorise un retry
+      needMoreInFlightRef.current = false;
+      setLoadingMore(false);
     }
   }, [index, profiles, onNeedMore]);
 
-  // ✅ Si on arrive au bout, demande plus et affiche un état de chargement
-  useEffect(() => {
-    if (!onNeedMore) return;
-    const len = Array.isArray(profiles) ? profiles.length : 0;
-
-    // Si aucune carte au départ
-    if (len === 0) {
-      const key = `empty:${len}:${index}`;
-      if (needMoreLockRef.current.key === key) return;
-      needMoreLockRef.current.key = key;
-      setLoadingMore(true);
-      onNeedMore();
-      return;
-    }
-
-    // Si on est au bout
-    if (index >= len) {
-      const key = `exhausted:${len}:${index}`;
-      if (needMoreLockRef.current.key === key) return;
-      needMoreLockRef.current.key = key;
-      setLoadingMore(true);
-      onNeedMore();
-    }
-  }, [index, profiles, onNeedMore]);
-
-  useEffect(() => {
+useEffect(() => {
     return () => {
       if (gateTimerRef.current) window.clearTimeout(gateTimerRef.current);
       if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
