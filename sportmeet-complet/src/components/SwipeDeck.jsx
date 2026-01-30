@@ -1,450 +1,782 @@
-// sportmeet-complet/src/components/SwipeCard.jsx
-import React, { useEffect, useRef, useState } from "react";
+// sportmeet-complet/src/components/SwipeDeck.jsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { SwipeCard } from "./SwipeCard";
 
-function hashToHue(str = "") {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
-  return h;
-}
-
-const REPORT_REASONS = [
-  "Faux profil",
-  "Arnaque / Scam",
-  "Spam / publicité",
-  "Harcèlement / insultes",
-  "Contenu sexuel ou nudité",
-  "Discours haineux",
-  "Violence ou menaces",
-  "Profil de mineur",
-  "Usurpation d’identité",
-  "Autre"
-];
-
-// ✅ petit helper: évite re-render inutiles quand le parent bouge
-function SwipeCardImpl({ profile, onOpen, onReport, onReportOpen, onReportClose, reduceEffects = false, isDragging = false }) {
-  const photos = Array.isArray(profile?.photo_urls) ? profile.photo_urls : [];
-  const hasPhotos = photos.length > 0;
-
-  const isAndroid =
-    typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
-
-
+export function SwipeDeck({ userId = "anon", 
+  profiles,
+  onLikeProfile,
+  onReportProfile,
+  isAuthenticated,
+  onRequireAuth,
+  onNeedMore,
+  hasMyProfile = true
+}) {
   const [index, setIndex] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // ✅ bio repliable
-  const [bioOpen, setBioOpen] = useState(false);
-
-  // ✅ dispo repliable
-  const [availOpen, setAvailOpen] = useState(false);
-
-  // ✅ modal signalement
+  // ✅ bloque le swipe quand la modale "Signaler" est ouverte (pour permettre l'édition du texte)
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
-  const [reportDetails, setReportDetails] = useState("");
 
-  // ✅ anti double tap
-  const lastTapRef = useRef(0);
+  const [gateMsg, setGateMsg] = useState("");
+  const gateTimerRef = useRef(null);
+
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const [zoomProfile, setZoomProfile] = useState(null);
+
+  const scrollYRef = useRef(0);
+
+  // ✅ Drag sans re-render pendant le move (DOM only)
+  const stageRef = useRef(null);
+  const dragRafRef = useRef(null);
+
+  // ✅ Infinite feed: demande plus de profils quand on approche de la fin
+  const needMoreLockRef = useRef({ key: "" });
+  // ✅ refs DOM (pas de querySelector pendant le drag)
+
+  // ✅ Flash feedback
+  const [flash, setFlash] = useState({ type: null, on: false });
+  const flashTimerRef = useRef(null);
+
+  // ✅ Pointer tracking (+ vitesse pour un swipe plus "Tinder-like")
+  const pointerRef = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
+    moved: false,
+    pointerId: null,
+    lastT: 0, // perf.now()
+    vx: 0 // px/ms
+  });
+
+  const SWIPE_X = 95;
+  const SWIPE_Y = 115;
+
+  // ✅ Seuil de vitesse (px/ms) : swipe rapide validé même si distance faible
+  const V_SWIPE = 0.45;
+
+  // ✅ Superlike limit (front only) — 5 / semaine (lundi → dimanche)
+const SUPERLIKE_WEEKLY_LIMIT = 5;
+const SUPERLIKE_LS_KEY = `matchfit_superlikes_v2_week_${userId || "anon"}`;
+
+const weekKey = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const day = (d.getDay() + 6) % 7; // Lundi=0 ... Dimanche=6
+  d.setDate(d.getDate() - day);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`; // date du lundi
+};
+
+const readSuperlikeState = () => {
+  try {
+    if (typeof window === "undefined") return { week: weekKey(), count: 0 };
+    const raw = window.localStorage.getItem(SUPERLIKE_LS_KEY);
+    if (!raw) return { week: weekKey(), count: 0 };
+    const parsed = JSON.parse(raw);
+    if (!parsed?.week || typeof parsed?.count !== "number") return { week: weekKey(), count: 0 };
+    if (parsed.week !== weekKey()) return { week: weekKey(), count: 0 };
+    return parsed;
+  } catch {
+    return { week: weekKey(), count: 0 };
+  }
+};
+
+const writeSuperlikeState = (state) => {
+  try {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(SUPERLIKE_LS_KEY, JSON.stringify(state));
+  } catch {}
+};
+
+const canUseSuperlike = () => readSuperlikeState().count < SUPERLIKE_WEEKLY_LIMIT;
+
+const consumeSuperlike = () => {
+  const st = readSuperlikeState();
+  const nextState = {
+    week: weekKey(),
+    count: Math.min(SUPERLIKE_WEEKLY_LIMIT, (st.count || 0) + 1)
+  };
+  writeSuperlikeState(nextState);
+  return nextState;
+};
+
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const vibrate = (pattern) => {
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(pattern);
+      }
+    } catch {}
+  };
+
+  const showFlash = (type) => {
+    setFlash({ type, on: true });
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setFlash({ type: null, on: false }), 240);
+  };
+
+  const showGate = (msg) => {
+    setGateMsg(msg);
+    if (gateTimerRef.current) window.clearTimeout(gateTimerRef.current);
+    gateTimerRef.current = window.setTimeout(() => setGateMsg(""), 2200);
+  };
+
+  useEffect(() => setIndex(0), [profiles]);
+
+  // ✅ Pré-charge quand il reste peu de cartes
+  useEffect(() => {
+    if (!onNeedMore) return;
+    const len = Array.isArray(profiles) ? profiles.length : 0;
+    const remaining = len - index;
+    if (remaining <= 3) {
+      const key = `${len}:${index}`;
+      if (needMoreLockRef.current.key === key) return;
+      needMoreLockRef.current.key = key;
+      onNeedMore();
+    }
+  }, [index, profiles, onNeedMore]);
 
   useEffect(() => {
-    setIndex(0);
-    setBioOpen(false);
-    setAvailOpen(false);
+    return () => {
+      if (gateTimerRef.current) window.clearTimeout(gateTimerRef.current);
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+      if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current);
+    };
+  }, []);
 
-    setReportOpen(false);
-    setReportReason(REPORT_REASONS[0]);
-    setReportDetails("");
-  }, [profile?.id]);
+  const hasProfile = index < profiles.length;
+  const currentProfile = hasProfile ? profiles[index] : null;
+  const next = () => setIndex((i) => i + 1);
 
-  useEffect(() => {
-    setIndex((i) => Math.min(i, Math.max(0, photos.length - 1)));
-  }, [photos.length]);
+  const shareText = useMemo(
+    () => "Je suis sur MatchFit 💪 Viens tester ! Partage à tes potes, ça peut aider 😉",
+    []
+  );
 
-  const initial = profile?.name?.[0]?.toUpperCase() ?? "M";
-  const hue = hashToHue(`${profile?.name}-${profile?.city}-${profile?.sport}`);
+  const shareUrl =
+    typeof window !== "undefined" && window.location?.origin ? window.location.origin : "https://matchfit.app";
 
-  const bgFallback = {
-    background: `
-      radial-gradient(900px 450px at 20% 20%, hsla(${hue}, 90%, 60%, .28), transparent 55%),
-      radial-gradient(900px 450px at 80% 30%, hsla(${(hue + 40) % 360}, 90%, 60%, .20), transparent 60%),
-      linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.25))
-    `
-  };
-
-  const bio = (profile?.bio || "").trim();
-  const availability = (profile?.availability || "").trim();
-
-  const heightNum = Number(profile?.height);
-  const heightLabel = Number.isFinite(heightNum) && heightNum > 0 ? `${heightNum} cm` : "";
-
-  const bioShowToggle = bio.length > 0;
-  const availShowToggle = availability.length > 40;
-
-  const toggleBio = () => {
-    if (!bio) return;
-    setBioOpen((v) => !v);
-  };
-
-  const toggleAvail = () => {
-    if (!availability) return;
-    setAvailOpen((v) => !v);
-  };
-
-  const isInTextZone = (target) =>
-    !!target?.closest?.(".swipeBio, .bioToggle, .swipeAvail, .availToggle, .reportBtn, .reportModal");
-
-  // ✅ Navigation photos via TAP (gauche/droite)
-  const handleTapMedia = (e) => {
-    if (isInTextZone(e.target)) return;
-    if (!hasPhotos) return;
-
-    const now = Date.now();
-    lastTapRef.current = now;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const isLeft = x < rect.width / 2;
-
-    if (isLeft) {
-      if (index > 0) setIndex((i) => i - 1);
-    } else {
-      if (index < photos.length - 1) setIndex((i) => i + 1);
+  const handleShare = async () => {
+    const payload = { title: "MatchFit", text: shareText, url: shareUrl };
+    try {
+      if (navigator.share) {
+        await navigator.share(payload);
+        return;
+      }
+    } catch {}
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+      alert("Message copié ✅");
+    } catch {
+      window.prompt("Copie ce message :", `${shareText}\n${shareUrl}`);
     }
   };
 
-  const onClickCard = (e) => {
-    if (!onOpen) return;
-    if (isDragging) return; // 🔥 évite d'ouvrir le profil pendant un swipe
-    if (isInTextZone(e.target)) return;
-
-    const dt = Date.now() - (lastTapRef.current || 0);
-    if (dt < 250) return;
-
-    onOpen();
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      alert("Lien copié ✅");
+    } catch {
+      window.prompt("Copie ce lien :", shareUrl);
+    }
   };
 
-  const overlayOpen = bioOpen || availOpen;
+  const isShareCard = !!currentProfile && currentProfile.__type === "share";
 
-  const openReport = (e) => {
-    e?.stopPropagation?.();
-    if (!onReport) return;
-    onReportOpen?.();
-    setReportOpen(true);
+  const shareProfileForCard = useMemo(
+    () => ({
+      id: currentProfile?.id || "__share",
+      name: "Partage MatchFit 💪",
+      age: null,
+      gender: null,
+      city: "",
+      sport: "",
+      level: "",
+      availability: "",
+      bio:
+        "Si tu veux rencontrer plus de partenaires d’entraînement, partage à tes potes. En espérant que ta/ton gymcrush en entendent parler 😉",
+      photo_urls: [],
+      isCustom: false
+    }),
+    [currentProfile?.id]
+  );
+
+  const guardAction = () => {
+    if (isShareCard) return { ok: false, reason: "share" };
+    if (!isAuthenticated) {
+      onRequireAuth?.();
+      return { ok: false, reason: "auth" };
+    }
+    if (hasMyProfile === false) {
+      showGate("Crée ton profil avant de pouvoir trouver ta/ton partenaire 💪");
+      return { ok: false, reason: "no_profile" };
+    }
+    return { ok: true };
   };
 
-  const closeReport = () => {
-    setReportOpen(false);
-    onReportClose?.();
+  // ✅ utils
+  const clamp = (v, min, max) => (v < min ? min : v > max ? max : v);
+
+  // ✅ lock scroll (iOS/webview)
+  const lockScrollRef = useRef({ prevOverflow: "" });
+  const lockScroll = () => {
+    try {
+      lockScrollRef.current.prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    } catch {}
+  };
+  const unlockScroll = () => {
+    try {
+      document.body.style.overflow = lockScrollRef.current.prevOverflow || "";
+    } catch {}
   };
 
-  const submitReport = async () => {
-    if (!onReport) return;
-    const reason = (reportReason || "").trim();
-    const details = (reportDetails || "").trim();
-    if (!reason) return;
+  // ✅ DOM writes minimal (transform + 2 opacities + 2 transforms)
+  const applyDragDom = (x, y) => {
+    const el = stageRef.current;
+    if (!el) return;
 
-    await onReport({ reason, details });
-    closeReport();
+    const rot = clamp(x / 18, -14, 14);
+
+    // ✅ Android: écrire transform directement (plus fluide que setProperty sur CSS vars)
+    el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${rot}deg)`;
+
+    // progress 0..1
+    const likeP = clamp((x - 18) / 120, 0, 1);
+    const nopeP = clamp((-x - 18) / 120, 0, 1);
+  };
+
+  const resetDragDom = () => applyDragDom(0, 0);
+
+  // ✅ fly-out "plus fluide" : part de la position actuelle et continue vers l'extérieur (momentum)
+  const flyOut = async (dir, meta = { dx: 0, dy: 0, vx: 0 }) => {
+    const w = typeof window !== "undefined" ? window.innerWidth || 360 : 360;
+
+    const base = Math.min(340, w * 0.85);
+    const extra = clamp(Math.abs(meta.vx || 0) * 800, 0, 380); // momentum (px)
+    const outX = dir === "right" ? base + extra : dir === "left" ? -(base + extra) : dir === "up" ? 0 : 0;
+
+    const outY = dir === "up" ? -Math.min(520, w * 1.05) : -20 + clamp(meta.dy * 0.10, -40, 40);
+
+    // réactive transition (car on coupe pendant le drag)
+    if (stageRef.current) stageRef.current.style.transition = "transform 220ms cubic-bezier(.2,.8,.2,1)";
+
+    if (dir === "right") applyDragDom(outX, outY);
+    if (dir === "left") applyDragDom(outX, outY);
+    if (dir === "up") applyDragDom(0, outY);
+
+    await sleep(230);
+  };
+
+  const handleLike = async (meta) => {
+    const gate = guardAction();
+    if (!gate.ok) return;
+    if (!currentProfile || busy) return;
+
+    setBusy(true);
+    try {
+      showFlash("like");
+      vibrate([20]);
+
+      await flyOut("right", meta);
+      next();
+      resetDragDom();
+
+      Promise.resolve(onLikeProfile?.(currentProfile, { isSuper: false })).catch(() => {});
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSuperLike = async (meta) => {
+    const gate = guardAction();
+    if (!gate.ok) return;
+    if (!currentProfile || busy) return;
+
+    if (!canUseSuperlike()) {
+      showGate(`Tu as atteint la limite de ${SUPERLIKE_WEEKLY_LIMIT} superlikes pour la semaine ⭐`);
+      vibrate([30, 20, 30]);
+      resetDragDom();
+      return;
+    }
+
+    setBusy(true);
+    try {
+      showFlash("super");
+      vibrate([15, 35, 15]);
+
+      await flyOut("up", meta);
+      next();
+      resetDragDom();
+
+      consumeSuperlike();
+      Promise.resolve(onLikeProfile?.(currentProfile, { isSuper: true })).catch(() => {});
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSkip = async (meta) => {
+    if (isShareCard) {
+      if (busy) return;
+      await flyOut("left", meta);
+      next();
+      resetDragDom();
+      return;
+    }
+
+    const gate = guardAction();
+    if (!gate.ok) return;
+    if (busy) return;
+
+    setBusy(true);
+    try {
+      showFlash("nope");
+      vibrate([12]);
+
+      await flyOut("left", meta);
+      next();
+      resetDragDom();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReset = () => setIndex(0);
+  const hasAny = Array.isArray(profiles) && profiles.length > 0;
+
+  const openZoom = (p) => {
+    if (!p || p.__type === "share") return;
+    scrollYRef.current = window.scrollY || 0;
+    setZoomProfile(p);
+    setZoomOpen(true);
+  };
+
+  const closeZoom = () => {
+    setZoomOpen(false);
+    setZoomProfile(null);
+  };
+
+  useEffect(() => {
+    if (!zoomOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [zoomOpen]);
+
+  const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+
+  const stageStyle = {
+    transform: "translate3d(0px, 0px, 0) rotate(0deg)",
+    transition: "transform 220ms cubic-bezier(.2,.8,.2,1)", // sera mis à "none" pendant le drag via JS
+    willChange: "transform",
+    cursor: isShareCard ? "default" : !isAuthenticated ? "default" : "grab",
+    // Perf Android: empêcher le navigateur d'interpréter le geste (scroll/zoom) pendant le swipe
+    touchAction: reportOpen ? "auto" : "none",
+    pointerEvents: reportOpen ? "none" : "auto",
+    position: "relative",
+    WebkitTapHighlightColor: "transparent",
+    userSelect: reportOpen ? "text" : "none",
+    WebkitUserSelect: reportOpen ? "text" : "none"
+  };
+  // ✅ icônes ❤️/✕ désactivées (swipe plus clean)
+
+  // ✅ flash overlay (inchangé)
+  const flashStyle = (() => {
+    if (!flash.on) return { opacity: 0, pointerEvents: "none" };
+    const common = {
+      position: "absolute",
+      inset: 0,
+      zIndex: 30,
+      display: "grid",
+      placeItems: "center",
+      borderRadius: 18,
+      transition: "opacity 160ms ease",
+      pointerEvents: "none",
+      opacity: 1
+    };
+    if (flash.type === "like") {
+      return {
+        ...common,
+        background:
+          "radial-gradient(circle at 70% 20%, rgba(0,224,150,.22), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(0,224,150,.12), rgba(0,0,0,0))"
+      };
+    }
+    if (flash.type === "super") {
+      return {
+        ...common,
+        background:
+          "radial-gradient(circle at 50% 10%, rgba(255,215,0,.20), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(255,215,0,.10), rgba(0,0,0,0))"
+      };
+    }
+    return {
+      ...common,
+      background:
+        "radial-gradient(circle at 30% 20%, rgba(255,80,92,.22), rgba(0,0,0,0) 55%), linear-gradient(180deg, rgba(255,80,92,.12), rgba(0,0,0,0))"
+    };
+  })();
+
+  const flashLabel = (() => {
+    if (!flash.on) return null;
+    const boxBase = {
+      padding: "10px 14px",
+      borderRadius: 999,
+      fontWeight: 1000,
+      letterSpacing: 1.2,
+      border: "1px solid rgba(255,255,255,.22)",
+      background: "rgba(10,10,14,.55)",
+      boxShadow: "0 12px 30px rgba(0,0,0,.22)"
+    };
+    if (flash.type === "like") return <div style={boxBase}>OUI ❤️</div>;
+    if (flash.type === "super") return <div style={boxBase}>SUPERLIKE ★</div>;
+    return <div style={boxBase}>NON ✕</div>;
+  })();
+
+  // ✅ pointer handlers (avec pointerId + vitesse)
+  const onPointerDown = (e) => {
+    if (reportOpen) return;
+    if (zoomOpen || reportOpen) return;
+    if (!currentProfile || busy) return;
+    if (isShareCard) return;
+
+    if (!isAuthenticated) {
+      onRequireAuth?.();
+      showGate("Connecte-toi pour swiper 💪");
+      resetDragDom();
+      return;
+    }
+
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    // Empêche le navigateur (Android WebView) de “voler” le geste
+    if (e.cancelable) e.preventDefault();
+
+    pointerRef.current.active = true;
+    pointerRef.current.startX = e.clientX;
+    pointerRef.current.startY = e.clientY;
+    pointerRef.current.lastX = e.clientX;
+    pointerRef.current.lastY = e.clientY;
+    pointerRef.current.moved = false;
+    pointerRef.current.pointerId = e.pointerId;
+
+    pointerRef.current.lastT = performance.now();
+    pointerRef.current.vx = 0;
+
+    setIsDragging(true);
+
+    // coupe la transition pendant le drag (zéro re-render)
+    if (stageRef.current) stageRef.current.style.transition = "none";
+
+    resetDragDom();
+
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch {}
+  };
+
+  const onPointerMove = (e) => {
+    if (reportOpen) return;
+    if (!pointerRef.current.active) return;
+    if (pointerRef.current.pointerId != null && e.pointerId !== pointerRef.current.pointerId) return;
+
+    if (e.cancelable) e.preventDefault();
+
+    const dx = e.clientX - pointerRef.current.startX;
+    const dy = e.clientY - pointerRef.current.startY;
+
+    // vitesse horizontale (px/ms)
+    const now = performance.now();
+    const dt = Math.max(1, now - (pointerRef.current.lastT || now));
+    pointerRef.current.vx = (e.clientX - pointerRef.current.lastX) / dt;
+    pointerRef.current.lastT = now;
+
+    pointerRef.current.lastX = e.clientX;
+    pointerRef.current.lastY = e.clientY;
+
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) pointerRef.current.moved = true;
+
+    if (dragRafRef.current) return;
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = null;
+      applyDragDom(clamp(dx, -480, 480), clamp(dy, -260, 260)); // 🔥 plage élargie = moins de "butée" donc swipe plus fluide
+    });
+  };
+
+  const endPointer = () => {
+    pointerRef.current.active = false;
+  };
+
+  const onPointerUp = async (e) => {
+    if (reportOpen) return;
+    if (!pointerRef.current.active) return;
+    if (pointerRef.current.pointerId != null && e?.pointerId != null && e.pointerId !== pointerRef.current.pointerId)
+      return;
+
+    endPointer();
+    setIsDragging(false);
+
+    if (!isAuthenticated) {
+      resetDragDom();
+      return;
+    }
+
+    if (!currentProfile || busy) {
+      resetDragDom();
+      return;
+    }
+
+    const dx = pointerRef.current.lastX - pointerRef.current.startX;
+    const dy = pointerRef.current.lastY - pointerRef.current.startY;
+    const vx = pointerRef.current.vx || 0;
+
+    if (!pointerRef.current.moved) {
+      resetDragDom();
+      return;
+    }
+
+    const meta = { dx, dy, vx };
+
+    const shouldSuper = dy < -SWIPE_Y && Math.abs(dx) < SWIPE_X;
+    const shouldLike = dx > SWIPE_X || vx > V_SWIPE;
+    const shouldNope = dx < -SWIPE_X || vx < -V_SWIPE;
+
+    if (shouldSuper) {
+      await handleSuperLike(meta);
+      return;
+    }
+    if (shouldLike) {
+      await handleLike(meta);
+      return;
+    }
+    if (shouldNope) {
+      await handleSkip(meta);
+      return;
+    }
+
+    // retour au centre (transition réactivée)
+    if (stageRef.current) stageRef.current.style.transition = "transform 220ms cubic-bezier(.2,.8,.2,1)";
+    resetDragDom();
+  };
+
+  const onPointerCancel = () => {
+    if (reportOpen) return;
+    if (!pointerRef.current.active) return;
+    endPointer();
+    setIsDragging(false);
+    if (stageRef.current) stageRef.current.style.transition = "transform 220ms cubic-bezier(.2,.8,.2,1)";
+    resetDragDom();
   };
 
   return (
-    <article
-      className="card swipeCard"
-      style={{
-        // Perf Android: éviter la sélection/scroll “parasite” pendant un drag
-        touchAction: "none",
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        WebkitTapHighlightColor: "transparent"
-      }}
-    >
-      <div
-        className={`cardMedia swipeMedia ${hasPhotos ? "has-photo" : "no-photo"}`}
-        onClick={(e) => {
-          if (isDragging) return;
-          if (hasPhotos) handleTapMedia(e);
-          else onClickCard(e);
-        }}
-        style={{
-          ...(hasPhotos ? null : bgFallback),
-          // Laisser SwipeDeck gérer le geste global. Ici on évite juste le scroll parasite.
-          touchAction: "none",
-          cursor: onOpen ? "pointer" : "default",
-          position: "relative"
-        }}
-      >
-        {/* ✅ Bouton signaler */}
-        {typeof onReport === "function" ? (
-          <button
-            type="button"
-            className="reportBtn"
-            onClick={openReport}
-            title="Signaler ce profil"
-            aria-label="Signaler ce profil"
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              zIndex: 5,
-              border: "none",
-              borderRadius: 999,
-              padding: "8px 10px",
-              background: "rgba(0,0,0,.42)",
-              color: "white",
-              backdropFilter: reduceEffects || isAndroid ? "none" : "blur(8px)",
-              WebkitBackdropFilter: reduceEffects || isAndroid ? "none" : "blur(8px)",
-              cursor: "pointer"
-            }}
-          >
-            🚩
-          </button>
-        ) : null}
-
-        {hasPhotos && (
+    <div className="swipe-container" data-swipe-deck>
+      {currentProfile ? (
+        <>
           <div
-            className="photo-track"
-            style={{
-              transform: `translateX(-${index * 100}%)`,
-              willChange: "transform"
+            ref={stageRef}
+            className="swipeStage"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            onClickCapture={(e) => {
+              if (pointerRef.current.moved) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
             }}
+            onClick={() => {
+              if (pointerRef.current.moved) return;
+              if (isShareCard) return;
+              openZoom(currentProfile);
+            }}
+            style={stageStyle}
           >
-            {photos.map((src, i) => (
-              <div key={src || i} className="photo-slide">
-                <img
-                  src={src}
-                  alt=""
-                  draggable="false"
-                  loading="lazy"
-                  decoding="async"
-                  style={{ transform: "translateZ(0)" }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
+            {!isShareCard && <div style={flashStyle}>{flashLabel}</div>}
 
-        <div className="swipeAvatar">{initial}</div>
+            {/* ✅ Icônes ❤️ / ✕ (refs directes) */}
+            {!isShareCard && (
+              <>
+                <div ref={crossRef} style={crossStyle}>
+                  ✕
+                </div>
+                <div ref={heartRef} style={heartStyle}>
+                  ❤
+                </div>
+              </>
+            )}
 
-        {photos.length > 1 && (
-          <div className="photo-dots">
-            {photos.map((_, i) => (
-              <span key={i} className={`dot ${i === index ? "active" : ""}`} />
-            ))}
-          </div>
-        )}
-
-        <div className={`cardOverlay ${overlayOpen ? "bio-open" : ""}`} style={{ pointerEvents: isDragging ? "none" : "auto" }}>
-          <div className="titleRow">
-            <div className="h1">
-              {profile?.name}
-              {profile?.age ? `, ${profile.age}` : ""}
-            </div>
-            {profile?.city && <div className="sub">{profile.city}</div>}
+            {isShareCard ? (
+              <SwipeCard key={shareProfileForCard.id} profile={shareProfileForCard} reduceEffects={isAndroid || isDragging} isDragging={isDragging} />
+            ) : (
+              <SwipeCard
+                key={currentProfile.id}
+                profile={currentProfile}
+                reduceEffects={isAndroid || isDragging}
+                isDragging={isDragging}
+                onReport={(payload) => onReportProfile?.(currentProfile, payload)}
+                onReportOpen={() => setReportOpen(true)}
+                onReportClose={() => setReportOpen(false)}
+              />
+            )}
           </div>
 
-          {(profile?.sport || profile?.level || heightLabel) && (
-            <div className="chips chips-oneLine">
-              {profile?.sport && <span className="chip chip-accent">{profile.sport}</span>}
-              {profile?.level && <span className="chip">{profile.level}</span>}
-              {heightLabel && <span className="chip">📏 {heightLabel}</span>}
-            </div>
-          )}
+          {gateMsg && <div className="gate-toast">{gateMsg}</div>}
 
-          {availability && (
-            <div className="availWrap">
-              <div
-                className={`swipeAvail ${availOpen ? "open" : "clamp"}`}
-                style={{ touchAction: "none" }}
-                role="button"
-                tabIndex={0}
+          {!isAuthenticated && !isShareCard ? (
+            <div className="actions" style={{ flexDirection: "column", gap: 10 }}>
+              <p className="form-message" style={{ margin: 0 }}>
+                Connecte-toi pour liker ou passer des profils.
+              </p>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleAvail();
+                  onRequireAuth?.();
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") toggleAvail();
-                }}
-                title={availOpen ? "Clique pour réduire" : "Clique pour dérouler"}
               >
-                📅 {availability}
-              </div>
-
-              {availShowToggle && (
-                <button
-                  type="button"
-                  className="availToggle"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleAvail();
-                  }}
-                >
-                  {availOpen ? "Réduire" : "Voir +"}
-                </button>
-              )}
+                Se connecter
+              </button>
             </div>
-          )}
-
-          {bio && (
-            <div className="bioWrap">
-              <div
-                className={`swipeBio ${bioOpen ? "open" : "clamp"}`}
-                style={{ touchAction: "none" }}
-                role="button"
-                tabIndex={0}
+          ) : isShareCard ? (
+            <div className="actions" style={{ justifyContent: "center", gap: 10 }}>
+              <button
+                type="button"
+                className="btn-primary"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleBio();
+                  handleShare();
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") toggleBio();
-                }}
-                title={bioOpen ? "Clique pour réduire" : "Clique pour dérouler"}
               >
-                {bio}
-              </div>
-
-              {bioShowToggle && (
-                <button
-                  type="button"
-                  className="bioToggle"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleBio();
-                  }}
-                >
-                  {bioOpen ? "Réduire" : "Voir +"}
-                </button>
-              )}
+                Partager
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy();
+                }}
+              >
+                Copier le lien
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  next();
+                }}
+                title="Continuer"
+              >
+                Continuer
+              </button>
+            </div>
+          ) : (
+            <div className="actions" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="swBtn swBtnBad"
+                onClick={() => handleSkip({ dx: 0, dy: 0, vx: 0 })}
+                disabled={busy || reportOpen}
+              >
+                ✕
+              </button>
+              <button
+                type="button"
+                className="swBtn swBtnPrimary"
+                onClick={() => handleLike({ dx: 0, dy: 0, vx: 0 })}
+                disabled={busy || reportOpen}
+              >
+                ❤
+              </button>
+              <button
+                type="button"
+                className="swBtn swBtnGood"
+                onClick={() => handleSuperLike({ dx: 0, dy: 0, vx: 0 })}
+                disabled={busy || reportOpen}
+              >
+                ★
+              </button>
             </div>
           )}
-        </div>
 
-        {/* ✅ Modal Signalement */}
-        {reportOpen &&
-          createPortal(
-            <div
-              className="reportModal"
-              onMouseDown={(e) => {
-                // ✅ ferme seulement si on clique sur le fond (pas sur la popup)
-                if (e.target === e.currentTarget) closeReport();
-              }}
-              onTouchStart={(e) => {
-                if (e.target === e.currentTarget) closeReport();
-              }}
-              style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 9999,
-                pointerEvents: "auto",
-                touchAction: "auto",
-                background: "rgba(0,0,0,.45)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                display: "grid",
-                placeItems: "center",
-                padding: 14
-              }}
-            >
+          {zoomOpen &&
+            zoomProfile &&
+            typeof document !== "undefined" &&
+            createPortal(
               <div
-                onClick={(e) => e.stopPropagation()}
-                className="allowScroll"
+                onClick={closeZoom}
                 style={{
-                  width: "min(620px, 92vw)",
-                  touchAction: "auto",
-                  pointerEvents: "auto",
-                  maxHeight: "calc(var(--appH, 100vh) - 40px)",
-                  overflow: "auto",
-                  borderRadius: 20,
-                  background: "rgba(20,20,20,.92)",
-                  color: "white",
-                  padding: 16,
-                  boxShadow: "0 18px 50px rgba(0,0,0,.5)"
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9999,
+                  background: "rgba(0,0,0,.35)",
+                  // ⚠️ blur peut lag sur Android, on le coupe
+                  backdropFilter: isAndroid || isDragging ? "none" : "blur(14px)",
+                  WebkitBackdropFilter: isAndroid || isDragging ? "none" : "blur(14px)",
+                  display: "grid",
+                  placeItems: "center",
+                  padding: 14
                 }}
               >
-                <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontWeight: 800, fontSize: 16 }}>Signaler ce profil</div>
-                  <button
-                    type="button"
-                    className="btn-ghost btn-sm"
-                    onClick={closeReport}
-                    style={{ marginLeft: "auto" }}
-                  >
-                    Fermer
-                  </button>
-                </div>
-
-                <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 12, lineHeight: 1.35 }}>
-                  {profile?.name ? (
-                    <span>
-                      Profil : <strong>{profile.name}</strong>
-                    </span>
-                  ) : null}
-                </div>
-
-                <div style={{ display: "grid", gap: 8 }}>
-                  <label style={{ fontSize: 13, opacity: 0.9 }}>Raison</label>
-                  <select
-                    value={reportReason}
-                    onChange={(e) => setReportReason(e.target.value)}
-                    style={{
-                      width: "100%",
-                      borderRadius: 12,
-                      padding: "10px 12px",
-                      border: "1px solid rgba(255,255,255,.15)",
-                      background: "rgba(0,0,0,.35)",
-                      color: "white"
-                    }}
-                  >
-                    {REPORT_REASONS.map((r) => (
-                      <option key={r} value={r} style={{ color: "#111", background: "#fff" }}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-
-                  <label style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>Détails (optionnel)</label>
-                  <textarea
-                    value={reportDetails}
-                    onChange={(e) => setReportDetails(e.target.value)}
-                    rows={4}
-                    placeholder="Explique brièvement ce qui pose problème…"
-                    style={{
-                      width: "100%",
-                      borderRadius: 12,
-                      padding: "10px 12px",
-                      border: "1px solid rgba(255,255,255,.15)",
-                      background: "rgba(0,0,0,.35)",
-                      color: "white",
-                      resize: "vertical",
-                      userSelect: "text",
-                      WebkitUserSelect: "text"
-                    }}
-                  />
-
-                  <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 10 }}>
-                    <button type="button" className="btn-ghost" onClick={closeReport}>
-                      Annuler
-                    </button>
-                    <button type="button" className="btn-primary" onClick={submitReport} disabled={!reportReason}>
-                      Envoyer
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: "min(560px, 100%)",
+                    height: "min(calc(var(--appH, 100vh) * 0.78), 720px)"
+                  }}
+                >
+                  <div style={{ marginBottom: 10, display: "flex", justifyContent: "flex-end" }}>
+                    <button type="button" className="btn-ghost" onClick={closeZoom}>
+                      Fermer
                     </button>
                   </div>
+
+                  <div style={{ height: "calc(100% - 46px)" }}>
+                    <SwipeCard
+                      profile={zoomProfile}
+                      reduceEffects={isAndroid || isDragging}
+                      onReport={(payload) => onReportProfile?.(zoomProfile, payload)}
+                      onReportOpen={() => setReportOpen(true)}
+                      onReportClose={() => setReportOpen(false)}
+                    />
+                  </div>
                 </div>
-              </div>
-            </div>,
-            document.body
+              </div>,
+              document.body
+            )}
+        </>
+      ) : (
+        <div className="swipe-empty" style={{ textAlign: "center" }}>
+          {Array.isArray(profiles) && profiles.length > 0 ? (
+            <p style={{ marginBottom: 6, fontWeight: 700 }}>Plus personne à te présenter 😊</p>
+          ) : (
+            <p style={{ marginBottom: 6, fontWeight: 700 }}>Partage à tes amis — avec un peu de chance, ton/ta gymcrush en entendra parler 💪✨</p>
           )}
-      </div>
-    </article>
+          <div style={{ marginTop: 10, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <button type="button" className="btn-primary" onClick={handleShare}>
+              Partager
+            </button>
+            <button type="button" className="btn-ghost" onClick={handleCopy}>
+              Copier le lien
+            </button>
+            <button type="button" className="btn-ghost" onClick={() => setIndex(0)}>
+              Revoir des profils
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
-
-// ✅ Memo: ne re-render pas la card quand le parent bouge pendant le drag
-export const SwipeCard = React.memo(
-  SwipeCardImpl,
-  (prev, next) =>
-    prev.profile?.id === next.profile?.id &&
-    prev.reduceEffects === next.reduceEffects &&
-    prev.onOpen === next.onOpen &&
-    prev.onReport === next.onReport
-);
