@@ -3,7 +3,13 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-export function Settings({
+export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [isError, setIsError] = useState(false);
+
   // ✅ Préférences audio feed (localStorage)
   const LS_VIDEO_VOL = "mf_feed_video_vol";
   const LS_MUSIC_VOL = "mf_feed_music_vol";
@@ -28,12 +34,6 @@ export function Settings({
     try { localStorage.setItem(LS_MUSIC_VOL, String(feedMusicVol)); } catch {}
   }, [feedMusicVol]);
 
- user, onClearHiddenProfiles, hiddenCount = 0 }) {
-  const navigate = useNavigate();
-
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [isError, setIsError] = useState(false);
 
   // ✅ Mot de passe dépliable
   const [openPassword, setOpenPassword] = useState(false);
