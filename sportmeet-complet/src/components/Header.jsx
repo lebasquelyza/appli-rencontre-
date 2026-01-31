@@ -22,31 +22,11 @@ export function Header({
     }
     onOpenCrushes?.();
   };
-
-  // ✅ Partager (Web Share API + fallback copie)
-  const handleShare = async () => {
-    const url = window.location.origin;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "MatchFit",
-          text: "Rejoins-moi sur MatchFit 💪",
-          url
-        });
-        return;
-      }
-    } catch {
-      // l'utilisateur peut annuler -> on ignore
-    }
-
-    try {
-      await navigator.clipboard.writeText(url);
-      alert("Lien copié ✅");
-    } catch {
-      prompt("Copie ce lien :", url);
-    }
+  // ✅ Accès au Feed (progressions)
+  const handleFeed = () => {
+    navigate("/feed");
   };
+
 
   const toggleMenu = () => setMenuOpen((v) => !v);
   const closeMenu = () => setMenuOpen(false);
@@ -142,15 +122,15 @@ export function Header({
         <div className="topbarRight">
           <span className="badge">MVP · Front</span>
 
-          {/* ✅ Partager (sans flèche) */}
+          {/* ✅ Feed */}
           <button
             type="button"
             className="btn-ghost btn-sm"
-            onClick={handleShare}
-            title="Partager MatchFit"
-            aria-label="Partager MatchFit"
+            onClick={handleFeed}
+            title="Feed"
+            aria-label="Feed"
           >
-            Partager
+            Feed
           </button>
 
           <button type="button" className="btn-ghost btn-sm" onClick={handleCrushesClick}>
