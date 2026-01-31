@@ -351,6 +351,14 @@ export function ProgressCreate({ user }) {
     v.volume = clamp01(videoVol);
   }, [videoVol]);
 
+  const withTimeout = (promise, ms, label = "Opération") => {
+    let t;
+    const timeout = new Promise((_, rej) => {
+      t = window.setTimeout(() => rej(new Error(label + " trop longue. Vérifie ta connexion.")), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => window.clearTimeout(t));
+  };
+
   const uploadAndCreate = async () => {
     if (!user?.id) {
       navigate("/settings");
@@ -363,17 +371,17 @@ export function ProgressCreate({ user }) {
 
     setLoading(true);
     setIsError(false);
-
+    setBanner("Publication…");
     try {
       // profile_id (best-effort)
       let profileId = null;
-      const { data: prof, error: pErr } = await supabase
+      const { data: prof, error: pErr } = await withTimeout(supabase
         .from("profiles")
         .select("id")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .maybeSingle(), 15000, "Chargement profil");
 
       if (pErr) console.error("progress create profile fetch error:", pErr);
       profileId = prof?.id ?? null;
@@ -382,12 +390,18 @@ export function ProgressCreate({ user }) {
       const ext = safeExt(file);
       const path = `progress/${user.id}/${randomId()}.${ext}`;
 
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
-        cacheControl: "3600",
-        upsert: false
-      });
+      setBanner("Upload…");
 
-      if (upErr) {
+      const { error: upErr } = await withTimeout(
+        supabase.storage.from(BUCKET).upload(path, file, {
+cacheControl: "3600",
+        upsert: false
+      }),
+        60000,
+        "Upload"
+      );
+
+if (upErr) {
         console.error("progress media upload error:", upErr);
         setBanner("Upload impossible (bucket/RLS).", true);
         return;
@@ -407,8 +421,11 @@ export function ProgressCreate({ user }) {
         ? `${track.title}${track.artist ? " — " + track.artist : ""}`
         : null;
 
-      const { error: insErr } = await supabase.from("progress_posts").insert({
-        user_id: user.id,
+      setBanner("Publication…");
+
+      const { error: insErr } = await withTimeout(
+        supabase.from("progress_posts").insert({
+user_id: user.id,
         profile_id: profileId,
         media_url: publicUrl,
         media_type: mediaType,
@@ -425,9 +442,12 @@ export function ProgressCreate({ user }) {
         // default volumes
         music_volume: clamp01(musicVol),
         video_volume: clamp01(videoVol)
-      });
+      }),
+        20000,
+        "Publication"
+      );
 
-      if (insErr) {
+if (insErr) {
         console.error("progress post insert error:", insErr);
         setBanner(insErr.message || "Impossible de publier.", true);
         return;
