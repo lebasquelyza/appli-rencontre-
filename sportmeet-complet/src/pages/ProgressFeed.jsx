@@ -291,12 +291,12 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
       const pv = v.play();
       if (pv?.catch) pv.catch(() => {});
 
+      // In this mode, music starts when the user pauses the video (not during autoplay).
       if (post.music_url && a) {
         try {
           const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
           a.currentTime = Math.max(0, (v.currentTime || 0) + start);
-          const pa = a.play();
-          if (pa?.catch) pa.catch(() => {});
+          a.pause();
         } catch {}
       }
     } else {
@@ -307,6 +307,39 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
         a?.pause();
       } catch {}
     }
+  }, [visible, post.music_url, post.music_start_sec]);
+
+  // Start music when the user pauses the video (and stop it when video plays again)
+  useEffect(() => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v || !a || !post.music_url) return;
+
+    const getStart = () => Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+
+    const onPause = () => {
+      // Avoid starting music when the item is not visible (e.g. auto-paused by scroll)
+      if (!visible) return;
+      try {
+        const start = getStart();
+        a.currentTime = Math.max(0, (v.currentTime || 0) + start);
+        const pa = a.play();
+        if (pa?.catch) pa.catch(() => {});
+      } catch {}
+    };
+
+    const onPlay = () => {
+      try {
+        a.pause();
+      } catch {}
+    };
+
+    v.addEventListener("pause", onPause);
+    v.addEventListener("play", onPlay);
+    return () => {
+      v.removeEventListener("pause", onPause);
+      v.removeEventListener("play", onPlay);
+    };
   }, [visible, post.music_url, post.music_start_sec]);
 
   const canDelete = !!user?.id && user.id === post.user_id;
