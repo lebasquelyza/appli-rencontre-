@@ -1,127 +1,164 @@
-// sportmeet-complet/src/pages/ProgressCreate.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+// sportmeet-complet/src/pages/ProgressFeed.jsx
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-const BUCKET = "progress-media";
+const LS_VIDEO_VOL = "mf_feed_video_vol";
+const LS_MUSIC_VOL = "mf_feed_music_vol";
 
-/**
- * ✅ NOTE LICENCE / TECH
- * Pour imiter TikTok sans SDK payant/licencié, on utilise iTunes Search API (gratuit, sans clé)
- * qui retourne un preview 30s (previewUrl). Donc la sélection de "partie du son" est sur 0–29s.
- */
-async function searchItunesTracks(term) {
-  const q = String(term || "").trim();
-  if (!q) return [];
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=25`;
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = await res.json();
-  const results = Array.isArray(data?.results) ? data.results : [];
-  return results
-    .map((t) => ({
-      provider: "itunes",
-      track_id: String(t.trackId || ""),
-      title: String(t.trackName || "Titre"),
-      artist: String(t.artistName || ""),
-      artwork: String(t.artworkUrl100 || t.artworkUrl60 || ""),
-      preview_url: String(t.previewUrl || "")
-    }))
-    .filter((t) => t.preview_url);
+function readVol(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    const n = Number(raw);
+    if (Number.isFinite(n)) return Math.min(1, Math.max(0, n));
+  } catch {}
+  return fallback;
 }
 
-function safeExt(file) {
-  const byMime = (file?.type || "").split("/")[1];
-  if (byMime) return byMime.replace("jpeg", "jpg");
-  const byName = (file?.name || "").split(".").pop();
-  return (byName || "bin").toLowerCase();
+function formatAgo(iso) {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  const now = Date.now();
+  const s = Math.max(0, Math.round((now - t) / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.round(h / 24);
+  return `${d}j`;
 }
 
-function randomId() {
-  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
-}
-
-function clamp01(n) {
-  const x = Number(n);
-  if (!Number.isFinite(x)) return 0;
-  return Math.min(1, Math.max(0, x));
-}
-
-function MusicPickerModal({ open, onClose, onSelect }) {
-  const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-  const [results, setResults] = useState([]);
-  const audioRef = useRef(null);
-  const [playingId, setPlayingId] = useState(null);
+function useVisibility(threshold = 0.65) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    setErr("");
-    setResults([]);
-    setPlayingId(null);
-    setQ("");
-  }, [open]);
+    const el = ref.current;
+    if (!el) return;
 
-  const stop = () => {
-    try {
-      const a = audioRef.current;
-      if (a) {
-        a.pause();
-        a.currentTime = 0;
-      }
-    } catch {}
-    setPlayingId(null);
-  };
+    const obs = new IntersectionObserver(
+      (entries) => setVisible(!!entries?.[0]?.isIntersecting),
+      { threshold }
+    );
 
-  const run = async () => {
-    const term = String(q || "").trim();
-    if (!term) {
-      setErr("Tape un titre ou un artiste.");
-      return;
-    }
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+
+  return [ref, visible];
+}
+
+function CommentsModal({ open, onClose, postId, user, onPosted }) {
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [body, setBody] = useState("");
+  const [err, setErr] = useState("");
+
+  const load = async () => {
+    if (!postId) return;
     setLoading(true);
     setErr("");
-    stop();
+
     try {
-      const list = await searchItunesTracks(term);
-      setResults(list);
-      if (!list.length) setErr("Aucun résultat.");
+      const { data, error } = await supabase
+        .from("progress_comments")
+        .select("id, post_id, user_id, body, created_at")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+      if (error) {
+        console.error("comments fetch error:", error);
+        setErr("Impossible de charger les commentaires.");
+        setRows([]);
+        return;
+      }
+
+      const list = data || [];
+      const authorIds = Array.from(new Set(list.map((c) => c.user_id).filter(Boolean)));
+      const authorByUser = new Map();
+
+      if (authorIds.length) {
+        const { data: profs, error: pErr } = await supabase
+          .from("profiles")
+          .select("user_id, name, photo_urls, created_at")
+          .in("user_id", authorIds)
+          .order("created_at", { ascending: false });
+
+        if (pErr) console.error("comments profiles error:", pErr);
+
+        for (const p of profs || []) {
+          if (!p.user_id) continue;
+          if (!authorByUser.has(p.user_id)) {
+            authorByUser.set(p.user_id, {
+              name: p.name || "Utilisateur",
+              photo: Array.isArray(p.photo_urls) ? p.photo_urls[0] : ""
+            });
+          }
+        }
+      }
+
+      setRows(
+        list.map((c) => {
+          const a = authorByUser.get(c.user_id) || { name: "Utilisateur", photo: "" };
+          return { ...c, author_name: a.name, author_photo: a.photo };
+        })
+      );
     } catch (e) {
-      console.error("music search error:", e);
-      setErr("Recherche impossible.");
-      setResults([]);
+      console.error("comments load exception:", e);
+      setErr("Impossible de charger les commentaires.");
+      setRows([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const playPreview = async (t) => {
-    if (!t?.preview_url) return;
+  useEffect(() => {
+    if (!open) return;
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, postId]);
+
+  const submit = async () => {
+    if (!user?.id) {
+      setErr("Connecte-toi pour commenter.");
+      return;
+    }
+    const text = String(body || "").trim();
+    if (!text) return;
+
+    setLoading(true);
+    setErr("");
+
     try {
-      const a = audioRef.current;
-      if (!a) return;
-      if (playingId === t.track_id) {
-        stop();
+      const { error } = await supabase.from("progress_comments").insert({
+        post_id: postId,
+        user_id: user.id,
+        body: text
+      });
+
+      if (error) {
+        console.error("comment insert error:", error);
+        setErr(error.message || "Impossible d'envoyer le commentaire.");
         return;
       }
-      a.src = t.preview_url;
-      a.currentTime = 0;
-      const p = a.play();
-      if (p?.catch) p.catch(() => {});
-      setPlayingId(t.track_id);
+
+      setBody("");
+      await load();
+      onPosted?.();
     } catch (e) {
-      console.log("preview blocked:", e);
+      console.error("comment submit exception:", e);
+      setErr("Impossible d'envoyer le commentaire.");
+    } finally {
+      setLoading(false);
     }
   };
 
   if (!open) return null;
 
   return (
-    <div
-      className="modal-backdrop modal-backdrop--blur"
-      onClick={onClose}
-    >
+    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
       <div
         className="modal-card modal-card--sheet allowScroll"
         onClick={(e) => e.stopPropagation()}
@@ -132,544 +169,510 @@ function MusicPickerModal({ open, onClose, onSelect }) {
           borderRadius: 18
         }}
       >
-        {/* Top bar TikTok-like */}
-        <div
-          className="modal-header"
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "12px 14px"
-          }}
-        >
-          <button className="btn-ghost btn-sm" onClick={onClose} aria-label="Fermer">
-            ✕
+        <div className="modal-header" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <h3 style={{ marginRight: "auto" }}>Commentaires</h3>
+          <button className="btn-ghost btn-sm" onClick={onClose}>
+            Fermer
           </button>
-          <div style={{ fontWeight: 900 }}>♪ Ajouter un son</div>
-          <div style={{ width: 34 }} />
         </div>
 
-        <div className="modal-body modal-body--scroll allowScroll" style={{ padding: 14, paddingTop: 8 }}>
-          <div
-            className="card"
-            style={{
-              padding: 10,
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              borderRadius: 14
-            }}
-          >
-            <input
-              className="input"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Rechercher un titre, un artiste…"
-              style={{ flex: 1, minWidth: 0 }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") run();
-              }}
-              disabled={loading}
-            />
-            <button className="btn-primary btn-sm" onClick={run} disabled={loading}>
-              {loading ? "..." : "Rechercher"}
-            </button>
-          </div>
-
+        <div className="modal-body modal-body--scroll allowScroll" style={{ paddingTop: 8 }}>
           {err ? (
-            <p className="form-message error" style={{ marginTop: 10 }}>
+            <p className="form-message error" style={{ marginBottom: 10 }}>
               {err}
             </p>
+          ) : null}
+
+          {loading ? (
+            <p className="form-message">Chargement…</p>
+          ) : rows.length === 0 ? (
+            <p className="form-message">Aucun commentaire. Sois le/la premier(e) 🙂</p>
           ) : (
-            <p className="form-message" style={{ marginTop: 10, opacity: 0.8 }}>
-              Résultats via iTunes (preview 30s).
-            </p>
+            <div style={{ display: "grid", gap: 10 }}>
+              {rows.map((c) => (
+                <div key={c.id} className="card" style={{ padding: 10 }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <img
+                      src={c.author_photo || "/avatar.png"}
+                      alt={c.author_name}
+                      style={{ width: 28, height: 28, borderRadius: 999, objectFit: "cover" }}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = "/avatar.png";
+                      }}
+                    />
+                    <div style={{ lineHeight: 1.15 }}>
+                      <div style={{ fontWeight: 800 }}>{c.author_name}</div>
+                      <div style={{ fontSize: 12, opacity: 0.75 }}>{formatAgo(c.created_at)}</div>
+                    </div>
+                  </div>
+                  <p style={{ margin: "8px 0 0", lineHeight: 1.35 }}>{c.body}</p>
+                </div>
+              ))}
+            </div>
           )}
 
-          <audio ref={audioRef} />
-
-          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-            {results.map((t) => (
-              <div
-                key={t.provider + "_" + t.track_id}
-                className="card"
-                style={{
-                  padding: 10,
-                  display: "flex",
-                  gap: 10,
-                  alignItems: "center",
-                  borderRadius: 14
-                }}
-              >
-                <img
-                  src={t.artwork || "/avatar.png"}
-                  alt=""
-                  style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = "/avatar.png";
-                  }}
-                />
-                <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
-                  <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {t.title}
-                  </div>
-                  <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {t.artist}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={() => playPreview(t)}
-                  title="Écouter"
-                  aria-label="Écouter"
-                >
-                  {playingId === t.track_id ? "⏸" : "▶︎"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-primary btn-sm"
-                  onClick={() => {
-                    stop();
-                    onSelect?.(t);
-                    onClose?.();
-                  }}
-                >
-                  Utiliser
-                </button>
-              </div>
-            ))}
+          <div className="card" style={{ padding: 12, marginTop: 12 }}>
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Ajouter un commentaire</div>
+            <textarea
+              className="input"
+              rows={2}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder={user?.id ? "Écris un commentaire…" : "Connecte-toi pour commenter"}
+              disabled={!user?.id || loading}
+              style={{ width: "100%", resize: "vertical" }}
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+              <button className="btn-primary btn-sm" onClick={submit} disabled={!user?.id || loading || !body.trim()}>
+                Envoyer
+              </button>
+            </div>
           </div>
-
-          {results.length ? <div style={{ height: 10 }} /> : null}
         </div>
       </div>
     </div>
   );
 }
 
-export function ProgressCreate({ user }) {
-  const navigate = useNavigate();
+function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) {
+  const [ref, visible] = useVisibility(0.65);
+  const videoRef = useRef(null);
+  const audioRef = useRef(null);
 
-  // Media
-  const [file, setFile] = useState(null);
-  const previewVideoRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const previewUrl = useMemo(() => {
-    if (!file) return "";
-    try {
-      return URL.createObjectURL(file);
-    } catch {
-      return "";
-    }
-  }, [file]);
+  // Global user preferences multipliers (from Settings)
+  const [globalVideoVol, setGlobalVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
+  const [globalMusicVol, setGlobalMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
 
   useEffect(() => {
-    return () => {
-      if (previewUrl) {
+    // Keep synced even in same tab
+    const t = window.setInterval(() => {
+      setGlobalVideoVol(readVol(LS_VIDEO_VOL, 1));
+      setGlobalMusicVol(readVol(LS_MUSIC_VOL, 0.6));
+    }, 800);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const baseVideoVol = Number(post.video_volume ?? 1);
+  const baseMusicVol = Number(post.music_volume ?? 0.6);
+  const effectiveVideoVol = Math.min(1, Math.max(0, globalVideoVol * baseVideoVol));
+  const effectiveMusicVol = Math.min(1, Math.max(0, globalMusicVol * baseMusicVol));
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) v.volume = effectiveVideoVol;
+    const a = audioRef.current;
+    if (a) a.volume = effectiveMusicVol;
+  }, [effectiveVideoVol, effectiveMusicVol]);
+
+  // Sync music to video time (best effort)
+  useEffect(() => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v || !a || !post.music_url) return;
+
+    const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+
+    const sync = () => {
+      const target = Math.max(0, (v.currentTime || 0) + start);
+      if (Math.abs((a.currentTime || 0) - target) > 0.35) a.currentTime = target;
+    };
+
+    v.addEventListener("timeupdate", sync);
+    return () => v.removeEventListener("timeupdate", sync);
+  }, [post.music_url, post.music_start_sec]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v) return;
+
+    if (visible) {
+      const pv = v.play();
+      if (pv?.catch) pv.catch(() => {});
+
+      if (post.music_url && a) {
         try {
-          URL.revokeObjectURL(previewUrl);
+          const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+          a.currentTime = Math.max(0, (v.currentTime || 0) + start);
+          const pa = a.play();
+          if (pa?.catch) pa.catch(() => {});
         } catch {}
       }
-    };
-  }, [previewUrl]);
+    } else {
+      try {
+        v.pause();
+      } catch {}
+      try {
+        a?.pause();
+      } catch {}
+    }
+  }, [visible, post.music_url, post.music_start_sec]);
 
-  // TikTok-like sound selection
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [track, setTrack] = useState(null);
-  const [musicStart, setMusicStart] = useState(0); // 0..29
-  const [musicVol, setMusicVol] = useState(0.6);
-  const [videoVol, setVideoVol] = useState(1.0);
+  const canDelete = !!user?.id && user.id === post.user_id;
 
-  const audioRef = useRef(null); // for start preview from selected track
+  const deletePost = async () => {
+    if (!canDelete) return;
+    const ok = window.confirm("Supprimer ce post ?");
+    if (!ok) return;
 
-  // Caption
-  const [caption, setCaption] = useState("");
-
-  // Banner
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [isError, setIsError] = useState(false);
-  const setBanner = (text, err = false) => {
-    setMsg(text);
-    setIsError(err);
-    window.clearTimeout(setBanner.__t);
-    setBanner.__t = window.setTimeout(() => setMsg(""), 3500);
-  };
-
-  useEffect(() => {
-    if (!user?.id) setBanner("Connecte-toi pour publier.", true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-  const onPick = (e) => {
-    const f = e.target.files?.[0] || null;
-    if (!f) return;
-
-    const type = String(f.type || "");
-    if (!type.startsWith("video/") && !type.startsWith("image/")) {
-      setBanner("Fichier non supporté. Choisis une vidéo ou une image.", true);
+    const { error } = await supabase.from("progress_posts").update({ is_deleted: true }).eq("id", post.id);
+    if (error) {
+      console.error("delete post error:", error);
       return;
     }
-    setFile(f);
-    // allow re-picking the same file
-    try {
-      e.target.value = "";
-    } catch {}
+    onDeleted?.(post.id);
   };
 
-  const openMediaPicker = () => {
-    if (loading || !user?.id) return;
-    try {
-      fileInputRef.current?.click();
-    } catch {}
-  };
+  const authorName = post?.author_name || "Utilisateur";
+  const authorPhoto = post?.author_photo || "";
 
-  const previewFromStart = async () => {
-    if (!track?.preview_url) return;
-    try {
-      const a = audioRef.current;
-      if (!a) return;
-      a.src = track.preview_url;
-      a.volume = clamp01(musicVol);
-      a.currentTime = Math.min(29, Math.max(0, Number(musicStart || 0)));
-      const p = a.play();
-      if (p?.catch) p.catch(() => {});
-    } catch (e) {
-      console.log("preview from start blocked:", e);
-    }
-  };
+  return (
+    <article
+      ref={ref}
+      className="card"
+      style={{
+        scrollSnapAlign: "start",
+        padding: 12,
+        borderRadius: 18,
+        overflow: "hidden"
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+        <img
+          src={authorPhoto || "/avatar.png"}
+          alt={authorName}
+          style={{ width: 34, height: 34, borderRadius: 999, objectFit: "cover" }}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = "/avatar.png";
+          }}
+        />
+        <div style={{ lineHeight: 1.2, flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {authorName}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.75 }}>{formatAgo(post.created_at)}</div>
+        </div>
 
-  // Apply volume on preview video
-  useEffect(() => {
-    const v = previewVideoRef.current;
-    if (!v) return;
-    v.volume = clamp01(videoVol);
-  }, [videoVol]);
+        {canDelete ? (
+          <button className="btn-ghost btn-sm" onClick={deletePost} title="Supprimer">
+            🗑️
+          </button>
+        ) : null}
+      </div>
 
-  const uploadAndCreate = async () => {
-    if (!user?.id) {
-      navigate("/settings");
-      return;
-    }
-    if (!file) {
-      setBanner("Ajoute une vidéo ou une image.", true);
-      return;
-    }
+      {/* Media (TikTok logic: autoplay on visible) */}
+      <div
+        style={{
+          position: "relative",
+          borderRadius: 16,
+          overflow: "hidden",
+          background: "#000",
+          aspectRatio: "9 / 16"
+        }}
+      >
+        {post.media_type === "video" ? (
+          <video
+            ref={videoRef}
+            src={post.media_url}
+            playsInline
+            loop
+            controls={false}
+            muted={false}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : (
+          <img
+            src={post.media_url}
+            alt={post.caption || "Progress"}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        )}
 
+        {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
+
+        {/* Actions (like/comment) */}
+        <div
+          style={{
+            position: "absolute",
+            right: 10,
+            bottom: 10,
+            display: "grid",
+            gap: 8
+          }}
+        >
+          <button
+            type="button"
+            className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
+            onClick={() => onLike?.(post)}
+            aria-label="Like"
+            title="Like"
+            style={{ borderRadius: 999, backdropFilter: "blur(6px)" }}
+          >
+            ❤️ {post.likes_count ?? 0}
+          </button>
+
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            onClick={() => onOpenComments?.(post)}
+            aria-label="Commentaires"
+            title="Commentaires"
+            style={{ borderRadius: 999, backdropFilter: "blur(6px)" }}
+          >
+            💬 {post.comments_count ?? 0}
+          </button>
+        </div>
+      </div>
+
+      {/* Caption + music */}
+      {post.caption ? <p style={{ margin: "10px 0 0", lineHeight: 1.35 }}>{post.caption}</p> : null}
+      {post.music_title ? (
+        <p style={{ margin: "8px 0 0", fontSize: 12, opacity: 0.8 }}>
+          ♪ {post.music_title}
+        </p>
+      ) : null}
+    </article>
+  );
+}
+
+export function ProgressFeed({ user }) {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState([]);
+  const [err, setErr] = useState("");
+  const [likedSet, setLikedSet] = useState(() => new Set());
+
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsPostId, setCommentsPostId] = useState(null);
+
+  const load = async () => {
     setLoading(true);
-    setIsError(false);
+    setErr("");
 
     try {
-      // profile_id (best-effort)
-      let profileId = null;
-      const { data: prof, error: pErr } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("user_id", user.id)
+      const { data, error } = await supabase
+        .from("progress_posts")
+        .select(
+          "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume"
+        )
+        .eq("is_deleted", false)
+        .eq("is_public", true)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(80);
 
-      if (pErr) console.error("progress create profile fetch error:", pErr);
-      profileId = prof?.id ?? null;
-
-      // upload media
-      const ext = safeExt(file);
-      const path = `progress/${user.id}/${randomId()}.${ext}`;
-
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
-        cacheControl: "3600",
-        upsert: false
-      });
-
-      if (upErr) {
-        console.error("progress media upload error:", upErr);
-        setBanner("Upload impossible (bucket/RLS).", true);
+      if (error) {
+        console.error("progress_posts fetch error:", error);
+        setErr("Impossible de charger le feed pour le moment.");
+        setPosts([]);
         return;
       }
 
-      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      const publicUrl = data?.publicUrl || "";
-      if (!publicUrl) {
-        setBanner("Impossible de récupérer l'URL publique.", true);
-        return;
+      const rows = data || [];
+      const authorIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
+
+      const authorByUser = new Map();
+      if (authorIds.length) {
+        const { data: profs, error: pErr } = await supabase
+          .from("profiles")
+          .select("user_id, name, photo_urls, created_at")
+          .in("user_id", authorIds)
+          .order("created_at", { ascending: false });
+
+        if (pErr) console.error("progress feed profiles error:", pErr);
+
+        for (const p of profs || []) {
+          if (!p.user_id) continue;
+          if (!authorByUser.has(p.user_id)) {
+            authorByUser.set(p.user_id, {
+              name: p.name || "Utilisateur",
+              photo: Array.isArray(p.photo_urls) ? p.photo_urls[0] : ""
+            });
+          }
+        }
       }
 
-      const mediaType = String(file.type || "").startsWith("video/") ? "video" : "image";
-      const cap = String(caption || "").trim();
+      const postIds = rows.map((r) => r.id);
 
-      const musicTitle = track
-        ? `${track.title}${track.artist ? " — " + track.artist : ""}`
-        : null;
+      // likes count
+      const likeCounts = new Map();
+      if (postIds.length) {
+        const { data: likeRows, error: lErr } = await supabase
+          .from("progress_likes")
+          .select("post_id")
+          .in("post_id", postIds)
+          .limit(8000);
 
-      const { error: insErr } = await supabase.from("progress_posts").insert({
-        user_id: user.id,
-        profile_id: profileId,
-        media_url: publicUrl,
-        media_type: mediaType,
-        caption: cap || null,
-        is_public: true,
-
-        // music (preview 30s)
-        music_url: track?.preview_url || null,
-        music_title: musicTitle,
-        music_provider: track?.provider || null,
-        music_track_id: track?.track_id || null,
-        music_start_sec: track?.preview_url ? Math.min(29, Math.max(0, Number(musicStart || 0))) : 0,
-
-        // default volumes
-        music_volume: clamp01(musicVol),
-        video_volume: clamp01(videoVol)
-      });
-
-      if (insErr) {
-        console.error("progress post insert error:", insErr);
-        setBanner(insErr.message || "Impossible de publier.", true);
-        return;
+        if (lErr) console.error("progress likes fetch error:", lErr);
+        for (const lr of likeRows || []) likeCounts.set(lr.post_id, (likeCounts.get(lr.post_id) || 0) + 1);
       }
 
-      setBanner("Publié ✅");
-      setTimeout(() => navigate("/feed"), 350);
+      // comments count
+      const commentCounts = new Map();
+      if (postIds.length) {
+        const { data: cRows, error: cErr } = await supabase
+          .from("progress_comments")
+          .select("post_id")
+          .in("post_id", postIds)
+          .limit(8000);
+
+        if (cErr) console.error("progress comments count fetch error:", cErr);
+        for (const cr of cRows || []) commentCounts.set(cr.post_id, (commentCounts.get(cr.post_id) || 0) + 1);
+      }
+
+      // my liked set
+      let myLiked = new Set();
+      if (user?.id && postIds.length) {
+        const { data: my, error: myErr } = await supabase
+          .from("progress_likes")
+          .select("post_id")
+          .eq("user_id", user.id)
+          .in("post_id", postIds);
+
+        if (myErr) console.error("progress my likes fetch error:", myErr);
+        myLiked = new Set((my || []).map((x) => x.post_id));
+      }
+      setLikedSet(myLiked);
+
+      setPosts(
+        rows.map((r) => {
+          const a = authorByUser.get(r.user_id) || { name: "Utilisateur", photo: "" };
+          return {
+            ...r,
+            author_name: a.name,
+            author_photo: a.photo,
+            likes_count: likeCounts.get(r.id) || 0,
+            comments_count: commentCounts.get(r.id) || 0
+          };
+        })
+      );
     } catch (e) {
-      console.error("progress create exception:", e);
-      setBanner("Impossible de publier.", true);
+      console.error("progress feed exception:", e);
+      setErr("Impossible de charger le feed pour le moment.");
+      setPosts([]);
     } finally {
       setLoading(false);
     }
   };
 
-return (
-  <main className="page" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
-    <div className="shell" style={{ paddingBottom: 16 }}>
-      <div
-        className="card"
-        style={{
-          padding: 10,
-          maxWidth: 920,
-          margin: "8px auto 12px",
-          display: "flex",
-          gap: 10,
-          alignItems: "center"
-        }}
-      >
-        <button className="btn-ghost btn-sm" onClick={() => navigate("/feed")}>
-          ←
-        </button>
-        <div style={{ fontWeight: 900 }}>Nouvelle progression</div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          {/* Input caché (ouvert via le bouton "Ajouter une photo ou vidéo") */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*,image/*"
-            onChange={onPick}
-            disabled={!user?.id || loading}
-            style={{ display: "none" }}
-          />
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
-          <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={loading}>
-            + Son
-          </button>
+  const onLike = async (post) => {
+    if (!user?.id) {
+      navigate("/settings");
+      return;
+    }
+    if (!post?.id) return;
 
-          <button
-            type="button"
-            className="btn-primary btn-sm"
-            onClick={uploadAndCreate}
-            disabled={!user?.id || loading || !file}
-            title="Publier"
-          >
-            {loading ? "..." : "Publier"}
-          </button>
+    const already = likedSet.has(post.id);
+
+    // optimistic UI
+    setLikedSet((prev) => {
+      const next = new Set(prev);
+      if (already) next.delete(post.id);
+      else next.add(post.id);
+      return next;
+    });
+
+    setPosts((prev) =>
+      prev.map((p) => (p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? -1 : 1)) } : p))
+    );
+
+    try {
+      if (already) {
+        const { error } = await supabase.from("progress_likes").delete().eq("user_id", user.id).eq("post_id", post.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("progress_likes").insert({ user_id: user.id, post_id: post.id });
+        if (error) throw error;
+      }
+    } catch (e) {
+      console.error("progress like error:", e);
+      // revert
+      setLikedSet((prev) => {
+        const next = new Set(prev);
+        if (already) next.add(post.id);
+        else next.delete(post.id);
+        return next;
+      });
+      setPosts((prev) =>
+        prev.map((p) => (p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? 1 : -1)) } : p))
+      );
+    }
+  };
+
+  const openComments = (post) => {
+    if (!post?.id) return;
+    setCommentsPostId(post.id);
+    setCommentsOpen(true);
+  };
+
+  const onCommentPosted = () => {
+    if (!commentsPostId) return;
+    setPosts((prev) => prev.map((p) => (p.id === commentsPostId ? { ...p, comments_count: (p.comments_count || 0) + 1 } : p)));
+  };
+
+  const onDeleted = (postId) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  };
+
+  return (
+    <main className="page">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Progressions</h2>
+          <div style={{ fontSize: 13, opacity: 0.75 }}>Scroll vertical + auto-play (logique TikTok)</div>
         </div>
+
+        <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
+          + Publier
+        </button>
       </div>
 
-      <div
-        className="card"
-        style={{
-          padding: 12,
-          maxWidth: 520,
-          margin: "0 auto",
-          display: "grid",
-          gap: 12
-        }}
-      >
-        {msg ? <p className={`form-message ${isError ? "error" : ""}`}>{msg}</p> : null}
+      {err ? <p className="form-message error">{err}</p> : null}
 
-        {/* Preview */}
+      {loading ? (
+        <p className="form-message">Chargement…</p>
+      ) : posts.length === 0 ? (
+        <p className="form-message">Aucun post pour le moment.</p>
+      ) : (
         <div
+          className="allowScroll"
           style={{
-            borderRadius: 18,
-            overflow: "hidden",
-            background: "#000",
-            width: "100%",
-            aspectRatio: "9 / 16",
             display: "grid",
-            placeItems: "center"
+            gap: 12,
+            overflowY: "auto",
+            scrollSnapType: "y mandatory",
+            paddingBottom: 12,
+            maxHeight: "calc(var(--appH, 100vh) - 160px)"
           }}
         >
-          {previewUrl ? (
-            file?.type?.startsWith("video/") ? (
-              <video
-                ref={previewVideoRef}
-                src={previewUrl}
-                playsInline
-                controls
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              <img src={previewUrl} alt="Aperçu" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            )
-          ) : (
-            <div style={{ color: "white", opacity: 0.85, textAlign: "center", padding: 14 }}>
-              <div style={{ fontWeight: 900 }}>Ajoute une vidéo ou une image</div>
-              <div style={{ marginTop: 6, lineHeight: 1.35, opacity: 0.9 }}>
-                Tu peux ensuite ajouter un son (logique type TikTok) et régler les volumes.
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <button
-                  type="button"
-                  className="btn-primary btn-sm"
-                  onClick={openMediaPicker}
-                  disabled={!user?.id || loading}
-                >
-                  Ajouter une photo ou une vidéo
-                </button>
-              </div>
-            </div>
-          )}
+          {posts.map((p) => (
+            <ProgressItem
+              key={p.id}
+              post={p}
+              user={user}
+              onLike={onLike}
+              liked={likedSet.has(p.id)}
+              onOpenComments={openComments}
+              onDeleted={onDeleted}
+            />
+          ))}
         </div>
+      )}
 
-        {/* Change media (no +Média button) */}
-        {file ? (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <button
-              type="button"
-              className="btn-ghost btn-sm"
-              onClick={openMediaPicker}
-              disabled={!user?.id || loading}
-            >
-              Changer la photo/vidéo
-            </button>
-            <div style={{ opacity: 0.75, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {file?.name || ""}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Sound */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={loading}>
-            {track ? "♪ " + (track.title || "Son") : "♪ Ajouter un son"}
-          </button>
-
-          {track ? (
-            <>
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                onClick={previewFromStart}
-                disabled={loading}
-                title="Écouter le son depuis le début sélectionné"
-              >
-                ▶︎ Écouter
-              </button>
-
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                onClick={() => {
-                  setTrack(null);
-                  setMusicStart(0);
-                }}
-                disabled={loading}
-              >
-                Retirer
-              </button>
-            </>
-          ) : null}
-        </div>
-
-        {track ? (
-          <div className="card" style={{ padding: 12 }}>
-            <div style={{ fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>
-              {track.title} <span style={{ opacity: 0.75, fontWeight: 600 }}>— {track.artist}</span>
-            </div>
-
-            <div style={{ display: "grid", gap: 10 }}>
-              <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, opacity: 0.85 }}>Début (0–29s) : {Math.round(musicStart)}s</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="29"
-                  step="1"
-                  value={musicStart}
-                  onChange={(e) => setMusicStart(Number(e.target.value))}
-                  disabled={loading}
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, opacity: 0.85 }}>Volume musique</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={musicVol}
-                  onChange={(e) => setMusicVol(Number(e.target.value))}
-                  disabled={loading}
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, opacity: 0.85 }}>Volume vidéo</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={videoVol}
-                  onChange={(e) => setVideoVol(Number(e.target.value))}
-                  disabled={loading}
-                />
-              </label>
-            </div>
-
-            <audio ref={audioRef} />
-          </div>
-        ) : null}
-
-        {/* Caption */}
-        <div style={{ display: "grid", gap: 6 }}>
-          <div style={{ fontWeight: 900 }}>Description</div>
-          <textarea
-            className="input"
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="Ajouter une description…"
-            rows={3}
-            disabled={!user?.id || loading}
-            style={{ width: "100%", resize: "vertical" }}
-          />
-        </div>
-      </div>
-    </div>
-
-    <MusicPickerModal
-      open={pickerOpen}
-      onClose={() => setPickerOpen(false)}
-      onSelect={(t) => {
-        setTrack(t);
-        setMusicStart(0);
-      }}
-    />
-  </main>
-);
-
+      <CommentsModal
+        open={commentsOpen}
+        onClose={() => setCommentsOpen(false)}
+        postId={commentsPostId}
+        user={user}
+        onPosted={onCommentPosted}
+      />
+    </main>
+  );
 }
