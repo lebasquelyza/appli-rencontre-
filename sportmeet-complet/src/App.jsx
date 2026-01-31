@@ -1764,6 +1764,15 @@ const navigate = useNavigate();
     });
 
     const msg = String(likeErr?.message || "").toLowerCase();
+
+    // ✅ BLOCAGE superlike 5/jour (trigger Supabase)
+    if (likeErr && msg.includes("superlike_limit_reached")) {
+      setProfileToast("Limite atteinte : 5 superlikes par jour ⭐");
+      window.clearTimeout(handleLike.__t);
+      handleLike.__t = window.setTimeout(() => setProfileToast(""), 2500);
+      return false; // 🔥 indispensable pour SwipeDeck
+    }
+
     if (likeErr && msg.includes("duplicate")) {
       if (isSuper) {
         const { error: upErr } = await supabase
@@ -1772,10 +1781,24 @@ const navigate = useNavigate();
           .eq("liker_id", user.id)
           .eq("liked_profile_id", profile.id);
 
-        if (upErr) console.error("upgrade to superlike error:", upErr);
+        if (upErr) {
+          const umsg = String(upErr?.message || "").toLowerCase();
+
+          // ✅ limite atteinte lors de l'upgrade
+          if (umsg.includes("superlike_limit_reached")) {
+            setProfileToast("Limite atteinte : 5 superlikes par jour ⭐");
+            window.clearTimeout(handleLike.__t);
+            handleLike.__t = window.setTimeout(() => setProfileToast(""), 2500);
+            return false;
+          }
+
+          console.error("upgrade to superlike error:", upErr);
+          return false;
+        }
       }
     } else if (likeErr) {
       console.error("Like insert error:", likeErr);
+      return false;
     }
 
 
