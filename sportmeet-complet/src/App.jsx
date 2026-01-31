@@ -1918,14 +1918,14 @@ const navigate = useNavigate();
               myProfile={myProfile}
               onHideMatch={hideMatch}
             />
-
-        <Route path="/feed" element={<ProgressFeed user={userForUI} />} />
-        <Route path="/post" element={<ProgressCreate user={userForUI} />} />
-
           }
         />
 
-        <Route path="/chat/:matchId" element={<ChatPage />} />
+        
+        <Route path="/feed" element={<ProgressFeed user={userForUI} />} />
+        <Route path="/post" element={<ProgressCreate user={userForUI} />} />
+
+<Route path="/chat/:matchId" element={<ChatPage />} />
         <Route path="/comment-ca-marche" element={<HowItWorks />} />
         <Route path="/conditions" element={<Terms />} />
         <Route path="/cookies" element={<Cookies />} />
