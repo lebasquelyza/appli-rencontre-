@@ -53,6 +53,12 @@ function MusicPickerModal({ open, onClose, onSelect }) {
   const [err, setErr] = useState("");
   const [results, setResults] = useState([]);
   const audioRef = useRef(null);
+
+useEffect(() => {
+  // Keep the selected start within allowed bounds (depends on video duration)
+  setMusicStart((s) => Math.min(maxMusicStart, Math.max(0, Number(s || 0))));
+}, [maxMusicStart]);
+
   const [playingId, setPlayingId] = useState(null);
 
   useEffect(() => {
@@ -65,6 +71,10 @@ function MusicPickerModal({ open, onClose, onSelect }) {
 
   const stop = () => {
     try {
+      if (previewStopTimerRef.current) {
+        clearTimeout(previewStopTimerRef.current);
+        previewStopTimerRef.current = null;
+      }
       const a = audioRef.current;
       if (a) {
         a.pause();
@@ -258,6 +268,8 @@ export function ProgressCreate({ user }) {
   // Media
   const [file, setFile] = useState(null);
   const previewVideoRef = useRef(null);
+
+  const [videoDurationSec, setVideoDurationSec] = useState(15);
   const fileInputRef = useRef(null);
   const previewUrl = useMemo(() => {
     if (!file) return "";
@@ -267,6 +279,35 @@ export function ProgressCreate({ user }) {
       return "";
     }
   }, [file]);
+
+// Read video duration (for "Instagram-like" music segment selection)
+useEffect(() => {
+  if (!file || !previewUrl || !String(file.type || "").startsWith("video/")) {
+    setVideoDurationSec(15);
+    return;
+  }
+  let cancelled = false;
+  const v = document.createElement("video");
+  v.preload = "metadata";
+  v.src = previewUrl;
+  const onMeta = () => {
+    if (cancelled) return;
+    const d = Number(v.duration);
+    if (Number.isFinite(d) && d > 0) {
+      // keep a reasonable precision (seconds)
+      setVideoDurationSec(Math.max(1, Math.round(d)));
+    }
+  };
+  v.addEventListener("loadedmetadata", onMeta);
+  // Safari sometimes needs a load() call
+  try { v.load(); } catch {}
+  return () => {
+    cancelled = true;
+    v.removeEventListener("loadedmetadata", onMeta);
+    try { v.src = ""; } catch {}
+  };
+}, [file, previewUrl]);
+
 
   useEffect(() => {
     return () => {
@@ -279,6 +320,19 @@ export function ProgressCreate({ user }) {
   }, [previewUrl]);
 
   // TikTok-like sound selection
+
+const clipLenSec = useMemo(() => {
+  // iTunes previews are ~30s; we limit the usable clip to 29s for safety
+  const raw = Number(videoDurationSec || 0);
+  if (!Number.isFinite(raw) || raw <= 0) return 15;
+  return Math.min(29, Math.max(1, Math.round(raw)));
+}, [videoDurationSec]);
+
+const maxMusicStart = useMemo(() => {
+  // We must fit the video length inside the 30s preview window (0..29)
+  return Math.max(0, 29 - clipLenSec);
+}, [clipLenSec]);
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const [track, setTrack] = useState(null);
   const [musicStart, setMusicStart] = useState(0); // 0..29
@@ -286,6 +340,7 @@ export function ProgressCreate({ user }) {
   const [videoVol, setVideoVol] = useState(1.0);
 
   const audioRef = useRef(null); // for start preview from selected track
+  const previewStopTimerRef = useRef(null);
 
   // Caption
   const [caption, setCaption] = useState("");
@@ -336,9 +391,16 @@ export function ProgressCreate({ user }) {
       if (!a) return;
       a.src = track.preview_url;
       a.volume = clamp01(musicVol);
-      a.currentTime = Math.min(29, Math.max(0, Number(musicStart || 0)));
+      a.currentTime = Math.min(maxMusicStart, Math.max(0, Number(musicStart || 0)));
       const p = a.play();
       if (p?.catch) p.catch(() => {});
+      // Stop the preview at the end of the selected clip (Instagram-like)
+      if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
+      previewStopTimerRef.current = setTimeout(() => {
+        try {
+          a.pause();
+        } catch {}
+      }, (clipLenSec + 0.15) * 1000);
     } catch (e) {
       console.log("preview from start blocked:", e);
     }
@@ -437,7 +499,7 @@ user_id: user.id,
         music_title: musicTitle,
         music_provider: track?.provider || null,
         music_track_id: track?.track_id || null,
-        music_start_sec: track?.preview_url ? Math.min(29, Math.max(0, Number(musicStart || 0))) : 0,
+        music_start_sec: track?.preview_url ? Math.min(maxMusicStart, Math.max(0, Number(musicStart || 0))) : 0,
 
         // default volumes
         music_volume: clamp01(musicVol),
@@ -622,11 +684,13 @@ return (
 
             <div style={{ display: "grid", gap: 10 }}>
               <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, opacity: 0.85 }}>Début (0–29s) : {Math.round(musicStart)}s</span>
+                <span style={{ fontSize: 12, opacity: 0.85 }}>
+                  Début : {Math.round(musicStart)}s — Fin : {Math.round(musicStart + clipLenSec)}s (clip {clipLenSec}s)
+                </span>
                 <input
                   type="range"
                   min="0"
-                  max="29"
+                  max={maxMusicStart}
                   step="1"
                   value={musicStart}
                   onChange={(e) => setMusicStart(Number(e.target.value))}
