@@ -66,7 +66,7 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
         .select("id, post_id, user_id, body, created_at")
         .eq("post_id", postId)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(80);
 
       if (error) {
         console.error("comments fetch error:", error);
@@ -158,15 +158,20 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
   if (!open) return null;
 
   return (
-    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
+    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose} style={{ background: "rgba(0,0,0,.76)" }}>
       <div
         className="modal-card modal-card--sheet allowScroll"
         onClick={(e) => e.stopPropagation()}
-        style={{ width: "min(820px, 96vw)", maxHeight: "calc(var(--appH, 100vh) - 40px)" }}
+        style={{
+          width: "min(920px, 98vw)",
+          maxHeight: "calc(var(--appH, 100vh) - 18px)",
+          overflow: "hidden",
+          borderRadius: 18
+        }}
       >
-        <div className="modal-header" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div className="modal-header" style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <h3 style={{ marginRight: "auto" }}>Commentaires</h3>
-          <button className="btn-ghost" onClick={onClose}>
+          <button className="btn-ghost btn-sm" onClick={onClose}>
             Fermer
           </button>
         </div>
@@ -197,7 +202,7 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
                       }}
                     />
                     <div style={{ lineHeight: 1.15 }}>
-                      <div style={{ fontWeight: 700 }}>{c.author_name}</div>
+                      <div style={{ fontWeight: 800 }}>{c.author_name}</div>
                       <div style={{ fontSize: 12, opacity: 0.75 }}>{formatAgo(c.created_at)}</div>
                     </div>
                   </div>
@@ -208,7 +213,7 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
           )}
 
           <div className="card" style={{ padding: 12, marginTop: 12 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Ajouter un commentaire</div>
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Ajouter un commentaire</div>
             <textarea
               className="input"
               rows={2}
@@ -235,12 +240,12 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   const videoRef = useRef(null);
   const audioRef = useRef(null);
 
-  // Per-post base volumes from DB + global user preference multipliers
+  // Global user preferences multipliers (from Settings)
   const [globalVideoVol, setGlobalVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
   const [globalMusicVol, setGlobalMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
 
   useEffect(() => {
-    // keep in sync if user changes sliders in Settings in same tab
+    // Keep synced even in same tab
     const t = window.setInterval(() => {
       setGlobalVideoVol(readVol(LS_VIDEO_VOL, 1));
       setGlobalMusicVol(readVol(LS_MUSIC_VOL, 0.6));
@@ -250,7 +255,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
 
   const baseVideoVol = Number(post.video_volume ?? 1);
   const baseMusicVol = Number(post.music_volume ?? 0.6);
-
   const effectiveVideoVol = Math.min(1, Math.max(0, globalVideoVol * baseVideoVol));
   const effectiveMusicVol = Math.min(1, Math.max(0, globalMusicVol * baseMusicVol));
 
@@ -261,7 +265,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     if (a) a.volume = effectiveMusicVol;
   }, [effectiveVideoVol, effectiveMusicVol]);
 
-  // Sync music audio to video time (best effort)
+  // Sync music to video time (best effort)
   useEffect(() => {
     const v = videoRef.current;
     const a = audioRef.current;
@@ -309,11 +313,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     const ok = window.confirm("Supprimer ce post ?");
     if (!ok) return;
 
-    const { error } = await supabase
-      .from("progress_posts")
-      .update({ is_deleted: true })
-      .eq("id", post.id);
-
+    const { error } = await supabase.from("progress_posts").update({ is_deleted: true }).eq("id", post.id);
     if (error) {
       console.error("delete post error:", error);
       return;
@@ -329,10 +329,10 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
       ref={ref}
       style={{
         height: "calc(var(--appH, 100vh))",
+        width: "100%",
         scrollSnapAlign: "start",
         position: "relative",
         background: "#000",
-        borderRadius: 18,
         overflow: "hidden"
       }}
     >
@@ -346,90 +346,115 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       ) : (
-        <img
-          src={post.media_url}
-          alt={post.caption || "Progress"}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
+        <img src={post.media_url} alt={post.caption || "Progress"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       )}
 
       {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
 
+      {/* gradient */}
       <div
         style={{
           position: "absolute",
-          left: 14,
-          right: 14,
-          bottom: 18,
-          display: "flex",
-          gap: 14,
-          alignItems: "flex-end",
-          justifyContent: "space-between"
+          inset: 0,
+          background:
+            "linear-gradient(180deg, rgba(0,0,0,.20) 0%, rgba(0,0,0,0) 20%, rgba(0,0,0,0) 62%, rgba(0,0,0,.70) 100%)",
+          pointerEvents: "none"
+        }}
+      />
+
+      {/* Right actions TikTok style */}
+      <div
+        style={{
+          position: "absolute",
+          right: 12,
+          bottom: 110,
+          zIndex: 5,
+          display: "grid",
+          gap: 12,
+          justifyItems: "center"
         }}
       >
-        <div style={{ maxWidth: "72%" }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <img
-              src={authorPhoto || "/avatar.png"}
-              alt={authorName}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 999,
-                objectFit: "cover",
-                border: "1px solid rgba(255,255,255,.35)"
-              }}
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = "/avatar.png";
-              }}
-            />
-            <div style={{ color: "white" }}>
-              <div style={{ fontWeight: 700, lineHeight: 1.1 }}>{authorName}</div>
-              <div style={{ opacity: 0.85, fontSize: 12 }}>{formatAgo(post.created_at)}</div>
-            </div>
-          </div>
+        <img
+          src={authorPhoto || "/avatar.png"}
+          alt={authorName}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 999,
+            objectFit: "cover",
+            border: "2px solid rgba(255,255,255,.9)"
+          }}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = "/avatar.png";
+          }}
+        />
 
-          {post.caption ? (
-            <p style={{ marginTop: 10, marginBottom: 0, color: "white", opacity: 0.92, lineHeight: 1.35 }}>
-              {post.caption}
-            </p>
-          ) : null}
+        <button
+          type="button"
+          className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
+          onClick={() => onLike?.(post)}
+          style={{ background: "rgba(0,0,0,.25)", color: "white", borderRadius: 999 }}
+          aria-label="Like"
+          title="Like"
+        >
+          ❤️
+          <div style={{ fontSize: 12, opacity: 0.9, marginTop: 4 }}>{post.likes_count ?? 0}</div>
+        </button>
 
-          {post.music_title ? (
-            <div style={{ marginTop: 8, color: "white", opacity: 0.85, fontSize: 12 }}>
-              🎵 {post.music_title}
-            </div>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          className="btn-ghost btn-sm"
+          onClick={() => onOpenComments?.(post)}
+          style={{ background: "rgba(0,0,0,.25)", color: "white", borderRadius: 999 }}
+          aria-label="Commentaires"
+          title="Commentaires"
+        >
+          💬
+          <div style={{ fontSize: 12, opacity: 0.9, marginTop: 4 }}>{post.comments_count ?? 0}</div>
+        </button>
 
-        <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
-          <button
-            type="button"
-            className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
-            onClick={() => onLike?.(post)}
-            title="Like"
-            aria-label="Like"
-          >
-            ❤️ {post.likes_count ?? 0}
-          </button>
-
+        {canDelete ? (
           <button
             type="button"
             className="btn-ghost btn-sm"
-            onClick={() => onOpenComments?.(post)}
-            title="Commenter"
-            aria-label="Commenter"
+            onClick={deletePost}
+            style={{ background: "rgba(0,0,0,.25)", color: "white", borderRadius: 999 }}
+            aria-label="Supprimer"
+            title="Supprimer"
           >
-            💬 {post.comments_count ?? 0}
+            🗑️
           </button>
+        ) : null}
+      </div>
 
-          {canDelete ? (
-            <button type="button" className="btn-ghost btn-sm" onClick={deletePost} title="Supprimer">
-              🗑️
-            </button>
-          ) : null}
+      {/* Bottom left text */}
+      <div
+        style={{
+          position: "absolute",
+          left: 12,
+          right: 84,
+          bottom: 18,
+          zIndex: 5,
+          color: "white"
+        }}
+      >
+        <div style={{ fontWeight: 900, display: "flex", gap: 8, alignItems: "center" }}>
+          <span>{authorName}</span>
+          <span style={{ opacity: 0.75, fontWeight: 700, fontSize: 12 }}>{formatAgo(post.created_at)}</span>
         </div>
+
+        {post.caption ? (
+          <div style={{ marginTop: 8, opacity: 0.92, lineHeight: 1.35 }}>
+            {post.caption}
+          </div>
+        ) : null}
+
+        {post.music_title ? (
+          <div style={{ marginTop: 8, opacity: 0.85, fontSize: 12 }}>
+            ♪ {post.music_title}
+          </div>
+        ) : null}
       </div>
     </article>
   );
@@ -456,7 +481,7 @@ export function ProgressFeed({ user }) {
         .eq("is_deleted", false)
         .eq("is_public", true)
         .order("created_at", { ascending: false })
-        .limit(60);
+        .limit(80);
 
       if (error) {
         console.error("progress_posts fetch error:", error);
@@ -468,7 +493,6 @@ export function ProgressFeed({ user }) {
       const rows = data || [];
       const authorIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
 
-      // best-effort authors
       const authorByUser = new Map();
       if (authorIds.length) {
         const { data: profs, error: pErr } = await supabase
@@ -499,7 +523,7 @@ export function ProgressFeed({ user }) {
           .from("progress_likes")
           .select("post_id")
           .in("post_id", postIds)
-          .limit(5000);
+          .limit(8000);
 
         if (lErr) console.error("progress likes fetch error:", lErr);
         for (const lr of likeRows || []) likeCounts.set(lr.post_id, (likeCounts.get(lr.post_id) || 0) + 1);
@@ -512,7 +536,7 @@ export function ProgressFeed({ user }) {
           .from("progress_comments")
           .select("post_id")
           .in("post_id", postIds)
-          .limit(5000);
+          .limit(8000);
 
         if (cErr) console.error("progress comments count fetch error:", cErr);
         for (const cr of cRows || []) commentCounts.set(cr.post_id, (commentCounts.get(cr.post_id) || 0) + 1);
@@ -532,18 +556,18 @@ export function ProgressFeed({ user }) {
       }
       setLikedSet(myLiked);
 
-      const mapped = rows.map((r) => {
-        const a = authorByUser.get(r.user_id) || { name: "Utilisateur", photo: "" };
-        return {
-          ...r,
-          author_name: a.name,
-          author_photo: a.photo,
-          likes_count: likeCounts.get(r.id) || 0,
-          comments_count: commentCounts.get(r.id) || 0
-        };
-      });
-
-      setPosts(mapped);
+      setPosts(
+        rows.map((r) => {
+          const a = authorByUser.get(r.user_id) || { name: "Utilisateur", photo: "" };
+          return {
+            ...r,
+            author_name: a.name,
+            author_photo: a.photo,
+            likes_count: likeCounts.get(r.id) || 0,
+            comments_count: commentCounts.get(r.id) || 0
+          };
+        })
+      );
     } catch (e) {
       console.error("progress feed exception:", e);
       setErr("Impossible de charger le feed pour le moment.");
@@ -583,11 +607,7 @@ export function ProgressFeed({ user }) {
 
     try {
       if (already) {
-        const { error } = await supabase
-          .from("progress_likes")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("post_id", post.id);
+        const { error } = await supabase.from("progress_likes").delete().eq("user_id", user.id).eq("post_id", post.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("progress_likes").insert({ user_id: user.id, post_id: post.id });
@@ -618,9 +638,7 @@ export function ProgressFeed({ user }) {
 
   const onCommentPosted = () => {
     if (!commentsPostId) return;
-    setPosts((prev) =>
-      prev.map((p) => (p.id === commentsPostId ? { ...p, comments_count: (p.comments_count || 0) + 1 } : p))
-    );
+    setPosts((prev) => prev.map((p) => (p.id === commentsPostId ? { ...p, comments_count: (p.comments_count || 0) + 1 } : p)));
   };
 
   const onDeleted = (postId) => {
@@ -629,63 +647,84 @@ export function ProgressFeed({ user }) {
 
   return (
     <main className="page" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
-      <div className="shell">
-        <section className="card" style={{ padding: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between" }}>
-            <button className="btn-ghost" onClick={() => navigate("/")}>
-              ← Retour
-            </button>
+      {/* TikTok-like top bar */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 20,
+          padding: 10,
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 10px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          color: "white",
+          pointerEvents: "none"
+        }}
+      >
+        <div style={{ pointerEvents: "auto" }}>
+          <button
+            className="btn-ghost btn-sm"
+            onClick={() => navigate("/")}
+            style={{ background: "rgba(0,0,0,.25)", color: "white", borderRadius: 999 }}
+          >
+            ←
+          </button>
+        </div>
 
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <button className="btn-ghost btn-sm" onClick={load} disabled={loading}>
-                Rafraîchir
-              </button>
-              <button className="btn-primary btn-sm" onClick={() => navigate("/post")} disabled={!user}>
-                Publier
-              </button>
-            </div>
-          </div>
+        <div style={{ fontWeight: 900, opacity: 0.95 }}>Feed</div>
 
-          {err ? (
-            <p className="form-message error" style={{ marginTop: 10 }}>
-              {err}
-            </p>
-          ) : null}
-
-          {loading ? (
-            <p className="form-message" style={{ marginTop: 10 }}>
-              Chargement du feed…
-            </p>
-          ) : posts.length === 0 ? (
-            <p className="form-message" style={{ marginTop: 10 }}>
-              Aucun post pour le moment. Sois la première personne à publier 💪
-            </p>
-          ) : (
-            <div
-              style={{
-                marginTop: 12,
-                height: "calc(var(--appH, 100vh) - 140px)",
-                overflowY: "auto",
-                scrollSnapType: "y mandatory",
-                display: "grid",
-                gap: 12
-              }}
-            >
-              {posts.map((p) => (
-                <ProgressItem
-                  key={p.id}
-                  post={p}
-                  user={user}
-                  onLike={onLike}
-                  liked={likedSet.has(p.id)}
-                  onOpenComments={openComments}
-                  onDeleted={onDeleted}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+        <div style={{ pointerEvents: "auto" }}>
+          <button
+            className="btn-primary btn-sm"
+            onClick={() => navigate("/post")}
+            disabled={!user}
+            style={{ borderRadius: 999 }}
+            title="Publier"
+          >
+            + Publier
+          </button>
+        </div>
       </div>
+
+      {err ? (
+        <div style={{ padding: 12, paddingTop: 84 }}>
+          <p className="form-message error">{err}</p>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div style={{ padding: 12, paddingTop: 84 }}>
+          <p className="form-message">Chargement…</p>
+        </div>
+      ) : posts.length === 0 ? (
+        <div style={{ padding: 12, paddingTop: 84 }}>
+          <p className="form-message">Aucun post pour le moment.</p>
+        </div>
+      ) : (
+        <div
+          style={{
+            height: "calc(var(--appH, 100vh))",
+            overflowY: "auto",
+            scrollSnapType: "y mandatory",
+            background: "#000"
+          }}
+        >
+          {posts.map((p) => (
+            <ProgressItem
+              key={p.id}
+              post={p}
+              user={user}
+              onLike={onLike}
+              liked={likedSet.has(p.id)}
+              onOpenComments={openComments}
+              onDeleted={onDeleted}
+            />
+          ))}
+        </div>
+      )}
 
       <CommentsModal
         open={commentsOpen}
