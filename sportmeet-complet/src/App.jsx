@@ -59,6 +59,10 @@ import { ChatPage } from "./pages/ChatPage";
 // ✅ Page "Compte en cours de vérification"
 import { AccountReview } from "./pages/AccountReview";
 
+// ✅ Feed "progressions"
+import { ProgressFeed } from "./pages/ProgressFeed";
+import { ProgressCreate } from "./pages/ProgressCreate";
+
 const BUCKET = "profile-photos";
 
 const STANDARD_SPORTS = [
