@@ -35,6 +35,35 @@ export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
     setBanner.__t = window.setTimeout(() => setMsg(""), 3500);
   };
 
+  // ✅ Partager MatchFit (Web Share API + fallback copie)
+  const handleShare = async () => {
+    const url = window.location.origin;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "MatchFit",
+          text: "Rejoins-moi sur MatchFit 💪",
+          url
+        });
+        return;
+      }
+    } catch {
+      // l'utilisateur peut annuler -> on ignore
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setBanner("Lien copié ✅");
+    } catch {
+      window.prompt("Copie ce lien :", url);
+    }
+  };
+
+  const goFeed = () => navigate("/feed");
+  const goPost = () => navigate("/post");
+
+
   // ✅ Charger profil pour afficher nom/âge (read-only)
   useEffect(() => {
     let cancelled = false;
