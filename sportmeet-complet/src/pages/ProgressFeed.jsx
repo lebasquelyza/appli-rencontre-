@@ -3,6 +3,18 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
+const LS_VIDEO_VOL = "mf_feed_video_vol";
+const LS_MUSIC_VOL = "mf_feed_music_vol";
+
+function readVol(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    const n = Number(raw);
+    if (Number.isFinite(n)) return Math.min(1, Math.max(0, n));
+  } catch {}
+  return fallback;
+}
+
 function formatAgo(iso) {
   if (!iso) return "";
   const t = new Date(iso).getTime();
@@ -64,8 +76,6 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
       }
 
       const list = data || [];
-
-      // best-effort authors
       const authorIds = Array.from(new Set(list.map((c) => c.user_id).filter(Boolean)));
       const authorByUser = new Map();
 
@@ -220,26 +230,96 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
   );
 }
 
-function ProgressItem({ post, onLike, liked, onOpenComments }) {
+function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) {
   const [ref, visible] = useVisibility(0.65);
   const videoRef = useRef(null);
+  const audioRef = useRef(null);
+
+  // Per-post base volumes from DB + global user preference multipliers
+  const [globalVideoVol, setGlobalVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
+  const [globalMusicVol, setGlobalMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
+
+  useEffect(() => {
+    // keep in sync if user changes sliders in Settings in same tab
+    const t = window.setInterval(() => {
+      setGlobalVideoVol(readVol(LS_VIDEO_VOL, 1));
+      setGlobalMusicVol(readVol(LS_MUSIC_VOL, 0.6));
+    }, 800);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const baseVideoVol = Number(post.video_volume ?? 1);
+  const baseMusicVol = Number(post.music_volume ?? 0.6);
+
+  const effectiveVideoVol = Math.min(1, Math.max(0, globalVideoVol * baseVideoVol));
+  const effectiveMusicVol = Math.min(1, Math.max(0, globalMusicVol * baseMusicVol));
 
   useEffect(() => {
     const v = videoRef.current;
+    if (v) v.volume = effectiveVideoVol;
+    const a = audioRef.current;
+    if (a) a.volume = effectiveMusicVol;
+  }, [effectiveVideoVol, effectiveMusicVol]);
+
+  // Sync music audio to video time (best effort)
+  useEffect(() => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v || !a || !post.music_url) return;
+
+    const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+
+    const sync = () => {
+      const target = Math.max(0, (v.currentTime || 0) + start);
+      if (Math.abs((a.currentTime || 0) - target) > 0.35) a.currentTime = target;
+    };
+
+    v.addEventListener("timeupdate", sync);
+    return () => v.removeEventListener("timeupdate", sync);
+  }, [post.music_url, post.music_start_sec]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+
     if (!v) return;
 
-    if (post.media_type === "video") {
-      if (visible) {
-        v.muted = true;
-        const p = v.play();
-        if (p && typeof p.catch === "function") p.catch(() => {});
-      } else {
+    if (visible) {
+      const pv = v.play();
+      if (pv?.catch) pv.catch(() => {});
+
+      if (post.music_url && a) {
         try {
-          v.pause();
+          const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+          a.currentTime = Math.max(0, (v.currentTime || 0) + start);
+          const pa = a.play();
+          if (pa?.catch) pa.catch(() => {});
         } catch {}
       }
+    } else {
+      try { v.pause(); } catch {}
+      try { a?.pause(); } catch {}
     }
-  }, [visible, post.media_type]);
+  }, [visible, post.music_url, post.music_start_sec]);
+
+  const canDelete = !!user?.id && user.id === post.user_id;
+
+  const deletePost = async () => {
+    if (!canDelete) return;
+    const ok = window.confirm("Supprimer ce post ?");
+    if (!ok) return;
+
+    const { error } = await supabase
+      .from("progress_posts")
+      .update({ is_deleted: true })
+      .eq("id", post.id);
+
+    if (error) {
+      console.error("delete post error:", error);
+      return;
+    }
+    onDeleted?.(post.id);
+  };
 
   const authorName = post?.author_name || "Utilisateur";
   const authorPhoto = post?.author_photo || "";
@@ -272,6 +352,8 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       )}
+
+      {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
 
       <div
         style={{
@@ -313,6 +395,12 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
               {post.caption}
             </p>
           ) : null}
+
+          {post.music_title ? (
+            <div style={{ marginTop: 8, color: "white", opacity: 0.85, fontSize: 12 }}>
+              🎵 {post.music_title}
+            </div>
+          ) : null}
         </div>
 
         <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
@@ -335,6 +423,12 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
           >
             💬 {post.comments_count ?? 0}
           </button>
+
+          {canDelete ? (
+            <button type="button" className="btn-ghost btn-sm" onClick={deletePost} title="Supprimer">
+              🗑️
+            </button>
+          ) : null}
         </div>
       </div>
     </article>
@@ -358,7 +452,7 @@ export function ProgressFeed({ user }) {
     try {
       const { data, error } = await supabase
         .from("progress_posts")
-        .select("id, user_id, media_url, media_type, caption, created_at")
+        .select("id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume")
         .eq("is_deleted", false)
         .eq("is_public", true)
         .order("created_at", { ascending: false })
@@ -529,6 +623,10 @@ export function ProgressFeed({ user }) {
     );
   };
 
+  const onDeleted = (postId) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  };
+
   return (
     <main className="page" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
       <div className="shell">
@@ -577,9 +675,11 @@ export function ProgressFeed({ user }) {
                 <ProgressItem
                   key={p.id}
                   post={p}
+                  user={user}
                   onLike={onLike}
                   liked={likedSet.has(p.id)}
                   onOpenComments={openComments}
+                  onDeleted={onDeleted}
                 />
               ))}
             </div>
