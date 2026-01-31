@@ -285,7 +285,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   useEffect(() => {
     const v = videoRef.current;
     const a = audioRef.current;
-
     if (!v) return;
 
     if (visible) {
@@ -301,8 +300,12 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
         } catch {}
       }
     } else {
-      try { v.pause(); } catch {}
-      try { a?.pause(); } catch {}
+      try {
+        v.pause();
+      } catch {}
+      try {
+        a?.pause();
+      } catch {}
     }
   }, [visible, post.music_url, post.music_start_sec]);
 
@@ -327,135 +330,110 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   return (
     <article
       ref={ref}
+      className="card"
       style={{
-        height: "100%",
-        width: "100%",
         scrollSnapAlign: "start",
-        position: "relative",
-        background: "#000",
+        padding: 12,
+        borderRadius: 18,
         overflow: "hidden"
       }}
     >
-      {post.media_type === "video" ? (
-        <video
-          ref={videoRef}
-          src={post.media_url}
-          playsInline
-          loop
-          controls={false}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      ) : (
-        <img src={post.media_url} alt={post.caption || "Progress"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      )}
-
-      {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
-
-      {/* gradient */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(180deg, rgba(0,0,0,.20) 0%, rgba(0,0,0,0) 20%, rgba(0,0,0,0) 62%, rgba(0,0,0,.70) 100%)",
-          pointerEvents: "none"
-        }}
-      />
-
-      {/* Right actions TikTok style */}
-      <div
-        style={{
-          position: "absolute",
-          right: 12,
-          bottom: 110,
-          zIndex: 5,
-          display: "grid",
-          gap: 12,
-          justifyItems: "center"
-        }}
-      >
+      {/* Header */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
         <img
           src={authorPhoto || "/avatar.png"}
           alt={authorName}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 999,
-            objectFit: "cover",
-            border: "2px solid rgba(255,255,255,.9)"
-          }}
+          style={{ width: 34, height: 34, borderRadius: 999, objectFit: "cover" }}
           onError={(e) => {
             e.currentTarget.onerror = null;
             e.currentTarget.src = "/avatar.png";
           }}
         />
-
-        <button
-          type="button"
-          className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
-          onClick={() => onLike?.(post)}
-          style={{ background: "rgba(0,0,0,.25)", color: "white", borderRadius: 999 }}
-          aria-label="Like"
-          title="Like"
-        >
-          ❤️
-          <div style={{ fontSize: 12, opacity: 0.9, marginTop: 4 }}>{post.likes_count ?? 0}</div>
-        </button>
-
-        <button
-          type="button"
-          className="btn-ghost btn-sm"
-          onClick={() => onOpenComments?.(post)}
-          style={{ background: "rgba(0,0,0,.25)", color: "white", borderRadius: 999 }}
-          aria-label="Commentaires"
-          title="Commentaires"
-        >
-          💬
-          <div style={{ fontSize: 12, opacity: 0.9, marginTop: 4 }}>{post.comments_count ?? 0}</div>
-        </button>
+        <div style={{ lineHeight: 1.2, flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {authorName}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.75 }}>{formatAgo(post.created_at)}</div>
+        </div>
 
         {canDelete ? (
-          <button
-            type="button"
-            className="btn-ghost btn-sm"
-            onClick={deletePost}
-            style={{ background: "rgba(0,0,0,.25)", color: "white", borderRadius: 999 }}
-            aria-label="Supprimer"
-            title="Supprimer"
-          >
+          <button className="btn-ghost btn-sm" onClick={deletePost} title="Supprimer">
             🗑️
           </button>
         ) : null}
       </div>
 
-      {/* Bottom left text */}
+      {/* Media (TikTok logic: autoplay on visible) */}
       <div
         style={{
-          position: "absolute",
-          left: 12,
-          right: 84,
-          bottom: 18,
-          zIndex: 5,
-          color: "white"
+          position: "relative",
+          borderRadius: 16,
+          overflow: "hidden",
+          background: "#000",
+          aspectRatio: "9 / 16"
         }}
       >
-        <div style={{ fontWeight: 900, display: "flex", gap: 8, alignItems: "center" }}>
-          <span>{authorName}</span>
-          <span style={{ opacity: 0.75, fontWeight: 700, fontSize: 12 }}>{formatAgo(post.created_at)}</span>
+        {post.media_type === "video" ? (
+          <video
+            ref={videoRef}
+            src={post.media_url}
+            playsInline
+            loop
+            controls={false}
+            muted={false}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : (
+          <img
+            src={post.media_url}
+            alt={post.caption || "Progress"}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        )}
+
+        {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
+
+        {/* Actions (like/comment) */}
+        <div
+          style={{
+            position: "absolute",
+            right: 10,
+            bottom: 10,
+            display: "grid",
+            gap: 8
+          }}
+        >
+          <button
+            type="button"
+            className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
+            onClick={() => onLike?.(post)}
+            aria-label="Like"
+            title="Like"
+            style={{ borderRadius: 999, backdropFilter: "blur(6px)" }}
+          >
+            ❤️ {post.likes_count ?? 0}
+          </button>
+
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            onClick={() => onOpenComments?.(post)}
+            aria-label="Commentaires"
+            title="Commentaires"
+            style={{ borderRadius: 999, backdropFilter: "blur(6px)" }}
+          >
+            💬 {post.comments_count ?? 0}
+          </button>
         </div>
-
-        {post.caption ? (
-          <div style={{ marginTop: 8, opacity: 0.92, lineHeight: 1.35 }}>
-            {post.caption}
-          </div>
-        ) : null}
-
-        {post.music_title ? (
-          <div style={{ marginTop: 8, opacity: 0.85, fontSize: 12 }}>
-            ♪ {post.music_title}
-          </div>
-        ) : null}
       </div>
+
+      {/* Caption + music */}
+      {post.caption ? <p style={{ margin: "10px 0 0", lineHeight: 1.35 }}>{post.caption}</p> : null}
+      {post.music_title ? (
+        <p style={{ margin: "8px 0 0", fontSize: 12, opacity: 0.8 }}>
+          ♪ {post.music_title}
+        </p>
+      ) : null}
     </article>
   );
 }
@@ -477,7 +455,9 @@ export function ProgressFeed({ user }) {
     try {
       const { data, error } = await supabase
         .from("progress_posts")
-        .select("id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume")
+        .select(
+          "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume"
+        )
         .eq("is_deleted", false)
         .eq("is_public", true)
         .order("created_at", { ascending: false })
@@ -600,9 +580,7 @@ export function ProgressFeed({ user }) {
     });
 
     setPosts((prev) =>
-      prev.map((p) =>
-        p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? -1 : 1)) } : p
-      )
+      prev.map((p) => (p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? -1 : 1)) } : p))
     );
 
     try {
@@ -623,9 +601,7 @@ export function ProgressFeed({ user }) {
         return next;
       });
       setPosts((prev) =>
-        prev.map((p) =>
-          p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? 1 : -1)) } : p
-        )
+        prev.map((p) => (p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? 1 : -1)) } : p))
       );
     }
   };
@@ -646,69 +622,34 @@ export function ProgressFeed({ user }) {
   };
 
   return (
-    <main className="page" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
-{/* Header (design app) */}
-<div className="shell" style={{ paddingTop: 8 }}>
-  <div
-    className="card"
-    style={{
-      padding: 10,
-      maxWidth: 920,
-      margin: "8px auto 12px",
-      display: "flex",
-      gap: 10,
-      alignItems: "center"
-    }}
-  >
-    <button className="btn-ghost btn-sm" onClick={() => navigate("/")}>
-      ←
-    </button>
-
-    <div style={{ fontWeight: 900 }}>Progressions</div>
-
-    <div style={{ marginLeft: "auto" }}>
-      <button className="btn-primary btn-sm" onClick={() => navigate("/post")} disabled={!user} title="Publier">
-        Publier
-      </button>
-    </div>
-  </div>
-</div>
-        <div style={{ fontWeight: 900, opacity: 0.95 }}>Feed</div>
-
-        <div style={{ pointerEvents: "auto" }}>
-          <button
-            className="btn-primary btn-sm"
-            onClick={() => navigate("/post")}
-            disabled={!user}
-            style={{ borderRadius: 999 }}
-            title="Publier"
-          >
-            + Publier
-          </button>
+    <main className="page">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Progressions</h2>
+          <div style={{ fontSize: 13, opacity: 0.75 }}>Scroll vertical + auto-play (logique TikTok)</div>
         </div>
+
+        <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
+          + Publier
+        </button>
       </div>
 
-      {err ? (
-        <div style={{ padding: 12, paddingTop: 12 }}>
-          <p className="form-message error">{err}</p>
-        </div>
-      ) : null}
+      {err ? <p className="form-message error">{err}</p> : null}
 
       {loading ? (
-        <div style={{ padding: 12, paddingTop: 12 }}>
-          <p className="form-message">Chargement…</p>
-        </div>
+        <p className="form-message">Chargement…</p>
       ) : posts.length === 0 ? (
-        <div style={{ padding: 12, paddingTop: 12 }}>
-          <p className="form-message">Aucun post pour le moment.</p>
-        </div>
+        <p className="form-message">Aucun post pour le moment.</p>
       ) : (
         <div
+          className="allowScroll"
           style={{
-            height: "calc(var(--appH, 100vh) - 140px)",
+            display: "grid",
+            gap: 12,
             overflowY: "auto",
             scrollSnapType: "y mandatory",
-            background: "#000"
+            paddingBottom: 12,
+            maxHeight: "calc(var(--appH, 100vh) - 160px)"
           }}
         >
           {posts.map((p) => (
