@@ -258,6 +258,7 @@ export function ProgressCreate({ user }) {
   // Media
   const [file, setFile] = useState(null);
   const previewVideoRef = useRef(null);
+  const fileInputRef = useRef(null);
   const previewUrl = useMemo(() => {
     if (!file) return "";
     try {
@@ -315,6 +316,17 @@ export function ProgressCreate({ user }) {
       return;
     }
     setFile(f);
+    // allow re-picking the same file
+    try {
+      e.target.value = "";
+    } catch {}
+  };
+
+  const openMediaPicker = () => {
+    if (loading || !user?.id) return;
+    try {
+      fileInputRef.current?.click();
+    } catch {}
   };
 
   const previewFromStart = async () => {
@@ -450,16 +462,15 @@ return (
         </button>
         <div style={{ fontWeight: 900 }}>Nouvelle progression</div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          <label className="btn-ghost btn-sm" style={{ cursor: "pointer" }} title="Ajouter un média">
-            + Média
-            <input
-              type="file"
-              accept="video/*,image/*"
-              onChange={onPick}
-              disabled={!user?.id || loading}
-              style={{ display: "none" }}
-            />
-          </label>
+          {/* Input caché (ouvert via le bouton "Ajouter une photo ou vidéo") */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/*,image/*"
+            onChange={onPick}
+            disabled={!user?.id || loading}
+            style={{ display: "none" }}
+          />
 
           <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={loading}>
             + Son
@@ -519,9 +530,36 @@ return (
               <div style={{ marginTop: 6, lineHeight: 1.35, opacity: 0.9 }}>
                 Tu peux ensuite ajouter un son (logique type TikTok) et régler les volumes.
               </div>
+              <div style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="btn-primary btn-sm"
+                  onClick={openMediaPicker}
+                  disabled={!user?.id || loading}
+                >
+                  Ajouter une photo ou une vidéo
+                </button>
+              </div>
             </div>
           )}
         </div>
+
+        {/* Change media (no +Média button) */}
+        {file ? (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <button
+              type="button"
+              className="btn-ghost btn-sm"
+              onClick={openMediaPicker}
+              disabled={!user?.id || loading}
+            >
+              Changer la photo/vidéo
+            </button>
+            <div style={{ opacity: 0.75, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {file?.name || ""}
+            </div>
+          </div>
+        ) : null}
 
         {/* Sound */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
