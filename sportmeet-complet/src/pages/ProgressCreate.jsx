@@ -121,7 +121,6 @@ function MusicPickerModal({ open, onClose, onSelect }) {
     <div
       className="modal-backdrop modal-backdrop--blur"
       onClick={onClose}
-      style={{ background: "rgba(0,0,0,.72)" }}
     >
       <div
         className="modal-card modal-card--sheet allowScroll"
@@ -432,111 +431,27 @@ export function ProgressCreate({ user }) {
     }
   };
 
-  return (
-    <main className="page" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
-      {/* ✅ Fullscreen preview like TikTok */}
+return (
+  <main className="page" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
+    <div className="shell" style={{ paddingBottom: 16 }}>
       <div
+        className="card"
         style={{
-          position: "relative",
-          height: "calc(var(--appH, 100vh))",
-          background: "#000",
-          overflow: "hidden"
+          padding: 10,
+          maxWidth: 920,
+          margin: "8px auto 12px",
+          display: "flex",
+          gap: 10,
+          alignItems: "center"
         }}
       >
-        {/* Media preview */}
-        {previewUrl ? (
-          file?.type?.startsWith("video/") ? (
-            <video
-              ref={previewVideoRef}
-              src={previewUrl}
-              playsInline
-              controls
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          ) : (
-            <img
-              src={previewUrl}
-              alt="Aperçu"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          )
-        ) : (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "grid",
-              placeItems: "center",
-              color: "white",
-              opacity: 0.9,
-              padding: 16,
-              textAlign: "center"
-            }}
-          >
-            <div style={{ maxWidth: 520 }}>
-              <div style={{ fontSize: 18, fontWeight: 900 }}>Publier une progression</div>
-              <div style={{ marginTop: 8, opacity: 0.85, lineHeight: 1.35 }}>
-                Ajoute une vidéo ou une image, puis choisis un son (style TikTok).
-              </div>
-
-              <label
-                className="btn-primary"
-                style={{ marginTop: 14, display: "inline-flex", gap: 8, alignItems: "center", cursor: "pointer" }}
-              >
-                ➕ Ajouter un média
-                <input
-                  type="file"
-                  accept="video/*,image/*"
-                  onChange={onPick}
-                  disabled={!user?.id || loading}
-                  style={{ display: "none" }}
-                />
-              </label>
-            </div>
-          </div>
-        )}
-
-        {/* Top-left close */}
-        <button
-          type="button"
-          className="btn-ghost btn-sm"
-          onClick={() => navigate("/feed")}
-          style={{
-            position: "absolute",
-            left: 12,
-            top: 12,
-            zIndex: 10,
-            background: "rgba(0,0,0,.35)",
-            color: "white",
-            borderRadius: 999
-          }}
-        >
-          ✕
+        <button className="btn-ghost btn-sm" onClick={() => navigate("/feed")}>
+          ←
         </button>
-
-        {/* Right side actions */}
-        <div
-          style={{
-            position: "absolute",
-            right: 12,
-            top: 70,
-            zIndex: 10,
-            display: "grid",
-            gap: 10,
-            justifyItems: "end"
-          }}
-        >
-          <label
-            className="btn-ghost btn-sm"
-            style={{
-              background: "rgba(0,0,0,.35)",
-              color: "white",
-              borderRadius: 999,
-              cursor: "pointer"
-            }}
-            title="Ajouter un média"
-          >
-            ➕
+        <div style={{ fontWeight: 900 }}>Nouvelle progression</div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          <label className="btn-ghost btn-sm" style={{ cursor: "pointer" }} title="Ajouter un média">
+            + Média
             <input
               type="file"
               accept="video/*,image/*"
@@ -546,72 +461,86 @@ export function ProgressCreate({ user }) {
             />
           </label>
 
-          <button
-            type="button"
-            className="btn-ghost btn-sm"
-            onClick={() => setPickerOpen(true)}
-            style={{ background: "rgba(0,0,0,.35)", color: "white", borderRadius: 999 }}
-            disabled={loading}
-            title="Ajouter un son"
-          >
-            ♪
+          <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={loading}>
+            + Son
           </button>
 
           <button
             type="button"
-            className="btn-ghost btn-sm"
+            className="btn-primary btn-sm"
             onClick={uploadAndCreate}
-            style={{ background: "rgba(0,0,0,.35)", color: "white", borderRadius: 999 }}
             disabled={!user?.id || loading || !file}
             title="Publier"
           >
-            {loading ? "…" : "✔︎"}
+            {loading ? "..." : "Publier"}
           </button>
         </div>
+      </div>
 
-        {/* Bottom sheet controls */}
+      <div
+        className="card"
+        style={{
+          padding: 12,
+          maxWidth: 520,
+          margin: "0 auto",
+          display: "grid",
+          gap: 12
+        }}
+      >
+        {msg ? <p className={`form-message ${isError ? "error" : ""}`}>{msg}</p> : null}
+
+        {/* Preview */}
         <div
           style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 10,
-            padding: 12,
-            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
-            background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.70) 45%, rgba(0,0,0,.86) 100%)",
-            color: "white"
+            borderRadius: 18,
+            overflow: "hidden",
+            background: "#000",
+            width: "100%",
+            aspectRatio: "9 / 16",
+            display: "grid",
+            placeItems: "center"
           }}
         >
-          {msg ? (
-            <div
-              className={`form-message ${isError ? "error" : ""}`}
-              style={{
-                marginBottom: 10,
-                background: isError ? "rgba(180,0,0,.35)" : "rgba(0,0,0,.25)",
-                color: "white"
-              }}
-            >
-              {msg}
+          {previewUrl ? (
+            file?.type?.startsWith("video/") ? (
+              <video
+                ref={previewVideoRef}
+                src={previewUrl}
+                playsInline
+                controls
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <img src={previewUrl} alt="Aperçu" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            )
+          ) : (
+            <div style={{ color: "white", opacity: 0.85, textAlign: "center", padding: 14 }}>
+              <div style={{ fontWeight: 900 }}>Ajoute une vidéo ou une image</div>
+              <div style={{ marginTop: 6, lineHeight: 1.35, opacity: 0.9 }}>
+                Tu peux ensuite ajouter un son (logique type TikTok) et régler les volumes.
+              </div>
             </div>
-          ) : null}
+          )}
+        </div>
 
-          {/* Sound pill */}
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="btn-ghost btn-sm"
-              onClick={() => setPickerOpen(true)}
-              style={{
-                background: "rgba(255,255,255,.14)",
-                color: "white",
-                borderRadius: 999
-              }}
-            >
-              {track ? "♪ " + (track.title || "Son") : "♪ Ajouter un son"}
-            </button>
+        {/* Sound */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={loading}>
+            {track ? "♪ " + (track.title || "Son") : "♪ Ajouter un son"}
+          </button>
 
-            {track ? (
+          {track ? (
+            <>
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={previewFromStart}
+                disabled={loading}
+                title="Écouter le son depuis le début sélectionné"
+              >
+                ▶︎ Écouter
+              </button>
+
               <button
                 type="button"
                 className="btn-ghost btn-sm"
@@ -619,100 +548,90 @@ export function ProgressCreate({ user }) {
                   setTrack(null);
                   setMusicStart(0);
                 }}
-                style={{ background: "rgba(255,255,255,.12)", color: "white", borderRadius: 999 }}
+                disabled={loading}
               >
                 Retirer
               </button>
-            ) : null}
-          </div>
-
-          {/* Trim + volumes */}
-          {track ? (
-            <div className="card" style={{ marginTop: 10, padding: 12, background: "rgba(0,0,0,.25)" }}>
-              <div style={{ fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>
-                {track.title} <span style={{ opacity: 0.75, fontWeight: 600 }}>— {track.artist}</span>
-              </div>
-
-              <div style={{ display: "grid", gap: 10 }}>
-                <label style={{ display: "grid", gap: 4 }}>
-                  <span style={{ fontSize: 12, opacity: 0.85 }}>
-                    Début (0–29s) : {Math.round(musicStart)}s
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="29"
-                    step="1"
-                    value={musicStart}
-                    onChange={(e) => setMusicStart(Number(e.target.value))}
-                    disabled={loading}
-                  />
-                </label>
-
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button className="btn-ghost btn-sm" onClick={previewFromStart} disabled={loading}>
-                    ▶︎ Écouter depuis {Math.round(musicStart)}s
-                  </button>
-                </div>
-
-                <label style={{ display: "grid", gap: 4 }}>
-                  <span style={{ fontSize: 12, opacity: 0.85 }}>Volume musique</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={musicVol}
-                    onChange={(e) => setMusicVol(Number(e.target.value))}
-                    disabled={loading}
-                  />
-                </label>
-
-                <label style={{ display: "grid", gap: 4 }}>
-                  <span style={{ fontSize: 12, opacity: 0.85 }}>Volume vidéo</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={videoVol}
-                    onChange={(e) => setVideoVol(Number(e.target.value))}
-                    disabled={loading}
-                  />
-                </label>
-              </div>
-
-              <audio ref={audioRef} />
-            </div>
+            </>
           ) : null}
+        </div>
 
-          {/* Caption */}
+        {track ? (
+          <div className="card" style={{ padding: 12 }}>
+            <div style={{ fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>
+              {track.title} <span style={{ opacity: 0.75, fontWeight: 600 }}>— {track.artist}</span>
+            </div>
+
+            <div style={{ display: "grid", gap: 10 }}>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, opacity: 0.85 }}>Début (0–29s) : {Math.round(musicStart)}s</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="29"
+                  step="1"
+                  value={musicStart}
+                  onChange={(e) => setMusicStart(Number(e.target.value))}
+                  disabled={loading}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, opacity: 0.85 }}>Volume musique</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={musicVol}
+                  onChange={(e) => setMusicVol(Number(e.target.value))}
+                  disabled={loading}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, opacity: 0.85 }}>Volume vidéo</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={videoVol}
+                  onChange={(e) => setVideoVol(Number(e.target.value))}
+                  disabled={loading}
+                />
+              </label>
+            </div>
+
+            <audio ref={audioRef} />
+          </div>
+        ) : null}
+
+        {/* Caption */}
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ fontWeight: 900 }}>Description</div>
           <textarea
             className="input"
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Ajouter une description…"
-            rows={2}
-            style={{
-              width: "100%",
-              marginTop: 10,
-              background: "rgba(255,255,255,.10)",
-              color: "white",
-              border: "1px solid rgba(255,255,255,.18)"
-            }}
+            rows={3}
             disabled={!user?.id || loading}
+            style={{ width: "100%", resize: "vertical" }}
           />
         </div>
       </div>
+    </div>
 
-      <MusicPickerModal
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        onSelect={(t) => {
-          setTrack(t);
-          setMusicStart(0);
-        }}
-      />
-    </main>
-  );
+    <MusicPickerModal
+      open={pickerOpen}
+      onClose={() => setPickerOpen(false)}
+      onSelect={(t) => {
+        setTrack(t);
+        setMusicStart(0);
+      }}
+    />
+  </main>
+);
+
 }
