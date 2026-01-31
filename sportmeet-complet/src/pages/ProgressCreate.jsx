@@ -5,11 +5,15 @@ import { supabase } from "../lib/supabase";
 
 const BUCKET = "progress-media";
 
-// iTunes Search API (no auth, CORS OK). Returns previewUrl (30s).
+/**
+ * ✅ NOTE LICENCE / TECH
+ * Pour imiter TikTok sans SDK payant/licencié, on utilise iTunes Search API (gratuit, sans clé)
+ * qui retourne un preview 30s (previewUrl). Donc la sélection de "partie du son" est sur 0–29s.
+ */
 async function searchItunesTracks(term) {
   const q = String(term || "").trim();
   if (!q) return [];
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=20`;
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=25`;
   const res = await fetch(url);
   if (!res.ok) return [];
   const data = await res.json();
@@ -37,38 +41,224 @@ function randomId() {
   return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
 }
 
-export function ProgressCreate({ user }) {
-  const navigate = useNavigate();
-  const [file, setFile] = useState(null);
-  const [caption, setCaption] = useState("");
+function clamp01(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
+  return Math.min(1, Math.max(0, x));
+}
 
-  // Music search + selection (preview 30s)
-  const [musicQuery, setMusicQuery] = useState("");
-  const [musicLoading, setMusicLoading] = useState(false);
-  const [musicErr, setMusicErr] = useState("");
-  const [musicResults, setMusicResults] = useState([]);
-  const [selectedTrack, setSelectedTrack] = useState(null); // {provider, track_id, title, artist, artwork, preview_url}
-  const [musicStart, setMusicStart] = useState(0); // seconds within preview (0..29)
-  const [musicVol, setMusicVol] = useState(0.6);
-  const [videoVol, setVideoVol] = useState(1.0);
-  const previewAudioRef = useRef(null);
-
+function MusicPickerModal({ open, onClose, onSelect }) {
+  const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [isError, setIsError] = useState(false);
-
-  const setBanner = (text, err = false) => {
-    setMsg(text);
-    setIsError(err);
-    window.clearTimeout(setBanner.__t);
-    setBanner.__t = window.setTimeout(() => setMsg(""), 3500);
-  };
+  const [err, setErr] = useState("");
+  const [results, setResults] = useState([]);
+  const audioRef = useRef(null);
+  const [playingId, setPlayingId] = useState(null);
 
   useEffect(() => {
-    if (!user?.id) setBanner("Connecte-toi pour publier.", true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    if (!open) return;
+    setErr("");
+    setResults([]);
+    setPlayingId(null);
+    setQ("");
+  }, [open]);
 
+  const stop = () => {
+    try {
+      const a = audioRef.current;
+      if (a) {
+        a.pause();
+        a.currentTime = 0;
+      }
+    } catch {}
+    setPlayingId(null);
+  };
+
+  const run = async () => {
+    const term = String(q || "").trim();
+    if (!term) {
+      setErr("Tape un titre ou un artiste.");
+      return;
+    }
+    setLoading(true);
+    setErr("");
+    stop();
+    try {
+      const list = await searchItunesTracks(term);
+      setResults(list);
+      if (!list.length) setErr("Aucun résultat.");
+    } catch (e) {
+      console.error("music search error:", e);
+      setErr("Recherche impossible.");
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const playPreview = async (t) => {
+    if (!t?.preview_url) return;
+    try {
+      const a = audioRef.current;
+      if (!a) return;
+      if (playingId === t.track_id) {
+        stop();
+        return;
+      }
+      a.src = t.preview_url;
+      a.currentTime = 0;
+      const p = a.play();
+      if (p?.catch) p.catch(() => {});
+      setPlayingId(t.track_id);
+    } catch (e) {
+      console.log("preview blocked:", e);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="modal-backdrop modal-backdrop--blur"
+      onClick={onClose}
+      style={{ background: "rgba(0,0,0,.72)" }}
+    >
+      <div
+        className="modal-card modal-card--sheet allowScroll"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(920px, 98vw)",
+          maxHeight: "calc(var(--appH, 100vh) - 18px)",
+          overflow: "hidden",
+          borderRadius: 18
+        }}
+      >
+        {/* Top bar TikTok-like */}
+        <div
+          className="modal-header"
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 14px"
+          }}
+        >
+          <button className="btn-ghost btn-sm" onClick={onClose} aria-label="Fermer">
+            ✕
+          </button>
+          <div style={{ fontWeight: 900 }}>♪ Ajouter un son</div>
+          <div style={{ width: 34 }} />
+        </div>
+
+        <div className="modal-body modal-body--scroll allowScroll" style={{ padding: 14, paddingTop: 8 }}>
+          <div
+            className="card"
+            style={{
+              padding: 10,
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              borderRadius: 14
+            }}
+          >
+            <input
+              className="input"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Rechercher un titre, un artiste…"
+              style={{ flex: 1, minWidth: 0 }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") run();
+              }}
+              disabled={loading}
+            />
+            <button className="btn-primary btn-sm" onClick={run} disabled={loading}>
+              {loading ? "..." : "Rechercher"}
+            </button>
+          </div>
+
+          {err ? (
+            <p className="form-message error" style={{ marginTop: 10 }}>
+              {err}
+            </p>
+          ) : (
+            <p className="form-message" style={{ marginTop: 10, opacity: 0.8 }}>
+              Résultats via iTunes (preview 30s).
+            </p>
+          )}
+
+          <audio ref={audioRef} />
+
+          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+            {results.map((t) => (
+              <div
+                key={t.provider + "_" + t.track_id}
+                className="card"
+                style={{
+                  padding: 10,
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  borderRadius: 14
+                }}
+              >
+                <img
+                  src={t.artwork || "/avatar.png"}
+                  alt=""
+                  style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "/avatar.png";
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                  <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {t.title}
+                  </div>
+                  <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {t.artist}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={() => playPreview(t)}
+                  title="Écouter"
+                  aria-label="Écouter"
+                >
+                  {playingId === t.track_id ? "⏸" : "▶︎"}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-primary btn-sm"
+                  onClick={() => {
+                    stop();
+                    onSelect?.(t);
+                    onClose?.();
+                  }}
+                >
+                  Utiliser
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {results.length ? <div style={{ height: 10 }} /> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ProgressCreate({ user }) {
+  const navigate = useNavigate();
+
+  // Media
+  const [file, setFile] = useState(null);
+  const previewVideoRef = useRef(null);
   const previewUrl = useMemo(() => {
     if (!file) return "";
     try {
@@ -88,6 +278,34 @@ export function ProgressCreate({ user }) {
     };
   }, [previewUrl]);
 
+  // TikTok-like sound selection
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [track, setTrack] = useState(null);
+  const [musicStart, setMusicStart] = useState(0); // 0..29
+  const [musicVol, setMusicVol] = useState(0.6);
+  const [videoVol, setVideoVol] = useState(1.0);
+
+  const audioRef = useRef(null); // for start preview from selected track
+
+  // Caption
+  const [caption, setCaption] = useState("");
+
+  // Banner
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [isError, setIsError] = useState(false);
+  const setBanner = (text, err = false) => {
+    setMsg(text);
+    setIsError(err);
+    window.clearTimeout(setBanner.__t);
+    setBanner.__t = window.setTimeout(() => setMsg(""), 3500);
+  };
+
+  useEffect(() => {
+    if (!user?.id) setBanner("Connecte-toi pour publier.", true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const onPick = (e) => {
     const f = e.target.files?.[0] || null;
     if (!f) return;
@@ -100,53 +318,27 @@ export function ProgressCreate({ user }) {
     setFile(f);
   };
 
-  const runMusicSearch = async () => {
-    const q = String(musicQuery || "").trim();
-    if (!q) {
-      setMusicErr("Écris un titre ou un artiste.");
-      return;
-    }
-    setMusicLoading(true);
-    setMusicErr("");
+  const previewFromStart = async () => {
+    if (!track?.preview_url) return;
     try {
-      const results = await searchItunesTracks(q);
-      setMusicResults(results);
-      if (!results.length) setMusicErr("Aucun résultat.");
-    } catch (e) {
-      console.error("music search error:", e);
-      setMusicErr("Recherche impossible.");
-      setMusicResults([]);
-    } finally {
-      setMusicLoading(false);
-    }
-  };
-
-  const selectTrack = (t) => {
-    setSelectedTrack(t);
-    setMusicStart(0);
-    setMusicErr("");
-    // stop previous preview
-    try {
-      const a = previewAudioRef.current;
-      if (a) {
-        a.pause();
-        a.currentTime = 0;
-      }
-    } catch {}
-  };
-
-  const playPreviewFromStart = async () => {
-    try {
-      const a = previewAudioRef.current;
+      const a = audioRef.current;
       if (!a) return;
-      a.volume = Math.min(1, Math.max(0, Number(musicVol || 0)));
+      a.src = track.preview_url;
+      a.volume = clamp01(musicVol);
       a.currentTime = Math.min(29, Math.max(0, Number(musicStart || 0)));
       const p = a.play();
       if (p?.catch) p.catch(() => {});
     } catch (e) {
-      console.log("preview play blocked:", e);
+      console.log("preview from start blocked:", e);
     }
   };
+
+  // Apply volume on preview video
+  useEffect(() => {
+    const v = previewVideoRef.current;
+    if (!v) return;
+    v.volume = clamp01(videoVol);
+  }, [videoVol]);
 
   const uploadAndCreate = async () => {
     if (!user?.id) {
@@ -175,6 +367,7 @@ export function ProgressCreate({ user }) {
       if (pErr) console.error("progress create profile fetch error:", pErr);
       profileId = prof?.id ?? null;
 
+      // upload media
       const ext = safeExt(file);
       const path = `progress/${user.id}/${randomId()}.${ext}`;
 
@@ -199,10 +392,9 @@ export function ProgressCreate({ user }) {
       const mediaType = String(file.type || "").startsWith("video/") ? "video" : "image";
       const cap = String(caption || "").trim();
 
-      const musicTitle = selectedTrack
-        ? `${selectedTrack.title}${selectedTrack.artist ? " — " + selectedTrack.artist : ""}`
+      const musicTitle = track
+        ? `${track.title}${track.artist ? " — " + track.artist : ""}`
         : null;
-      const musicUrl = selectedTrack?.preview_url || null;
 
       const { error: insErr } = await supabase.from("progress_posts").insert({
         user_id: user.id,
@@ -213,15 +405,15 @@ export function ProgressCreate({ user }) {
         is_public: true,
 
         // music (preview 30s)
-        music_url: musicUrl,
+        music_url: track?.preview_url || null,
         music_title: musicTitle,
-        music_provider: selectedTrack?.provider || null,
-        music_track_id: selectedTrack?.track_id || null,
-        music_start_sec: musicUrl ? Math.min(29, Math.max(0, Number(musicStart || 0))) : 0,
+        music_provider: track?.provider || null,
+        music_track_id: track?.track_id || null,
+        music_start_sec: track?.preview_url ? Math.min(29, Math.max(0, Number(musicStart || 0))) : 0,
 
-        // default volumes (can be overridden client-side)
-        music_volume: Math.min(1, Math.max(0, Number(musicVol || 0.6))),
-        video_volume: Math.min(1, Math.max(0, Number(videoVol || 1.0)))
+        // default volumes
+        music_volume: clamp01(musicVol),
+        video_volume: clamp01(videoVol)
       });
 
       if (insErr) {
@@ -242,224 +434,285 @@ export function ProgressCreate({ user }) {
 
   return (
     <main className="page" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
-      <div className="shell">
-        <section className="card" style={{ padding: 16, maxWidth: 820, margin: "8px auto 0" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between" }}>
-            <button className="btn-ghost" onClick={() => navigate("/feed")}>
-              ← Retour
-            </button>
-            <h1 style={{ margin: 0 }}>Publier</h1>
-            <div style={{ width: 80 }} />
+      {/* ✅ Fullscreen preview like TikTok */}
+      <div
+        style={{
+          position: "relative",
+          height: "calc(var(--appH, 100vh))",
+          background: "#000",
+          overflow: "hidden"
+        }}
+      >
+        {/* Media preview */}
+        {previewUrl ? (
+          file?.type?.startsWith("video/") ? (
+            <video
+              ref={previewVideoRef}
+              src={previewUrl}
+              playsInline
+              controls
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <img
+              src={previewUrl}
+              alt="Aperçu"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          )
+        ) : (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "grid",
+              placeItems: "center",
+              color: "white",
+              opacity: 0.9,
+              padding: 16,
+              textAlign: "center"
+            }}
+          >
+            <div style={{ maxWidth: 520 }}>
+              <div style={{ fontSize: 18, fontWeight: 900 }}>Publier une progression</div>
+              <div style={{ marginTop: 8, opacity: 0.85, lineHeight: 1.35 }}>
+                Ajoute une vidéo ou une image, puis choisis un son (style TikTok).
+              </div>
+
+              <label
+                className="btn-primary"
+                style={{ marginTop: 14, display: "inline-flex", gap: 8, alignItems: "center", cursor: "pointer" }}
+              >
+                ➕ Ajouter un média
+                <input
+                  type="file"
+                  accept="video/*,image/*"
+                  onChange={onPick}
+                  disabled={!user?.id || loading}
+                  style={{ display: "none" }}
+                />
+              </label>
+            </div>
           </div>
+        )}
 
-          {msg ? (
-            <p className={`form-message ${isError ? "error" : ""}`} style={{ marginTop: 12 }}>
-              {msg}
-            </p>
-          ) : null}
+        {/* Top-left close */}
+        <button
+          type="button"
+          className="btn-ghost btn-sm"
+          onClick={() => navigate("/feed")}
+          style={{
+            position: "absolute",
+            left: 12,
+            top: 12,
+            zIndex: 10,
+            background: "rgba(0,0,0,.35)",
+            color: "white",
+            borderRadius: 999
+          }}
+        >
+          ✕
+        </button>
 
-          {/* MEDIA */}
-          <div className="card" style={{ padding: 14, marginTop: 14 }}>
-            <h3 style={{ marginTop: 0 }}>Média</h3>
-            <p style={{ opacity: 0.85, marginTop: 6 }}>Ajoute une vidéo ou une image de ta progression.</p>
-
+        {/* Right side actions */}
+        <div
+          style={{
+            position: "absolute",
+            right: 12,
+            top: 70,
+            zIndex: 10,
+            display: "grid",
+            gap: 10,
+            justifyItems: "end"
+          }}
+        >
+          <label
+            className="btn-ghost btn-sm"
+            style={{
+              background: "rgba(0,0,0,.35)",
+              color: "white",
+              borderRadius: 999,
+              cursor: "pointer"
+            }}
+            title="Ajouter un média"
+          >
+            ➕
             <input
               type="file"
               accept="video/*,image/*"
               onChange={onPick}
               disabled={!user?.id || loading}
-              style={{ marginTop: 10 }}
+              style={{ display: "none" }}
             />
+          </label>
 
-            {previewUrl ? (
-              <div style={{ marginTop: 12 }}>
-                {file?.type?.startsWith("video/") ? (
-                  <video
-                    src={previewUrl}
-                    controls
-                    playsInline
-                    style={{ width: "100%", maxHeight: 420, borderRadius: 14, background: "#000" }}
-                  />
-                ) : (
-                  <img
-                    src={previewUrl}
-                    alt="Aperçu"
-                    style={{ width: "100%", maxHeight: 420, objectFit: "cover", borderRadius: 14 }}
-                  />
-                )}
-              </div>
-            ) : null}
-          </div>
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            onClick={() => setPickerOpen(true)}
+            style={{ background: "rgba(0,0,0,.35)", color: "white", borderRadius: 999 }}
+            disabled={loading}
+            title="Ajouter un son"
+          >
+            ♪
+          </button>
 
-          {/* MUSIC */}
-          <div className="card" style={{ padding: 14, marginTop: 12 }}>
-            <h3 style={{ marginTop: 0 }}>Musique</h3>
-            <p style={{ opacity: 0.85, marginTop: 6 }}>
-              Recherche un titre / artiste, puis choisis la partie du son (preview 30s).
-            </p>
+          <button
+            type="button"
+            className="btn-ghost btn-sm"
+            onClick={uploadAndCreate}
+            style={{ background: "rgba(0,0,0,.35)", color: "white", borderRadius: 999 }}
+            disabled={!user?.id || loading || !file}
+            title="Publier"
+          >
+            {loading ? "…" : "✔︎"}
+          </button>
+        </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
-              <input
-                className="input"
-                style={{ flex: 1, minWidth: 220 }}
-                value={musicQuery}
-                onChange={(e) => setMusicQuery(e.target.value)}
-                placeholder="Ex: Drake, Dua Lipa, Eminem…"
-                disabled={loading}
-              />
-              <button className="btn-primary" onClick={runMusicSearch} disabled={loading || musicLoading}>
-                {musicLoading ? "..." : "Rechercher"}
-              </button>
-              {selectedTrack ? (
-                <button className="btn-ghost" onClick={() => setSelectedTrack(null)} disabled={loading}>
-                  Retirer
-                </button>
-              ) : null}
+        {/* Bottom sheet controls */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 10,
+            padding: 12,
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+            background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.70) 45%, rgba(0,0,0,.86) 100%)",
+            color: "white"
+          }}
+        >
+          {msg ? (
+            <div
+              className={`form-message ${isError ? "error" : ""}`}
+              style={{
+                marginBottom: 10,
+                background: isError ? "rgba(180,0,0,.35)" : "rgba(0,0,0,.25)",
+                color: "white"
+              }}
+            >
+              {msg}
             </div>
+          ) : null}
 
-            {musicErr ? (
-              <p className="form-message error" style={{ marginTop: 10 }}>
-                {musicErr}
-              </p>
+          {/* Sound pill */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn-ghost btn-sm"
+              onClick={() => setPickerOpen(true)}
+              style={{
+                background: "rgba(255,255,255,.14)",
+                color: "white",
+                borderRadius: 999
+              }}
+            >
+              {track ? "♪ " + (track.title || "Son") : "♪ Ajouter un son"}
+            </button>
+
+            {track ? (
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => {
+                  setTrack(null);
+                  setMusicStart(0);
+                }}
+                style={{ background: "rgba(255,255,255,.12)", color: "white", borderRadius: 999 }}
+              >
+                Retirer
+              </button>
             ) : null}
+          </div>
 
-            {selectedTrack ? (
-              <div className="card" style={{ padding: 12, marginTop: 12 }}>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <img
-                    src={selectedTrack.artwork || "/avatar.png"}
-                    alt=""
-                    style={{ width: 56, height: 56, borderRadius: 12, objectFit: "cover" }}
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = "/avatar.png";
-                    }}
-                  />
-                  <div style={{ lineHeight: 1.25 }}>
-                    <div style={{ fontWeight: 800 }}>{selectedTrack.title}</div>
-                    <div style={{ opacity: 0.8 }}>{selectedTrack.artist}</div>
-                    <div style={{ opacity: 0.65, fontSize: 12 }}>Source : iTunes (preview 30s)</div>
-                  </div>
-                </div>
-
-                <audio
-                  ref={previewAudioRef}
-                  src={selectedTrack.preview_url}
-                  preload="auto"
-                  controls
-                  style={{ width: "100%", marginTop: 10 }}
-                  onPlay={() => {
-                    try {
-                      const a = previewAudioRef.current;
-                      if (a) a.volume = Math.min(1, Math.max(0, Number(musicVol || 0)));
-                    } catch {}
-                  }}
-                />
-
-                <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-                  <label style={{ display: "grid", gap: 4 }}>
-                    <span style={{ fontSize: 12, opacity: 0.85 }}>
-                      Début musique (0–29s) : {Math.round(musicStart)}s
-                    </span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="29"
-                      step="1"
-                      value={musicStart}
-                      onChange={(e) => setMusicStart(Number(e.target.value))}
-                      disabled={loading}
-                    />
-                  </label>
-
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button className="btn-ghost btn-sm" onClick={playPreviewFromStart} disabled={loading}>
-                      ▶︎ Écouter depuis {Math.round(musicStart)}s
-                    </button>
-                  </div>
-
-                  <label style={{ display: "grid", gap: 4 }}>
-                    <span style={{ fontSize: 12, opacity: 0.85 }}>Volume musique (par défaut)</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={musicVol}
-                      onChange={(e) => setMusicVol(Number(e.target.value))}
-                      disabled={loading}
-                    />
-                  </label>
-
-                  <label style={{ display: "grid", gap: 4 }}>
-                    <span style={{ fontSize: 12, opacity: 0.85 }}>Volume vidéo (par défaut)</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={videoVol}
-                      onChange={(e) => setVideoVol(Number(e.target.value))}
-                      disabled={loading}
-                    />
-                  </label>
-                </div>
+          {/* Trim + volumes */}
+          {track ? (
+            <div className="card" style={{ marginTop: 10, padding: 12, background: "rgba(0,0,0,.25)" }}>
+              <div style={{ fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>
+                {track.title} <span style={{ opacity: 0.75, fontWeight: 600 }}>— {track.artist}</span>
               </div>
-            ) : musicResults.length ? (
-              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                {musicResults.map((t) => (
-                  <button
-                    key={t.provider + "_" + t.track_id}
-                    type="button"
-                    className="card"
-                    style={{ padding: 10, textAlign: "left", display: "flex", gap: 10, alignItems: "center" }}
-                    onClick={() => selectTrack(t)}
+
+              <div style={{ display: "grid", gap: 10 }}>
+                <label style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: 12, opacity: 0.85 }}>
+                    Début (0–29s) : {Math.round(musicStart)}s
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="29"
+                    step="1"
+                    value={musicStart}
+                    onChange={(e) => setMusicStart(Number(e.target.value))}
                     disabled={loading}
-                    title="Sélectionner"
-                  >
-                    <img
-                      src={t.artwork || "/avatar.png"}
-                      alt=""
-                      style={{ width: 44, height: 44, borderRadius: 10, objectFit: "cover" }}
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = "/avatar.png";
-                      }}
-                    />
-                    <div style={{ lineHeight: 1.25 }}>
-                      <div style={{ fontWeight: 800 }}>{t.title}</div>
-                      <div style={{ opacity: 0.8, fontSize: 13 }}>{t.artist}</div>
-                    </div>
+                  />
+                </label>
+
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button className="btn-ghost btn-sm" onClick={previewFromStart} disabled={loading}>
+                    ▶︎ Écouter depuis {Math.round(musicStart)}s
                   </button>
-                ))}
+                </div>
+
+                <label style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: 12, opacity: 0.85 }}>Volume musique</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={musicVol}
+                    onChange={(e) => setMusicVol(Number(e.target.value))}
+                    disabled={loading}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: 12, opacity: 0.85 }}>Volume vidéo</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={videoVol}
+                    onChange={(e) => setVideoVol(Number(e.target.value))}
+                    disabled={loading}
+                  />
+                </label>
               </div>
-            ) : null}
-          </div>
 
-          {/* CAPTION */}
-          <div className="card" style={{ padding: 14, marginTop: 12 }}>
-            <h3 style={{ marginTop: 0 }}>Légende</h3>
-            <textarea
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="Ex: Semaine 3 : +5kg au squat 💪"
-              rows={3}
-              className="input"
-              style={{ width: "100%", resize: "vertical" }}
-              disabled={!user?.id || loading}
-            />
-          </div>
+              <audio ref={audioRef} />
+            </div>
+          ) : null}
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-            <button className="btn-primary" onClick={uploadAndCreate} disabled={!user?.id || loading}>
-              {loading ? "Publication…" : "Publier"}
-            </button>
-            <button className="btn-ghost" onClick={() => navigate("/feed")} disabled={loading}>
-              Annuler
-            </button>
-          </div>
-        </section>
+          {/* Caption */}
+          <textarea
+            className="input"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            placeholder="Ajouter une description…"
+            rows={2}
+            style={{
+              width: "100%",
+              marginTop: 10,
+              background: "rgba(255,255,255,.10)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,.18)"
+            }}
+            disabled={!user?.id || loading}
+          />
+        </div>
       </div>
+
+      <MusicPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(t) => {
+          setTrack(t);
+          setMusicStart(0);
+        }}
+      />
     </main>
   );
 }
