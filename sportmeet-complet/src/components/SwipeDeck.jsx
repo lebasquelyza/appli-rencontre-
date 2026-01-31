@@ -59,54 +59,6 @@ export function SwipeDeck({ userId = "anon",
   const V_SWIPE = 0.45;
 
   // ✅ Superlike limit (front only) — 5 / semaine (lundi → dimanche)
-const SUPERLIKE_WEEKLY_LIMIT = 5;
-const SUPERLIKE_LS_KEY = `matchfit_superlikes_v2_week_${userId || "anon"}`;
-
-const weekKey = () => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  const day = (d.getDay() + 6) % 7; // Lundi=0 ... Dimanche=6
-  d.setDate(d.getDate() - day);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`; // date du lundi
-};
-
-const readSuperlikeState = () => {
-  try {
-    if (typeof window === "undefined") return { week: weekKey(), count: 0 };
-    const raw = window.localStorage.getItem(SUPERLIKE_LS_KEY);
-    if (!raw) return { week: weekKey(), count: 0 };
-    const parsed = JSON.parse(raw);
-    if (!parsed?.week || typeof parsed?.count !== "number") return { week: weekKey(), count: 0 };
-    if (parsed.week !== weekKey()) return { week: weekKey(), count: 0 };
-    return parsed;
-  } catch {
-    return { week: weekKey(), count: 0 };
-  }
-};
-
-const writeSuperlikeState = (state) => {
-  try {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(SUPERLIKE_LS_KEY, JSON.stringify(state));
-  } catch {}
-};
-
-const canUseSuperlike = () => readSuperlikeState().count < SUPERLIKE_WEEKLY_LIMIT;
-
-const consumeSuperlike = () => {
-  const st = readSuperlikeState();
-  const nextState = {
-    week: weekKey(),
-    count: Math.min(SUPERLIKE_WEEKLY_LIMIT, (st.count || 0) + 1)
-  };
-  writeSuperlikeState(nextState);
-  return nextState;
-};
-
-
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const vibrate = (pattern) => {
@@ -339,35 +291,39 @@ useEffect(() => {
     }
   };
 
-  const handleSuperLike = async (meta) => {
-    const gate = guardAction();
-    if (!gate.ok) return;
-    if (!currentProfile || busy) return;
+    const handleSuperLike = async (meta) => {
+      const gate = guardAction();
+      if (!gate.ok) return;
+      if (!currentProfile || busy) return;
 
-    if (!canUseSuperlike()) {
-      showGate(`Tu as atteint la limite de ${SUPERLIKE_WEEKLY_LIMIT} superlikes pour la semaine ⭐`);
-      vibrate([30, 20, 30]);
-      resetDragDom();
-      return;
-    }
+      setBusy(true);
+      try {
+        // ✅ BACKEND D'ABORD : on ne swipe pas si Supabase refuse (limite atteinte, etc.)
+        const ok = await Promise.resolve(onLikeProfile?.(currentProfile, { isSuper: true }));
+        if (ok === false) {
+          showGate("Limite atteinte : 5 superlikes par jour ⭐");
+          vibrate([30, 20, 30]);
+          resetDragDom();
+          return;
+        }
 
-    setBusy(true);
-    try {
-      showFlash("super");
-      vibrate([15, 35, 15]);
+        showFlash("super");
+        vibrate([15, 35, 15]);
 
-      await flyOut("up", meta);
-      next();
-      resetDragDom();
+        await flyOut("up", meta);
+        next();
+        resetDragDom();
+      } catch {
+        showGate("Impossible d’envoyer le superlike pour le moment.");
+        vibrate([30, 20, 30]);
+        resetDragDom();
+      } finally {
+        setBusy(false);
+      }
+    };
 
-      consumeSuperlike();
-      Promise.resolve(onLikeProfile?.(currentProfile, { isSuper: true })).catch(() => {});
-    } finally {
-      setBusy(false);
-    }
-  };
 
-  const handleSkip = async (meta) => {
+const handleSkip = async (meta) => {
     if (isShareCard) {
       if (busy) return;
       await flyOut("left", meta);
