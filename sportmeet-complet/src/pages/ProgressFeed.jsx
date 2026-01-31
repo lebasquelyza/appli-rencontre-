@@ -444,8 +444,10 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
         }}
       >
         {post.media_type === "video" ? (
-          \1            onClick={togglePlayPause}
-\2
+          <video
+            ref={videoRef}
+            src={post.media_url}
+            onClick={togglePlayPause}
             playsInline
             loop
             controls={false}
