@@ -1918,6 +1918,10 @@ const navigate = useNavigate();
               myProfile={myProfile}
               onHideMatch={hideMatch}
             />
+
+        <Route path="/feed" element={<ProgressFeed user={userForUI} />} />
+        <Route path="/post" element={<ProgressCreate user={userForUI} />} />
+
           }
         />
 
