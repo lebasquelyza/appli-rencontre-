@@ -240,6 +240,43 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   const videoRef = useRef(null);
   const audioRef = useRef(null);
 
+  // User gesture toggle: tap/click on the video toggles play/pause.
+  // When the user pauses the video, we start the music immediately (same user gesture).
+  const togglePlayPause = () => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v) return;
+
+    const hasMusic = !!(post && post.music_url && a);
+
+    const getStart = () => Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+
+    if (!v.paused) {
+      // User is pausing the video
+      try { v.pause(); } catch {}
+      if (hasMusic) {
+        try {
+          const start = getStart();
+          // Start offset based on current video time + selected start
+          a.currentTime = Math.max(0, (v.currentTime || 0) + start);
+          a.volume = Math.max(0, Math.min(1, (Number(post.music_volume ?? 1) || 1) * globalMusicVol));
+          const pa = a.play();
+          if (pa?.catch) pa.catch(() => {});
+        } catch {}
+      }
+    } else {
+      // User is playing the video
+      if (hasMusic) {
+        try { a.pause(); } catch {}
+      }
+      try {
+        v.volume = Math.max(0, Math.min(1, (Number(post.video_volume ?? 1) || 1) * globalVideoVol));
+        const pv = v.play();
+        if (pv?.catch) pv.catch(() => {});
+      } catch {}
+    }
+  };
+
   // Global user preferences multipliers (from Settings)
   const [globalVideoVol, setGlobalVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
   const [globalMusicVol, setGlobalMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
@@ -407,9 +444,8 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
         }}
       >
         {post.media_type === "video" ? (
-          <video
-            ref={videoRef}
-            src={post.media_url}
+          \1            onClick={togglePlayPause}
+\2
             playsInline
             loop
             controls={false}
