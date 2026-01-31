@@ -3,7 +3,32 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
+export function Settings({
+  // ✅ Préférences audio feed (localStorage)
+  const LS_VIDEO_VOL = "mf_feed_video_vol";
+  const LS_MUSIC_VOL = "mf_feed_music_vol";
+
+  const readVol = (key, fallback) => {
+    try {
+      const raw = localStorage.getItem(key);
+      const n = Number(raw);
+      if (Number.isFinite(n)) return Math.min(1, Math.max(0, n));
+    } catch {}
+    return fallback;
+  };
+
+  const [feedVideoVol, setFeedVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
+  const [feedMusicVol, setFeedMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
+
+  useEffect(() => {
+    try { localStorage.setItem(LS_VIDEO_VOL, String(feedVideoVol)); } catch {}
+  }, [feedVideoVol]);
+
+  useEffect(() => {
+    try { localStorage.setItem(LS_MUSIC_VOL, String(feedMusicVol)); } catch {}
+  }, [feedMusicVol]);
+
+ user, onClearHiddenProfiles, hiddenCount = 0 }) {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -202,6 +227,57 @@ const changeEmail = async () => {
           )}
 
           <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+
+            {/* ✅ Volumes du feed (préférences locales) */}
+            <div className="card" style={{ padding: 14 }}>
+              <h3 style={{ marginTop: 0 }}>Volumes du feed</h3>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>
+                Réglages enregistrés sur ce téléphone (vidéo + musique).
+              </p>
+
+              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                <label style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: 12, opacity: 0.85 }}>
+                    Volume vidéo : {Math.round(feedVideoVol * 100)}%
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={feedVideoVol}
+                    onChange={(e) => setFeedVideoVol(Number(e.target.value))}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: 4 }}>
+                  <span style={{ fontSize: 12, opacity: 0.85 }}>
+                    Volume musique : {Math.round(feedMusicVol * 100)}%
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={feedMusicVol}
+                    onChange={(e) => setFeedMusicVol(Number(e.target.value))}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={() => {
+                    setFeedVideoVol(1);
+                    setFeedMusicVol(0.6);
+                  }}
+                >
+                  Réinitialiser
+                </button>
+              </div>
+            </div>
+
+
             {/* ✅ Mes infos (toujours visible, non modifiable) */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Mes infos</h3>
