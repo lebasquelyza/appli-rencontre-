@@ -158,7 +158,7 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
   if (!open) return null;
 
   return (
-    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose} style={{ background: "rgba(0,0,0,.76)" }}>
+    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
       <div
         className="modal-card modal-card--sheet allowScroll"
         onClick={(e) => e.stopPropagation()}
@@ -328,7 +328,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     <article
       ref={ref}
       style={{
-        height: "calc(var(--appH, 100vh))",
+        height: "100%",
         width: "100%",
         scrollSnapAlign: "start",
         position: "relative",
@@ -647,33 +647,32 @@ export function ProgressFeed({ user }) {
 
   return (
     <main className="page" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
-      {/* TikTok-like top bar */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 20,
-          padding: 10,
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 10px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          color: "white",
-          pointerEvents: "none"
-        }}
-      >
-        <div style={{ pointerEvents: "auto" }}>
-          <button
-            className="btn-ghost btn-sm"
-            onClick={() => navigate("/")}
-            style={{ background: "rgba(0,0,0,.25)", color: "white", borderRadius: 999 }}
-          >
-            ←
-          </button>
-        </div>
+{/* Header (design app) */}
+<div className="shell" style={{ paddingTop: 8 }}>
+  <div
+    className="card"
+    style={{
+      padding: 10,
+      maxWidth: 920,
+      margin: "8px auto 12px",
+      display: "flex",
+      gap: 10,
+      alignItems: "center"
+    }}
+  >
+    <button className="btn-ghost btn-sm" onClick={() => navigate("/")}>
+      ←
+    </button>
 
+    <div style={{ fontWeight: 900 }}>Progressions</div>
+
+    <div style={{ marginLeft: "auto" }}>
+      <button className="btn-primary btn-sm" onClick={() => navigate("/post")} disabled={!user} title="Publier">
+        Publier
+      </button>
+    </div>
+  </div>
+</div>
         <div style={{ fontWeight: 900, opacity: 0.95 }}>Feed</div>
 
         <div style={{ pointerEvents: "auto" }}>
@@ -690,23 +689,23 @@ export function ProgressFeed({ user }) {
       </div>
 
       {err ? (
-        <div style={{ padding: 12, paddingTop: 84 }}>
+        <div style={{ padding: 12, paddingTop: 12 }}>
           <p className="form-message error">{err}</p>
         </div>
       ) : null}
 
       {loading ? (
-        <div style={{ padding: 12, paddingTop: 84 }}>
+        <div style={{ padding: 12, paddingTop: 12 }}>
           <p className="form-message">Chargement…</p>
         </div>
       ) : posts.length === 0 ? (
-        <div style={{ padding: 12, paddingTop: 84 }}>
+        <div style={{ padding: 12, paddingTop: 12 }}>
           <p className="form-message">Aucun post pour le moment.</p>
         </div>
       ) : (
         <div
           style={{
-            height: "calc(var(--appH, 100vh))",
+            height: "calc(var(--appH, 100vh) - 140px)",
             overflowY: "auto",
             scrollSnapType: "y mandatory",
             background: "#000"
