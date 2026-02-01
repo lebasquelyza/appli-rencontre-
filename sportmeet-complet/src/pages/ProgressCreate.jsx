@@ -276,6 +276,25 @@ export function ProgressCreate({ user }) {
   const activeFile = files[activeIndex] || null;
   const previewVideoRef = useRef(null);
 
+  const hasVideo = useMemo(() => files.some((f) => String(f.type || "").startsWith("video/")), [files]);
+  const imagesOnly = files.length > 0 && !hasVideo;
+
+  // Swipe preview for photos
+  const previewStripRef = useRef(null);
+  useEffect(() => {
+    const el = previewStripRef.current;
+    if (!el) return;
+    // reset scroll when a new selection is made
+    el.scrollLeft = activeIndex * (el.clientWidth || 0);
+  }, [files.length, activeIndex]);
+  const onPreviewStripScroll = () => {
+    const el = previewStripRef.current;
+    if (!el) return;
+    const w = el.clientWidth || 1;
+    const idx = Math.round(el.scrollLeft / w);
+    if (idx !== activeIndex) setActiveIndex(Math.max(0, Math.min(files.length - 1, idx)));
+  };
+
   const [videoDurationSec, setVideoDurationSec] = useState(15);
   const fileInputRef = useRef(null);
   const previewUrl = useMemo(() => {
@@ -385,8 +404,17 @@ const maxMusicStart = useMemo(() => {
       return;
     }
 
-    setFiles(cleaned);
-    setActiveIndex(0);
+    // ✅ TikTok logic:
+    // - If user picks at least one video, we keep ONLY the first video (TikTok style "one video").
+    // - Otherwise (images only), we keep all images and allow horizontal swipe preview.
+    const firstVideo = cleaned.find((f) => String(f.type || "").startsWith("video/"));
+    if (firstVideo) {
+      setFiles([firstVideo]);
+      setActiveIndex(0);
+    } else {
+      setFiles(cleaned);
+      setActiveIndex(0);
+    }
 
     // allow re-picking the same file(s)
     try {
@@ -632,7 +660,7 @@ return (
           }}
         >
           {previewUrl ? (
-            activeFile?.type?.startsWith("video/") ? (
+            hasVideo ? (
               <video
                 ref={previewVideoRef}
                 src={previewUrl}
@@ -640,6 +668,46 @@ return (
                 controls
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
+            ) : imagesOnly && files.length > 1 ? (
+              <div
+                ref={previewStripRef}
+                onScroll={onPreviewStripScroll}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  overflowX: "auto",
+                  scrollSnapType: "x mandatory"
+                }}
+              >
+                {files.map((f, i) => {
+                  const url = (() => {
+                    try {
+                      return URL.createObjectURL(f);
+                    } catch {
+                      return "";
+                    }
+                  })();
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        flex: "0 0 100%",
+                        width: "100%",
+                        height: "100%",
+                        scrollSnapAlign: "center",
+                        position: "relative"
+                      }}
+                    >
+                      <img
+                        src={url}
+                        alt={`Aperçu ${i + 1}`}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <img src={previewUrl} alt="Aperçu" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             )
@@ -679,7 +747,7 @@ return (
                 <button
                   key={i}
                   type="button"
-                  onClick={() => setActiveIndex(i)}
+                  onClick={() => { setActiveIndex(i); const el = previewStripRef.current; if (el && !hasVideo) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
                   className="btn-ghost btn-sm"
                   style={{
                     padding: 0,
