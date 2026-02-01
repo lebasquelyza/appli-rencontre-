@@ -284,6 +284,7 @@ export function ProgressCreate({ user }) {
   const previewStripRef = useRef(null);
   const lastManualSwipeRef = useRef(0);
   const lastAutoSwipeRef = useRef(0);
+  const lastInteractionRef = useRef(Date.now());
 
   // Allow normal page scroll unless the user intends a horizontal swipe on the photo carousel
   const previewSwipeRef = useRef({
@@ -297,6 +298,7 @@ export function ProgressCreate({ user }) {
   });
 
   const onPreviewPointerDown = (e) => {
+    lastInteractionRef.current = Date.now();
     const el = previewStripRef.current;
     if (!el) return;
     // Only for primary button / touch
@@ -318,6 +320,7 @@ export function ProgressCreate({ user }) {
   };
 
   const onPreviewPointerMove = (e) => {
+    lastInteractionRef.current = Date.now();
     const g = previewSwipeRef.current;
     if (!g?.active) return;
 
@@ -359,6 +362,7 @@ export function ProgressCreate({ user }) {
   }, [files.length, activeIndex]);
   const onPreviewStripScroll = () => {
     lastManualSwipeRef.current = Date.now();
+    lastInteractionRef.current = Date.now();
     const el = previewStripRef.current;
     if (!el) return;
     const w = el.clientWidth || 1;
@@ -373,19 +377,25 @@ export function ProgressCreate({ user }) {
     const el = previewStripRef.current;
     if (!el) return;
 
-    const id = window.setInterval(() => {
-      // if user just swiped manually, don't fight them
-      if (Date.now() - lastManualSwipeRef.current < 1500) return;
+    const tick = () => {
+      const now = Date.now();
+
+      // manual by default; only auto-advance after 8s of no interaction
+      if (now - lastInteractionRef.current < 8000) return;
+
+      // don't auto-advance too frequently
+      if (now - lastAutoSwipeRef.current < 8000) return;
 
       const w = el.clientWidth || 1;
       if (!w) return;
 
       const nextIdx = (activeIndex + 1) % files.length;
-      lastAutoSwipeRef.current = Date.now();
+      lastAutoSwipeRef.current = now;
       el.scrollTo({ left: nextIdx * w, behavior: "smooth" });
       setActiveIndex(nextIdx);
-    }, 6000);
+    };
 
+    const id = window.setInterval(tick, 500);
     return () => window.clearInterval(id);
   }, [imagesOnly, files.length, activeIndex]);
 
@@ -881,7 +891,7 @@ return (
                 <button
                   key={i}
                   type="button"
-                  onClick={() => { setActiveIndex(i); const el = previewStripRef.current; if (el && !hasVideo) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
+                  onClick={() => { lastInteractionRef.current = Date.now(); setActiveIndex(i); const el = previewStripRef.current; if (el && !hasVideo) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" }); }}
                   className="btn-ghost btn-sm"
                   style={{
                     padding: 0,
