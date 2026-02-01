@@ -53,10 +53,6 @@ function MusicPickerModal({ open, onClose, onSelect }) {
   const [err, setErr] = useState("");
   const [results, setResults] = useState([]);
   const audioRef = useRef(null);
-
-  // Local timer only for preview playback inside the modal
-  const previewStopTimerRef = useRef(null);
-
   const [playingId, setPlayingId] = useState(null);
 
   useEffect(() => {
@@ -69,8 +65,6 @@ function MusicPickerModal({ open, onClose, onSelect }) {
 
   const stop = () => {
     try {
-      if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
-      previewStopTimerRef.current = null;
       const a = audioRef.current;
       if (a) {
         a.pause();
@@ -116,15 +110,6 @@ function MusicPickerModal({ open, onClose, onSelect }) {
       const p = a.play();
       if (p?.catch) p.catch(() => {});
       setPlayingId(t.track_id);
-
-      // Hard-stop after 30s (preview length) to avoid background audio
-      if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
-      previewStopTimerRef.current = setTimeout(() => {
-        try {
-          a.pause();
-        } catch {}
-        setPlayingId(null);
-      }, 30000);
     } catch (e) {
       console.log("preview blocked:", e);
     }
@@ -271,50 +256,17 @@ export function ProgressCreate({ user }) {
   const navigate = useNavigate();
 
   // Media
-  const [files, setFiles] = useState([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const activeFile = files[activeIndex] || null;
+  const [file, setFile] = useState(null);
   const previewVideoRef = useRef(null);
-
-  const [videoDurationSec, setVideoDurationSec] = useState(15);
   const fileInputRef = useRef(null);
   const previewUrl = useMemo(() => {
-    if (!activeFile) return "";
+    if (!file) return "";
     try {
-      return URL.createObjectURL(activeFile);
+      return URL.createObjectURL(file);
     } catch {
       return "";
     }
-  }, [activeFile]);
-
-// Read video duration (for "Instagram-like" music segment selection)
-useEffect(() => {
-  if (!activeFile || !previewUrl || !String(activeFile.type || "").startsWith("video/")) {
-    setVideoDurationSec(15);
-    return;
-  }
-  let cancelled = false;
-  const v = document.createElement("video");
-  v.preload = "metadata";
-  v.src = previewUrl;
-  const onMeta = () => {
-    if (cancelled) return;
-    const d = Number(v.duration);
-    if (Number.isFinite(d) && d > 0) {
-      // keep a reasonable precision (seconds)
-      setVideoDurationSec(Math.max(1, Math.round(d)));
-    }
-  };
-  v.addEventListener("loadedmetadata", onMeta);
-  // Safari sometimes needs a load() call
-  try { v.load(); } catch {}
-  return () => {
-    cancelled = true;
-    v.removeEventListener("loadedmetadata", onMeta);
-    try { v.src = ""; } catch {}
-  };
-}, [activeFile, previewUrl]);
-
+  }, [file]);
 
   useEffect(() => {
     return () => {
@@ -327,19 +279,6 @@ useEffect(() => {
   }, [previewUrl]);
 
   // TikTok-like sound selection
-
-const clipLenSec = useMemo(() => {
-  // iTunes previews are ~30s; we limit the usable clip to 29s for safety
-  const raw = Number(videoDurationSec || 0);
-  if (!Number.isFinite(raw) || raw <= 0) return 15;
-  return Math.min(29, Math.max(1, Math.round(raw)));
-}, [videoDurationSec]);
-
-const maxMusicStart = useMemo(() => {
-  // We must fit the video length inside the 30s preview window (0..29)
-  return Math.max(0, 29 - clipLenSec);
-}, [clipLenSec]);
-
   const [pickerOpen, setPickerOpen] = useState(false);
   const [track, setTrack] = useState(null);
   const [musicStart, setMusicStart] = useState(0); // 0..29
@@ -347,7 +286,6 @@ const maxMusicStart = useMemo(() => {
   const [videoVol, setVideoVol] = useState(1.0);
 
   const audioRef = useRef(null); // for start preview from selected track
-  const previewStopTimerRef = useRef(null);
 
   // Caption
   const [caption, setCaption] = useState("");
@@ -369,24 +307,16 @@ const maxMusicStart = useMemo(() => {
   }, [user?.id]);
 
   const onPick = (e) => {
-    const list = Array.from(e.target.files || []);
-    if (!list.length) return;
+    const f = e.target.files?.[0] || null;
+    if (!f) return;
 
-    const cleaned = [];
-    for (const f of list) {
-      const type = String(f.type || "");
-      if (!type.startsWith("video/") && !type.startsWith("image/")) continue;
-      cleaned.push(f);
-    }
-    if (!cleaned.length) {
+    const type = String(f.type || "");
+    if (!type.startsWith("video/") && !type.startsWith("image/")) {
       setBanner("Fichier non supporté. Choisis une vidéo ou une image.", true);
       return;
     }
-
-    setFiles(cleaned);
-    setActiveIndex(0);
-
-    // allow re-picking the same file(s)
+    setFile(f);
+    // allow re-picking the same file
     try {
       e.target.value = "";
     } catch {}
@@ -406,16 +336,9 @@ const maxMusicStart = useMemo(() => {
       if (!a) return;
       a.src = track.preview_url;
       a.volume = clamp01(musicVol);
-      a.currentTime = Math.min(maxMusicStart, Math.max(0, Number(musicStart || 0)));
+      a.currentTime = Math.min(29, Math.max(0, Number(musicStart || 0)));
       const p = a.play();
       if (p?.catch) p.catch(() => {});
-      // Stop the preview at the end of the selected clip (Instagram-like)
-      if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
-      previewStopTimerRef.current = setTimeout(() => {
-        try {
-          a.pause();
-        } catch {}
-      }, (clipLenSec + 0.15) * 1000);
     } catch (e) {
       console.log("preview from start blocked:", e);
     }
@@ -428,112 +351,89 @@ const maxMusicStart = useMemo(() => {
     v.volume = clamp01(videoVol);
   }, [videoVol]);
 
-  const withTimeout = (promise, ms, label = "Opération") => {
-    let t;
-    const timeout = new Promise((_, rej) => {
-      t = window.setTimeout(() => rej(new Error(label + " trop longue. Vérifie ta connexion.")), ms);
-    });
-    return Promise.race([promise, timeout]).finally(() => window.clearTimeout(t));
-  };
-
   const uploadAndCreate = async () => {
     if (!user?.id) {
       navigate("/settings");
       return;
     }
-    if (!files.length) {
+    if (!file) {
       setBanner("Ajoute une vidéo ou une image.", true);
       return;
     }
 
     setLoading(true);
     setIsError(false);
-    setBanner("Publication…");
+
     try {
       // profile_id (best-effort)
       let profileId = null;
-      const { data: prof, error: pErr } = await withTimeout(supabase
+      const { data: prof, error: pErr } = await supabase
         .from("profiles")
         .select("id")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .maybeSingle(), 15000, "Chargement profil");
+        .maybeSingle();
 
       if (pErr) console.error("progress create profile fetch error:", pErr);
       profileId = prof?.id ?? null;
 
-      // upload media(s)
+      // upload media
+      const ext = safeExt(file);
+      const path = `progress/${user.id}/${randomId()}.${ext}`;
+
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
+        cacheControl: "3600",
+        upsert: false
+      });
+
+      if (upErr) {
+        console.error("progress media upload error:", upErr);
+        setBanner("Upload impossible (bucket/RLS).", true);
+        return;
+      }
+
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      const publicUrl = data?.publicUrl || "";
+      if (!publicUrl) {
+        setBanner("Impossible de récupérer l'URL publique.", true);
+        return;
+      }
+
+      const mediaType = String(file.type || "").startsWith("video/") ? "video" : "image";
       const cap = String(caption || "").trim();
+
       const musicTitle = track
         ? `${track.title}${track.artist ? " — " + track.artist : ""}`
         : null;
 
-      // On publie 1 post par média (TikTok-like: l'utilisateur peut sélectionner plusieurs médias d'un coup)
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i];
-        const ext = safeExt(f);
-        const path = `progress/${user.id}/${randomId()}_${i}.${ext}`;
+      const { error: insErr } = await supabase.from("progress_posts").insert({
+        user_id: user.id,
+        profile_id: profileId,
+        media_url: publicUrl,
+        media_type: mediaType,
+        caption: cap || null,
+        is_public: true,
 
-        setBanner(`Upload… (${i + 1}/${files.length})`);
+        // music (preview 30s)
+        music_url: track?.preview_url || null,
+        music_title: musicTitle,
+        music_provider: track?.provider || null,
+        music_track_id: track?.track_id || null,
+        music_start_sec: track?.preview_url ? Math.min(29, Math.max(0, Number(musicStart || 0))) : 0,
 
-        const { error: upErr } = await withTimeout(
-          supabase.storage.from(BUCKET).upload(path, f, {
-            cacheControl: "3600",
-            upsert: false
-          }),
-          60000,
-          "Upload"
-        );
+        // default volumes
+        music_volume: clamp01(musicVol),
+        video_volume: clamp01(videoVol)
+      });
 
-        if (upErr) {
-          console.error("progress media upload error:", upErr);
-          setBanner("Upload impossible (bucket/RLS).", true);
-          return;
-        }
-
-        const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-        const publicUrl = data?.publicUrl || "";
-        if (!publicUrl) {
-          setBanner("Impossible de récupérer l'URL publique.", true);
-          return;
-        }
-
-        const mediaType = String(f.type || "").startsWith("video/") ? "video" : "image";
-
-        setBanner(`Publication… (${i + 1}/${files.length})`);
-
-        const { error: insErr } = await withTimeout(
-          supabase.from("progress_posts").insert({
-            user_id: user.id,
-            profile_id: profileId,
-            media_url: publicUrl,
-            media_type: mediaType,
-            caption: cap || null,
-            is_public: true,
-
-            // music (preview 30s)
-            music_url: track?.preview_url || null,
-            music_title: musicTitle,
-            music_provider: track?.provider || null,
-            music_track_id: track?.track_id || null,
-            music_start_sec: track?.preview_url ? Math.min(maxMusicStart, Math.max(0, Number(musicStart || 0))) : 0,
-
-            // default volumes
-            music_volume: clamp01(musicVol),
-            video_volume: clamp01(videoVol)
-          }),
-          20000,
-          "Publication"
-        );
-
-        if (insErr) {
-          console.error("progress post insert error:", insErr);
-          setBanner(insErr.message || "Impossible de publier.", true);
-          return;
-        }
+      if (insErr) {
+        console.error("progress post insert error:", insErr);
+        setBanner(insErr.message || "Impossible de publier.", true);
+        return;
       }
-setBanner("Publié ✅");
+
+      setBanner("Publié ✅");
       setTimeout(() => navigate("/feed"), 350);
     } catch (e) {
       console.error("progress create exception:", e);
@@ -567,7 +467,6 @@ return (
             ref={fileInputRef}
             type="file"
             accept="video/*,image/*"
-            multiple
             onChange={onPick}
             disabled={!user?.id || loading}
             style={{ display: "none" }}
@@ -614,7 +513,7 @@ return (
           }}
         >
           {previewUrl ? (
-            activeFile?.type?.startsWith("video/") ? (
+            file?.type?.startsWith("video/") ? (
               <video
                 ref={previewVideoRef}
                 src={previewUrl}
@@ -645,82 +544,8 @@ return (
           )}
         </div>
 
-        {/* Thumbnails (multi media) */}
-        {files.length > 1 ? (
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "6px 2px 2px" }}>
-            {files.map((f, i) => {
-              const url = (() => {
-                try {
-                  return URL.createObjectURL(f);
-                } catch {
-                  return "";
-                }
-              })();
-              const isActive = i === activeIndex;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setActiveIndex(i)}
-                  className="btn-ghost btn-sm"
-                  style={{
-                    padding: 0,
-                    borderRadius: 10,
-                    border: isActive ? "2px solid var(--brand, #00e5a8)" : "1px solid rgba(255,255,255,0.18)",
-                    overflow: "hidden",
-                    minWidth: 64,
-                    width: 64,
-                    height: 64,
-                    position: "relative",
-                    flex: "0 0 auto"
-                  }}
-                  title={f.name}
-                >
-                  {String(f.type || "").startsWith("video/") ? (
-                    <div style={{ width: "100%", height: "100%", background: "rgba(0,0,0,0.25)", display: "grid", placeItems: "center" }}>
-                      <span style={{ fontWeight: 900, fontSize: 12 }}>VIDÉO</span>
-                    </div>
-                  ) : (
-                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  )}
-
-                  <span
-                    onClick={(ev) => {
-                      ev.preventDefault();
-                      ev.stopPropagation();
-                      setFiles((prev) => {
-                        const next = prev.slice();
-                        next.splice(i, 1);
-                        const nextIndex = Math.max(0, Math.min(activeIndex, next.length - 1));
-                        setActiveIndex(nextIndex);
-                        return next;
-                      });
-                    }}
-                    style={{
-                      position: "absolute",
-                      top: 4,
-                      right: 4,
-                      width: 18,
-                      height: 18,
-                      borderRadius: 999,
-                      background: "rgba(0,0,0,0.55)",
-                      display: "grid",
-                      placeItems: "center",
-                      fontSize: 12,
-                      lineHeight: 1,
-                      color: "white"
-                    }}
-                  >
-                    ×
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-
-        {/* Changer le média (sans bouton +Média) */}
-        {files.length ? (
+        {/* Change media (no +Média button) */}
+        {file ? (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <button
               type="button"
@@ -731,7 +556,7 @@ return (
               Changer la photo/vidéo
             </button>
             <div style={{ opacity: 0.75, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {activeFile?.name || ""}
+              {file?.name || ""}
             </div>
           </div>
         ) : null}
@@ -776,33 +601,16 @@ return (
             </div>
 
             <div style={{ display: "grid", gap: 10 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, opacity: 0.85 }}>Extrait de musique</span>
-
-                {/* UI "glissante" : on déplace une fenêtre (durée = vidéo) sur les ~30s de preview */}
-                <div style={{ position: "relative", height: 10, borderRadius: 999, background: "rgba(255,255,255,0.18)", overflow: "hidden" }}>
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: `${(maxMusicStart ? (musicStart / maxMusicStart) * 100 : 0)}%`,
-                      width: `${(29 ? (clipLenSec / 29) * 100 : 100)}%`,
-                      top: 0,
-                      bottom: 0,
-                      borderRadius: 999,
-                      background: "rgba(0,229,168,0.65)"
-                    }}
-                  />
-                </div>
-
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, opacity: 0.85 }}>Début (0–29s) : {Math.round(musicStart)}s</span>
                 <input
                   type="range"
                   min="0"
-                  max={maxMusicStart}
+                  max="29"
                   step="1"
                   value={musicStart}
                   onChange={(e) => setMusicStart(Number(e.target.value))}
                   disabled={loading}
-                  aria-label="Choisir l'extrait"
                 />
               </label>
 
