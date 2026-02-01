@@ -322,7 +322,6 @@ export function ProgressCreate({ user }) {
   }, [imagesOnly, files.length, activeIndex]);
 
   const [videoDurationSec, setVideoDurationSec] = useState(15);
-, setVideoDurationSec] = useState(15);
   const fileInputRef = useRef(null);
   const previewUrl = useMemo(() => {
     if (!activeFile) return "";
