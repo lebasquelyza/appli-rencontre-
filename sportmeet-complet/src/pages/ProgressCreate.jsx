@@ -599,7 +599,7 @@ return (
             type="button"
             className="btn-primary btn-sm"
             onClick={uploadAndCreate}
-            disabled={!user?.id || loading || !file}
+            disabled={!user?.id || loading || files.length === 0}
             title="Publier"
           >
             {loading ? "..." : "Publier"}
