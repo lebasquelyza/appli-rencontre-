@@ -391,7 +391,6 @@ const maxMusicStart = useMemo(() => {
       e.target.value = "";
     } catch {}
   };
-};
 
   const openMediaPicker = () => {
     if (loading || !user?.id) return;
