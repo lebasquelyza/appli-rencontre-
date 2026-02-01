@@ -285,45 +285,62 @@ export function ProgressCreate({ user }) {
   const lastManualSwipeRef = useRef(0);
   const lastAutoSwipeRef = useRef(0);
 
-  // Allow vertical scroll unless the user intends a horizontal swipe on the photo carousel
-  const previewSwipeRef = useRef({ active: false, decided: false, horizontal: false, startX: 0, startY: 0, lastX: 0, pointerId: null });
+  // Allow normal page scroll unless the user intends a vertical swipe on the photo carousel
+  const previewSwipeRef = useRef({
+    active: false,
+    decided: false,
+    vertical: false,
+    startX: 0,
+    startY: 0,
+    lastY: 0,
+    pointerId: null,
+  });
+
   const onPreviewPointerDown = (e) => {
     const el = previewStripRef.current;
     if (!el) return;
     // Only for primary button / touch
     if (e.button !== undefined && e.button !== 0) return;
+
     previewSwipeRef.current = {
       active: true,
       decided: false,
-      horizontal: false,
+      vertical: false,
       startX: e.clientX,
       startY: e.clientY,
-      lastX: e.clientX,
+      lastY: e.clientY,
       pointerId: e.pointerId,
     };
+
     try {
       el.setPointerCapture?.(e.pointerId);
     } catch {}
   };
+
   const onPreviewPointerMove = (e) => {
     const g = previewSwipeRef.current;
     if (!g?.active) return;
+
     const dx = e.clientX - g.startX;
     const dy = e.clientY - g.startY;
+
     if (!g.decided) {
       if (Math.abs(dx) + Math.abs(dy) < 6) return;
-      g.horizontal = Math.abs(dx) > Math.abs(dy);
+      // decide whether user is trying to swipe vertically through photos
+      g.vertical = Math.abs(dy) > Math.abs(dx);
       g.decided = true;
     }
-    if (g.horizontal) {
-      // Stop page vertical scroll and manually scroll the carousel horizontally
+
+    if (g.vertical) {
+      // Prevent the page scroll and manually scroll the carousel vertically
       e.preventDefault();
       const el = previewStripRef.current;
       if (!el) return;
-      el.scrollLeft -= e.clientX - g.lastX;
-      g.lastX = e.clientX;
+      el.scrollTop -= e.clientY - g.lastY;
+      g.lastY = e.clientY;
     }
   };
+
   const onPreviewPointerEnd = (e) => {
     const el = previewStripRef.current;
     const g = previewSwipeRef.current;
@@ -332,20 +349,20 @@ export function ProgressCreate({ user }) {
         el.releasePointerCapture?.(g.pointerId);
       } catch {}
     }
-    previewSwipeRef.current = { active: false, decided: false, horizontal: false, startX: 0, startY: 0, lastX: 0, pointerId: null };
+    previewSwipeRef.current = { active: false, decided: false, vertical: false, startX: 0, startY: 0, lastY: 0, pointerId: null };
   };
   useEffect(() => {
     const el = previewStripRef.current;
     if (!el) return;
     // reset scroll when a new selection is made
-    el.scrollLeft = activeIndex * (el.clientWidth || 0);
+    el.scrollTop = activeIndex * (el.clientHeight || 0);
   }, [files.length, activeIndex]);
   const onPreviewStripScroll = () => {
     lastManualSwipeRef.current = Date.now();
     const el = previewStripRef.current;
     if (!el) return;
-    const w = el.clientWidth || 1;
-    const idx = Math.round(el.scrollLeft / w);
+    const h = el.clientHeight || 1;
+    const idx = Math.round(el.scrollTop / h);
     if (idx !== activeIndex) {
       setActiveIndex(Math.max(0, Math.min(files.length - 1, idx)));
     }
@@ -360,12 +377,12 @@ export function ProgressCreate({ user }) {
       // if user just swiped manually, don't fight them
       if (Date.now() - lastManualSwipeRef.current < 1500) return;
 
-      const w = el.clientWidth || 1;
-      if (!w) return;
+      const h = el.clientHeight || 1;
+      if (!h) return;
 
       const nextIdx = (activeIndex + 1) % files.length;
       lastAutoSwipeRef.current = Date.now();
-      el.scrollTo({ left: nextIdx * w, behavior: "smooth" });
+      el.scrollTo({ top: nextIdx * h, behavior: "smooth" });
       setActiveIndex(nextIdx);
     }, 6000);
 
@@ -759,10 +776,11 @@ return (
                     width: "100%",
                     height: "100%",
                     display: "flex",
-                    overflowX: "auto",
-                    scrollSnapType: "x mandatory",
+                    flexDirection: "column",
+                    overflowY: "auto",
+                    scrollSnapType: "y mandatory",
                     WebkitOverflowScrolling: "touch",
-                    touchAction: "pan-y",
+                    touchAction: "pan-x",
                     overscrollBehavior: "contain"
                   }}
                 >
@@ -927,7 +945,7 @@ return (
               onClick={openMediaPicker}
               disabled={!user?.id || loading}
             >
-              Changer la photo/vidéo
+              Ajouter
             </button>
             <div style={{ opacity: 0.75, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {files.length ? `Média ${activeIndex + 1}/${files.length}` : ""}
