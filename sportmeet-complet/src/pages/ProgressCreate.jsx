@@ -283,6 +283,57 @@ export function ProgressCreate({ user }) {
   // Swipe preview for photos
   const previewStripRef = useRef(null);
   const lastManualSwipeRef = useRef(0);
+  const lastAutoSwipeRef = useRef(0);
+
+  // Allow vertical scroll unless the user intends a horizontal swipe on the photo carousel
+  const previewSwipeRef = useRef({ active: false, decided: false, horizontal: false, startX: 0, startY: 0, lastX: 0, pointerId: null });
+  const onPreviewPointerDown = (e) => {
+    const el = previewStripRef.current;
+    if (!el) return;
+    // Only for primary button / touch
+    if (e.button !== undefined && e.button !== 0) return;
+    previewSwipeRef.current = {
+      active: true,
+      decided: false,
+      horizontal: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      pointerId: e.pointerId,
+    };
+    try {
+      el.setPointerCapture?.(e.pointerId);
+    } catch {}
+  };
+  const onPreviewPointerMove = (e) => {
+    const g = previewSwipeRef.current;
+    if (!g?.active) return;
+    const dx = e.clientX - g.startX;
+    const dy = e.clientY - g.startY;
+    if (!g.decided) {
+      if (Math.abs(dx) + Math.abs(dy) < 6) return;
+      g.horizontal = Math.abs(dx) > Math.abs(dy);
+      g.decided = true;
+    }
+    if (g.horizontal) {
+      // Stop page vertical scroll and manually scroll the carousel horizontally
+      e.preventDefault();
+      const el = previewStripRef.current;
+      if (!el) return;
+      el.scrollLeft -= e.clientX - g.lastX;
+      g.lastX = e.clientX;
+    }
+  };
+  const onPreviewPointerEnd = (e) => {
+    const el = previewStripRef.current;
+    const g = previewSwipeRef.current;
+    if (el && g?.pointerId != null) {
+      try {
+        el.releasePointerCapture?.(g.pointerId);
+      } catch {}
+    }
+    previewSwipeRef.current = { active: false, decided: false, horizontal: false, startX: 0, startY: 0, lastX: 0, pointerId: null };
+  };
   useEffect(() => {
     const el = previewStripRef.current;
     if (!el) return;
@@ -700,6 +751,10 @@ return (
                 <div
                   ref={previewStripRef}
                   onScroll={onPreviewStripScroll}
+                  onPointerDown={onPreviewPointerDown}
+                  onPointerMove={onPreviewPointerMove}
+                  onPointerUp={onPreviewPointerEnd}
+                  onPointerCancel={onPreviewPointerEnd}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -707,7 +762,7 @@ return (
                     overflowX: "auto",
                     scrollSnapType: "x mandatory",
                     WebkitOverflowScrolling: "touch",
-                    touchAction: "pan-x",
+                    touchAction: "pan-y",
                     overscrollBehavior: "contain"
                   }}
                 >
