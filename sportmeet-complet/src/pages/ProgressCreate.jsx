@@ -696,76 +696,78 @@ return (
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : imagesOnly && files.length > 1 ? (
-              <div
-                ref={previewStripRef}
-                onScroll={onPreviewStripScroll}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  display: "flex",
-                  overflowX: "auto",
-                  scrollSnapType: "x mandatory",
-                  WebkitOverflowScrolling: "touch",
-                  touchAction: "pan-x",
-                  overscrollBehavior: "contain"
-                }}
-              >
-                {files.map((f, i) => {
-                  const url = (() => {
-                    try {
-                      return URL.createObjectURL(f);
-                    } catch {
-                      return "";
-                    }
-                  })();
-                  return (
-                    <div
+              <>
+                <div
+                  ref={previewStripRef}
+                  onScroll={onPreviewStripScroll}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    overflowX: "auto",
+                    scrollSnapType: "x mandatory",
+                    WebkitOverflowScrolling: "touch",
+                    touchAction: "pan-x",
+                    overscrollBehavior: "contain"
+                  }}
+                >
+                  {files.map((f, i) => {
+                    const url = (() => {
+                      try {
+                        return URL.createObjectURL(f);
+                      } catch {
+                        return "";
+                      }
+                    })();
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          flex: "0 0 100%",
+                          width: "100%",
+                          height: "100%",
+                          scrollSnapAlign: "center",
+                          position: "relative"
+                        }}
+                      >
+                        <img
+                          src={url}
+                          alt={`Aperçu ${i + 1}`}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Dots (suivi) */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 10,
+                    display: "flex",
+                    justifyContent: "center",
+                    gap: 6,
+                    pointerEvents: "none"
+                  }}
+                >
+                  {files.map((_, i) => (
+                    <span
                       key={i}
                       style={{
-                        flex: "0 0 100%",
-                        width: "100%",
-                        height: "100%",
-                        scrollSnapAlign: "center",
-                        position: "relative"
+                        width: 6,
+                        height: 6,
+                        borderRadius: 999,
+                        background: i === activeIndex ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.35)"
                       }}
-                    >
-                      <img
-                        src={url}
-                        alt={`Aperçu ${i + 1}`}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            
-<div
-  aria-hidden="true"
-  style={{
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 10,
-    display: "flex",
-    justifyContent: "center",
-    gap: 6,
-    pointerEvents: "none"
-  }}
->
-  {files.map((_, i) => (
-    <span
-      key={i}
-      style={{
-        width: 6,
-        height: 6,
-        borderRadius: 999,
-        background: i === activeIndex ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.35)"
-      }}
-    />
-  ))}
-</div>
-
-) : (
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
               <img src={previewUrl} alt="Aperçu" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             )
           ) : (
