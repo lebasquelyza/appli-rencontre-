@@ -285,14 +285,14 @@ export function ProgressCreate({ user }) {
   const lastManualSwipeRef = useRef(0);
   const lastAutoSwipeRef = useRef(0);
 
-  // Allow normal page scroll unless the user intends a vertical swipe on the photo carousel
+  // Allow normal page scroll unless the user intends a horizontal swipe on the photo carousel
   const previewSwipeRef = useRef({
     active: false,
     decided: false,
-    vertical: false,
+    horizontal: false,
     startX: 0,
     startY: 0,
-    lastY: 0,
+    lastX: 0,
     pointerId: null,
   });
 
@@ -305,10 +305,10 @@ export function ProgressCreate({ user }) {
     previewSwipeRef.current = {
       active: true,
       decided: false,
-      vertical: false,
+      horizontal: false,
       startX: e.clientX,
       startY: e.clientY,
-      lastY: e.clientY,
+      lastX: e.clientX,
       pointerId: e.pointerId,
     };
 
@@ -326,18 +326,18 @@ export function ProgressCreate({ user }) {
 
     if (!g.decided) {
       if (Math.abs(dx) + Math.abs(dy) < 6) return;
-      // decide whether user is trying to swipe vertically through photos
-      g.vertical = Math.abs(dy) > Math.abs(dx);
+      // decide whether user is trying to swipe horizontally through photos
+      g.horizontal = Math.abs(dx) > Math.abs(dy);
       g.decided = true;
     }
 
-    if (g.vertical) {
-      // Prevent the page scroll and manually scroll the carousel vertically
+    if (g.horizontal) {
+      // Prevent the page scroll and manually scroll the carousel horizontally
       e.preventDefault();
       const el = previewStripRef.current;
       if (!el) return;
-      el.scrollTop -= e.clientY - g.lastY;
-      g.lastY = e.clientY;
+      el.scrollLeft -= e.clientX - g.lastX;
+      g.lastX = e.clientX;
     }
   };
 
@@ -349,20 +349,20 @@ export function ProgressCreate({ user }) {
         el.releasePointerCapture?.(g.pointerId);
       } catch {}
     }
-    previewSwipeRef.current = { active: false, decided: false, vertical: false, startX: 0, startY: 0, lastY: 0, pointerId: null };
+    previewSwipeRef.current = { active: false, decided: false, horizontal: false, startX: 0, startY: 0, lastX: 0, pointerId: null };
   };
   useEffect(() => {
     const el = previewStripRef.current;
     if (!el) return;
     // reset scroll when a new selection is made
-    el.scrollTop = activeIndex * (el.clientHeight || 0);
+    el.scrollLeft = activeIndex * (el.clientWidth || 0);
   }, [files.length, activeIndex]);
   const onPreviewStripScroll = () => {
     lastManualSwipeRef.current = Date.now();
     const el = previewStripRef.current;
     if (!el) return;
-    const h = el.clientHeight || 1;
-    const idx = Math.round(el.scrollTop / h);
+    const w = el.clientWidth || 1;
+    const idx = Math.round(el.scrollLeft / w);
     if (idx !== activeIndex) {
       setActiveIndex(Math.max(0, Math.min(files.length - 1, idx)));
     }
@@ -377,12 +377,12 @@ export function ProgressCreate({ user }) {
       // if user just swiped manually, don't fight them
       if (Date.now() - lastManualSwipeRef.current < 1500) return;
 
-      const h = el.clientHeight || 1;
-      if (!h) return;
+      const w = el.clientWidth || 1;
+      if (!w) return;
 
       const nextIdx = (activeIndex + 1) % files.length;
       lastAutoSwipeRef.current = Date.now();
-      el.scrollTo({ top: nextIdx * h, behavior: "smooth" });
+      el.scrollTo({ left: nextIdx * w, behavior: "smooth" });
       setActiveIndex(nextIdx);
     }, 6000);
 
@@ -776,11 +776,13 @@ return (
                     width: "100%",
                     height: "100%",
                     display: "flex",
-                    flexDirection: "column",
-                    overflowY: "auto",
-                    scrollSnapType: "y mandatory",
+                    flexDirection: "row",
+                    overflowX: "auto",
+                    overflowY: "hidden",
+                    scrollSnapType: "x mandatory",
                     WebkitOverflowScrolling: "touch",
-                    touchAction: "pan-x",
+                    // allow vertical page scrolling; we only preventDefault when user truly swipes horizontally
+                    touchAction: "pan-y",
                     overscrollBehavior: "contain"
                   }}
                 >
