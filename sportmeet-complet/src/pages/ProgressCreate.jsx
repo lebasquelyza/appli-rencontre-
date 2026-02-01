@@ -54,10 +54,8 @@ function MusicPickerModal({ open, onClose, onSelect }) {
   const [results, setResults] = useState([]);
   const audioRef = useRef(null);
 
-useEffect(() => {
-  // Keep the selected start within allowed bounds (depends on video duration)
-  setMusicStart((s) => Math.min(maxMusicStart, Math.max(0, Number(s || 0))));
-}, [maxMusicStart]);
+  // Local timer only for preview playback inside the modal
+  const previewStopTimerRef = useRef(null);
 
   const [playingId, setPlayingId] = useState(null);
 
@@ -71,10 +69,8 @@ useEffect(() => {
 
   const stop = () => {
     try {
-      if (previewStopTimerRef.current) {
-        clearTimeout(previewStopTimerRef.current);
-        previewStopTimerRef.current = null;
-      }
+      if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
+      previewStopTimerRef.current = null;
       const a = audioRef.current;
       if (a) {
         a.pause();
@@ -120,6 +116,15 @@ useEffect(() => {
       const p = a.play();
       if (p?.catch) p.catch(() => {});
       setPlayingId(t.track_id);
+
+      // Hard-stop after 30s (preview length) to avoid background audio
+      if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
+      previewStopTimerRef.current = setTimeout(() => {
+        try {
+          a.pause();
+        } catch {}
+        setPlayingId(null);
+      }, 30000);
     } catch (e) {
       console.log("preview blocked:", e);
     }
