@@ -295,31 +295,34 @@ export function ProgressCreate({ user }) {
     if (!el) return;
     const w = el.clientWidth || 1;
     const idx = Math.round(el.scrollLeft / w);
-    if (idx !== activeIndex) setActiveIndex(Math.max(0,
-
-useEffect(() => {
-  if (!imagesOnly || files.length <= 1) return;
-  const el = previewStripRef.current;
-  if (!el) return;
-
-  const id = window.setInterval(() => {
-    // if user just swiped manually, don't fight them
-    if (Date.now() - lastManualSwipeRef.current < 2000) return;
-    const w = el.clientWidth || 1;
-    if (!w) return;
-
-    const nextIdx = (activeIndex + 1) % files.length;
-    lastAutoSwipeRef.current = Date.now();
-    el.scrollTo({ left: nextIdx * w, behavior: "smooth" });
-    setActiveIndex(nextIdx);
-  }, 6000);
-
-  return () => window.clearInterval(id);
-}, [imagesOnly, files.length, activeIndex]);
- Math.min(files.length - 1, idx)));
+    if (idx !== activeIndex) {
+      setActiveIndex(Math.max(0, Math.min(files.length - 1, idx)));
+    }
   };
 
+  useEffect(() => {
+    if (!imagesOnly || files.length <= 1) return;
+    const el = previewStripRef.current;
+    if (!el) return;
+
+    const id = window.setInterval(() => {
+      // if user just swiped manually, don't fight them
+      if (Date.now() - lastManualSwipeRef.current < 1500) return;
+
+      const w = el.clientWidth || 1;
+      if (!w) return;
+
+      const nextIdx = (activeIndex + 1) % files.length;
+      lastAutoSwipeRef.current = Date.now();
+      el.scrollTo({ left: nextIdx * w, behavior: "smooth" });
+      setActiveIndex(nextIdx);
+    }, 6000);
+
+    return () => window.clearInterval(id);
+  }, [imagesOnly, files.length, activeIndex]);
+
   const [videoDurationSec, setVideoDurationSec] = useState(15);
+, setVideoDurationSec] = useState(15);
   const fileInputRef = useRef(null);
   const previewUrl = useMemo(() => {
     if (!activeFile) return "";
