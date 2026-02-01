@@ -25,7 +25,8 @@ async function searchItunesTracks(term) {
       title: String(t.trackName || "Titre"),
       artist: String(t.artistName || ""),
       artwork: String(t.artworkUrl100 || t.artworkUrl60 || ""),
-      preview_url: String(t.previewUrl || "")
+      preview_url: String(t.previewUrl || ""),
+      duration_ms: Number(t.trackTimeMillis || 0)
     }))
     .filter((t) => t.preview_url);
 }
@@ -281,6 +282,7 @@ export function ProgressCreate({ user }) {
 
   // Swipe preview for photos
   const previewStripRef = useRef(null);
+  const lastManualSwipeRef = useRef(0);
   useEffect(() => {
     const el = previewStripRef.current;
     if (!el) return;
@@ -288,11 +290,33 @@ export function ProgressCreate({ user }) {
     el.scrollLeft = activeIndex * (el.clientWidth || 0);
   }, [files.length, activeIndex]);
   const onPreviewStripScroll = () => {
+    lastManualSwipeRef.current = Date.now();
     const el = previewStripRef.current;
     if (!el) return;
     const w = el.clientWidth || 1;
     const idx = Math.round(el.scrollLeft / w);
-    if (idx !== activeIndex) setActiveIndex(Math.max(0, Math.min(files.length - 1, idx)));
+    if (idx !== activeIndex) setActiveIndex(Math.max(0,
+
+useEffect(() => {
+  if (!imagesOnly || files.length <= 1) return;
+  const el = previewStripRef.current;
+  if (!el) return;
+
+  const id = window.setInterval(() => {
+    // if user just swiped manually, don't fight them
+    if (Date.now() - lastManualSwipeRef.current < 2000) return;
+    const w = el.clientWidth || 1;
+    if (!w) return;
+
+    const nextIdx = (activeIndex + 1) % files.length;
+    lastAutoSwipeRef.current = Date.now();
+    el.scrollTo({ left: nextIdx * w, behavior: "smooth" });
+    setActiveIndex(nextIdx);
+  }, 6000);
+
+  return () => window.clearInterval(id);
+}, [imagesOnly, files.length, activeIndex]);
+ Math.min(files.length - 1, idx)));
   };
 
   const [videoDurationSec, setVideoDurationSec] = useState(15);
@@ -656,8 +680,9 @@ return (
             width: "100%",
             aspectRatio: "9 / 16",
             display: "grid",
-            placeItems: "center"
-          }}
+            placeItems: "center",
+             position: "relative"
+           }}
         >
           {previewUrl ? (
             hasVideo ? (
@@ -677,7 +702,10 @@ return (
                   height: "100%",
                   display: "flex",
                   overflowX: "auto",
-                  scrollSnapType: "x mandatory"
+                  scrollSnapType: "x mandatory",
+                  WebkitOverflowScrolling: "touch",
+                  touchAction: "pan-x",
+                  overscrollBehavior: "contain"
                 }}
               >
                 {files.map((f, i) => {
@@ -708,7 +736,34 @@ return (
                   );
                 })}
               </div>
-            ) : (
+            
+<div
+  aria-hidden="true"
+  style={{
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 10,
+    display: "flex",
+    justifyContent: "center",
+    gap: 6,
+    pointerEvents: "none"
+  }}
+>
+  {files.map((_, i) => (
+    <span
+      key={i}
+      style={{
+        width: 6,
+        height: 6,
+        borderRadius: 999,
+        background: i === activeIndex ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.35)"
+      }}
+    />
+  ))}
+</div>
+
+) : (
               <img src={previewUrl} alt="Aperçu" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             )
           ) : (
@@ -760,8 +815,7 @@ return (
                     position: "relative",
                     flex: "0 0 auto"
                   }}
-                  title={f.name}
-                >
+                                  >
                   {String(f.type || "").startsWith("video/") ? (
                     <div style={{ width: "100%", height: "100%", background: "rgba(0,0,0,0.25)", display: "grid", placeItems: "center" }}>
                       <span style={{ fontWeight: 900, fontSize: 12 }}>VIDÉO</span>
@@ -817,7 +871,7 @@ return (
               Changer la photo/vidéo
             </button>
             <div style={{ opacity: 0.75, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {activeFile?.name || ""}
+              {files.length ? `Média ${activeIndex + 1}/${files.length}` : ""}
             </div>
           </div>
         ) : null}
