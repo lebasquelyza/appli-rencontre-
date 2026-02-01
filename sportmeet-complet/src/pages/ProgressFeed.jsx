@@ -309,6 +309,42 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     }
   }, [visible, post.music_url, post.music_start_sec]);
 
+  // ✅ Quand l'utilisateur lance la vidéo (clic), on lance aussi la musique.
+  const togglePlayPause = async () => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v) return;
+
+    const hasMusic = !!post.music_url && !!a;
+    const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+
+    try {
+      if (v.paused) {
+        // Play video
+        const pv = v.play();
+        if (pv?.catch) await pv.catch(() => {});
+
+        // Play music aligned to video time
+        if (hasMusic) {
+          try {
+            a.volume = effectiveMusicVol;
+            a.currentTime = Math.max(0, (v.currentTime || 0) + start);
+            const pa = a.play();
+            if (pa?.catch) await pa.catch(() => {});
+          } catch {}
+        }
+      } else {
+        // Pause both
+        try {
+          v.pause();
+        } catch {}
+        try {
+          a?.pause();
+        } catch {}
+      }
+    } catch {}
+  };
+
   const canDelete = !!user?.id && user.id === post.user_id;
 
   const deletePost = async () => {
@@ -377,6 +413,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
           <video
             ref={videoRef}
             src={post.media_url}
+            onClick={togglePlayPause}
             playsInline
             loop
             controls={false}
