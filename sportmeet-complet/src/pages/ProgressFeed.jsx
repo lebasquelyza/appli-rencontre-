@@ -265,47 +265,81 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     if (a) a.volume = effectiveMusicVol;
   }, [effectiveVideoVol, effectiveMusicVol]);
 
-  // Sync music to video time (best effort)
-  useEffect(() => {
+    useEffect(() => {
     const v = videoRef.current;
     const a = audioRef.current;
-    if (!v || !a || !post.music_url) return;
 
-    const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
-
-    const sync = () => {
-      const target = Math.max(0, (v.currentTime || 0) + start);
-      if (Math.abs((a.currentTime || 0) - target) > 0.35) a.currentTime = target;
+    const playMusic = async () => {
+      if (!post.music_url || !a) return;
+      try {
+        const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+        a.currentTime = start;
+        const pa = a.play();
+        if (pa?.catch) pa.catch(() => {});
+      } catch {}
     };
 
-    v.addEventListener("timeupdate", sync);
-    return () => v.removeEventListener("timeupdate", sync);
-  }, [post.music_url, post.music_start_sec]);
+    const stopMusic = () => {
+      try {
+        a?.pause();
+      } catch {}
+    };
 
-  useEffect(() => {
+    if (visible) {
+      if (post.media_type === "video") {
+        // Autoplay video, but DO NOT autoplay music (music starts on user pause)
+        try {
+          const pv = v?.play();
+          if (pv?.catch) pv.catch(() => {});
+        } catch {}
+        stopMusic();
+      } else {
+        // Photo post: autoplay music when visible
+        stopMusic();
+        playMusic();
+      }
+    } else {
+      try {
+        v?.pause();
+      } catch {}
+      stopMusic();
+    }
+  }, [visible, post.media_type, post.music_url, post.music_start_sec]);
+
+
+  const onVideoTap = async () => {
     const v = videoRef.current;
     const a = audioRef.current;
     if (!v) return;
 
-    if (visible) {
-      const pv = v.play();
-      if (pv?.catch) pv.catch(() => {});
-      // ✅ On ne lance PAS la musique automatiquement : elle démarre seulement
-      // quand l'utilisateur met la vidéo en pause (geste utilisateur).
-      try {
-        a?.pause();
-      } catch {}
-    } else {
+    const hasMusic = !!post.music_url && !!a;
+    const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+
+    if (!v.paused) {
+      // User pauses -> start music (user gesture)
       try {
         v.pause();
       } catch {}
+      if (hasMusic) {
+        try {
+          a.currentTime = start;
+          const p = a.play();
+          if (p?.catch) p.catch(() => {});
+        } catch {}
+      }
+    } else {
+      // User resumes -> stop music, resume video
+      if (hasMusic) {
+        try {
+          a.pause();
+        } catch {}
+      }
       try {
-        a?.pause();
+        const p = v.play();
+        if (p?.catch) p.catch(() => {});
       } catch {}
     }
-  }, [visible]);
-
-
+  };
   const canDelete = !!user?.id && user.id === post.user_id;
 
   const deletePost = async () => {
@@ -324,38 +358,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   const authorName = post?.author_name || "Utilisateur";
   const authorPhoto = post?.author_photo || "";
 
-
-  const onVideoTap = async () => {
-    const v = videoRef.current;
-    const a = audioRef.current;
-    if (!v) return;
-
-    // Si la vidéo est en train de jouer -> on pause et on lance la musique
-    if (!v.paused) {
-      try {
-        v.pause();
-      } catch {}
-
-      if (post.music_url && a) {
-        try {
-          const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
-          a.currentTime = Math.max(0, (v.currentTime || 0) + start);
-          const pa = a.play();
-          if (pa?.catch) pa.catch(() => {});
-        } catch {}
-      }
-      return;
-    }
-
-    // Si la vidéo est en pause -> on relance la vidéo et on coupe la musique
-    try {
-      a?.pause();
-    } catch {}
-    try {
-      const pv = v.play();
-      if (pv?.catch) pv.catch(() => {});
-    } catch {}
-  };
   return (
     <article
       ref={ref}
@@ -406,11 +408,11 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
           <video
             ref={videoRef}
             src={post.media_url}
-            onClick={onVideoTap}
             playsInline
             loop
             controls={false}
             muted={false}
+            onClick={onVideoTap}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : (
