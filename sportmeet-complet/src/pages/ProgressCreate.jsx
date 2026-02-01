@@ -411,6 +411,51 @@ const maxMusicStart = useMemo(() => {
     }
   };
 
+  // ✅ Quand l'utilisateur lance la vidéo (preview), on lance aussi la musique sélectionnée.
+  const startMusicWithVideo = async () => {
+    if (!track?.preview_url) return;
+    const v = previewVideoRef.current;
+    const a = audioRef.current;
+    if (!v || !a) return;
+
+    try {
+      // Stop any previous timed preview
+      if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
+      previewStopTimerRef.current = null;
+
+      a.src = track.preview_url;
+      a.volume = clamp01(musicVol);
+      const start = Math.min(maxMusicStart, Math.max(0, Number(musicStart || 0)));
+      a.currentTime = Math.max(0, (v.currentTime || 0) + start);
+      const p = a.play();
+      if (p?.catch) p.catch(() => {});
+    } catch (e) {
+      console.log("music play blocked:", e);
+    }
+  };
+
+  const stopMusic = () => {
+    try {
+      const a = audioRef.current;
+      if (a) a.pause();
+    } catch {}
+  };
+
+  // Keep music aligned to preview video while it plays (best-effort)
+  useEffect(() => {
+    const v = previewVideoRef.current;
+    const a = audioRef.current;
+    if (!v || !a || !track?.preview_url || !String(file?.type || "").startsWith("video/")) return;
+
+    const start = Math.min(maxMusicStart, Math.max(0, Number(musicStart || 0)));
+    const sync = () => {
+      const target = Math.max(0, (v.currentTime || 0) + start);
+      if (Math.abs((a.currentTime || 0) - target) > 0.35) a.currentTime = target;
+    };
+    v.addEventListener("timeupdate", sync);
+    return () => v.removeEventListener("timeupdate", sync);
+  }, [file?.type, track?.preview_url, musicStart, maxMusicStart]);
+
   // Apply volume on preview video
   useEffect(() => {
     const v = previewVideoRef.current;
@@ -606,6 +651,9 @@ return (
                 src={previewUrl}
                 playsInline
                 controls
+                onPlay={startMusicWithVideo}
+                onPause={stopMusic}
+                onEnded={stopMusic}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
@@ -688,10 +736,38 @@ return (
             </div>
 
             <div style={{ display: "grid", gap: 10 }}>
-              <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, opacity: 0.85 }}>
-                  Début : {Math.round(musicStart)}s — Fin : {Math.round(musicStart + clipLenSec)}s (clip {clipLenSec}s)
-                </span>
+              {/* Instagram-like selector: a scrubber + selection window (no "Début/Fin" text) */}
+              <div style={{ display: "grid", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 700 }}>Sélectionner un extrait</div>
+                  <div style={{ fontSize: 12, opacity: 0.75 }}>Clip {clipLenSec}s</div>
+                </div>
+
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "relative",
+                    height: 10,
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.12)",
+                    overflow: "hidden"
+                  }}
+                >
+                  {/* Selection window */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      bottom: 0,
+                      left: `${(Math.max(0, Math.min(29, musicStart)) / 29) * 100}%`,
+                      width: `${(clipLenSec / 29) * 100}%`,
+                      borderRadius: 999,
+                      background: "rgba(255,255,255,0.35)",
+                      boxShadow: "0 0 0 1px rgba(255,255,255,0.35) inset"
+                    }}
+                  />
+                </div>
+
                 <input
                   type="range"
                   min="0"
@@ -700,8 +776,9 @@ return (
                   value={musicStart}
                   onChange={(e) => setMusicStart(Number(e.target.value))}
                   disabled={loading}
+                  aria-label="Sélection de l'extrait audio"
                 />
-              </label>
+              </div>
 
               <label style={{ display: "grid", gap: 4 }}>
                 <span style={{ fontSize: 12, opacity: 0.85 }}>Volume musique</span>
