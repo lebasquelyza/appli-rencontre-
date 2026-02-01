@@ -778,10 +778,6 @@ return (
                 <div
                   ref={previewStripRef}
                   onScroll={onPreviewStripScroll}
-                  onPointerDown={onPreviewPointerDown}
-                  onPointerMove={onPreviewPointerMove}
-                  onPointerUp={onPreviewPointerEnd}
-                  onPointerCancel={onPreviewPointerEnd}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -791,9 +787,7 @@ return (
                     overflowY: "hidden",
                     scrollSnapType: "x mandatory",
                     WebkitOverflowScrolling: "touch",
-                    // allow vertical page scrolling; we only preventDefault when user truly swipes horizontally
-                    touchAction: "pan-y",
-                    overscrollBehavior: "contain"
+                    overscrollBehaviorX: "contain"
                   }}
                 >
                   {files.map((f, i) => {
