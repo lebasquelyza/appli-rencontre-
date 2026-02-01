@@ -646,7 +646,6 @@ return (
           )}
         </div>
 
-        {
         {/* Thumbnails (multi media) */}
         {files.length > 1 ? (
           <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "6px 2px 2px" }}>
@@ -721,7 +720,7 @@ return (
           </div>
         ) : null}
 
-/* Change media (no +Média button) */}
+        {/* Changer le média (sans bouton +Média) */}
         {files.length ? (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <button
