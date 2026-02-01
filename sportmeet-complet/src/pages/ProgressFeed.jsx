@@ -290,15 +290,11 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     if (visible) {
       const pv = v.play();
       if (pv?.catch) pv.catch(() => {});
-
-      if (post.music_url && a) {
-        try {
-          const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
-          a.currentTime = Math.max(0, (v.currentTime || 0) + start);
-          const pa = a.play();
-          if (pa?.catch) pa.catch(() => {});
-        } catch {}
-      }
+      // ✅ On ne lance PAS la musique automatiquement : elle démarre seulement
+      // quand l'utilisateur met la vidéo en pause (geste utilisateur).
+      try {
+        a?.pause();
+      } catch {}
     } else {
       try {
         v.pause();
@@ -307,43 +303,8 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
         a?.pause();
       } catch {}
     }
-  }, [visible, post.music_url, post.music_start_sec]);
+  }, [visible]);
 
-  // ✅ Quand l'utilisateur lance la vidéo (clic), on lance aussi la musique.
-  const togglePlayPause = async () => {
-    const v = videoRef.current;
-    const a = audioRef.current;
-    if (!v) return;
-
-    const hasMusic = !!post.music_url && !!a;
-    const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
-
-    try {
-      if (v.paused) {
-        // Play video
-        const pv = v.play();
-        if (pv?.catch) await pv.catch(() => {});
-
-        // Play music aligned to video time
-        if (hasMusic) {
-          try {
-            a.volume = effectiveMusicVol;
-            a.currentTime = Math.max(0, (v.currentTime || 0) + start);
-            const pa = a.play();
-            if (pa?.catch) await pa.catch(() => {});
-          } catch {}
-        }
-      } else {
-        // Pause both
-        try {
-          v.pause();
-        } catch {}
-        try {
-          a?.pause();
-        } catch {}
-      }
-    } catch {}
-  };
 
   const canDelete = !!user?.id && user.id === post.user_id;
 
@@ -363,6 +324,38 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   const authorName = post?.author_name || "Utilisateur";
   const authorPhoto = post?.author_photo || "";
 
+
+  const onVideoTap = async () => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v) return;
+
+    // Si la vidéo est en train de jouer -> on pause et on lance la musique
+    if (!v.paused) {
+      try {
+        v.pause();
+      } catch {}
+
+      if (post.music_url && a) {
+        try {
+          const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+          a.currentTime = Math.max(0, (v.currentTime || 0) + start);
+          const pa = a.play();
+          if (pa?.catch) pa.catch(() => {});
+        } catch {}
+      }
+      return;
+    }
+
+    // Si la vidéo est en pause -> on relance la vidéo et on coupe la musique
+    try {
+      a?.pause();
+    } catch {}
+    try {
+      const pv = v.play();
+      if (pv?.catch) pv.catch(() => {});
+    } catch {}
+  };
   return (
     <article
       ref={ref}
@@ -413,7 +406,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
           <video
             ref={videoRef}
             src={post.media_url}
-            onClick={togglePlayPause}
+            onClick={onVideoTap}
             playsInline
             loop
             controls={false}
@@ -661,15 +654,9 @@ export function ProgressFeed({ user }) {
   return (
     <main className="page">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button type="button" className="btn-ghost btn-sm" onClick={() => navigate("/")} title="Retour">
-            Retour
-          </button>
-
-          <div>
-            <h2 style={{ margin: 0 }}>Progressions</h2>
-            <div style={{ fontSize: 13, opacity: 0.75 }}>Scroll vertical + auto-play (logique TikTok)</div>
-          </div>
+        <div>
+          <h2 style={{ margin: 0 }}>Progressions</h2>
+          <div style={{ fontSize: 13, opacity: 0.75 }}>Scroll vertical + auto-play (logique TikTok)</div>
         </div>
 
         <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
