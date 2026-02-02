@@ -10,6 +10,18 @@ const BUCKET = "progress-media";
  * Pour imiter TikTok sans SDK payant/licencié, on utilise iTunes Search API (gratuit, sans clé)
  * qui retourne un preview 30s (previewUrl). Donc la sélection de "partie du son" est sur 0–29s.
  */
+
+/**
+ * ✅ Recherche "musiques trouvables" (catalogue large)
+ *
+ * IMPORTANT (droits/licences) : les API publiques (Spotify/Apple/Deezer) ne fournissent
+ * généralement pas un fichier audio complet téléchargeable.
+ *
+ * Ici on fait :
+ * 1) Appelle /api/music-search (serveur) pour chercher sur Spotify (catalogue énorme).
+ *    - Certaines pistes ont preview_url (souvent 30s), d'autres non.
+ * 2) Fallback iTunes Search (preview 30s) si l'endpoint n'est pas configuré.
+ */
 async function searchItunesTracks(term) {
   const q = String(term || "").trim();
   if (!q) return [];
@@ -26,11 +38,31 @@ async function searchItunesTracks(term) {
       artist: String(t.artistName || ""),
       artwork: String(t.artworkUrl100 || t.artworkUrl60 || ""),
       preview_url: String(t.previewUrl || ""),
-      duration_ms: Number(t.trackTimeMillis || 0)
+      duration_ms: Number(t.trackTimeMillis || 0),
+      external_url: String(t.trackViewUrl || "")
     }))
     .filter((t) => t.preview_url);
 }
 
+async function searchMusicTracks(term) {
+  const q = String(term || "").trim();
+  if (!q) return [];
+
+  // 1) Spotify via endpoint serveur (recommandé)
+  try {
+    const res = await fetch(`/api/music-search?term=${encodeURIComponent(q)}`);
+    if (res.ok) {
+      const data = await res.json();
+      const list = Array.isArray(data?.results) ? data.results : [];
+      if (list.length) return list;
+    }
+  } catch {
+    // ignore, on fallback
+  }
+
+  // 2) Fallback iTunes (preview 30s)
+  return await searchItunesTracks(q);
+}
 function safeExt(file) {
   const byMime = (file?.type || "").split("/")[1];
   if (byMime) return byMime.replace("jpeg", "jpg");
@@ -91,7 +123,7 @@ function MusicPickerModal({ open, onClose, onSelect }) {
     setErr("");
     stop();
     try {
-      const list = await searchItunesTracks(term);
+      const list = await searchMusicTracks(term);
       setResults(list);
       if (!list.length) setErr("Aucun résultat.");
     } catch (e) {
