@@ -876,7 +876,6 @@ function ProgressFeed({ user }) {
   );
 }
 
-export default ProgressFeed;
 export { ProgressFeed };
 export default ProgressFeed;
 
