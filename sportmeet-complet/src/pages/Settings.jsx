@@ -122,8 +122,7 @@ function MusicLibraryModal({ open, onClose, userId }) {
   useEffect(() => {
     if (!open) return;
     setTab("library"); setQ(""); setResults([]); setErr("");
-    setLibErr(""); setLibQuery(""); setLibScope("all"); setAddToGlobal(false);
-    stop();
+    setLibErr(""); setLibQuery(""); setLibScope("all");    stop();
     if (userId) loadLibrary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, userId]);
