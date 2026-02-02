@@ -777,6 +777,29 @@ const maxMusicStart = useMemo(() => {
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [track, setTrack] = useState(null);
+
+  // Si l’utilisateur choisit un son depuis le feed, on le récupère ici
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("mf_selected_track");
+      if (!raw) return;
+      localStorage.removeItem("mf_selected_track");
+
+      const t = JSON.parse(raw);
+      if (t && (t.track_id || t.preview_url)) {
+        setTrack({
+          provider: t.provider || "spotify",
+          track_id: t.track_id || null,
+          title: t.title || "",
+          artist: t.artist || "",
+          artwork: t.artwork || "",
+          preview_url: t.preview_url || "",
+          external_url: t.external_url || ""
+        });
+        setMusicStart(0);
+      }
+    } catch {}
+  }, []);
   const [musicStart, setMusicStart] = useState(0); // 0..29
   const [musicVol, setMusicVol] = useState(0.6);
   const [videoVol, setVideoVol] = useState(1.0);
