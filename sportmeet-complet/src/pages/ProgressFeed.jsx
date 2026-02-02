@@ -470,7 +470,141 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   );
 }
 
-export function ProgressFeed({ user }) {
+export 
+function SoundPickerModal({ open, onClose, userId, onPick }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [q, setQ] = useState("");
+
+  const audioRef = useRef(null);
+  const stopTimerRef = useRef(null);
+  const [playingId, setPlayingId] = useState(null);
+
+  const stop = () => {
+    try {
+      if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+      const a = audioRef.current;
+      if (a) { a.pause(); a.currentTime = 0; a.src = ""; }
+    } catch {}
+    setPlayingId(null);
+  };
+
+  const playPreview = (t) => {
+    if (!t?.preview_url) return;
+    const id = t.id || t.track_id;
+    if (playingId === id) { stop(); return; }
+    stop();
+    try {
+      const a = audioRef.current;
+      if (!a) return;
+      a.src = t.preview_url;
+      a.currentTime = 0;
+      const p = a.play();
+      if (p?.catch) p.catch(() => {});
+      setPlayingId(id);
+      stopTimerRef.current = setTimeout(() => { try { a.pause(); } catch {} setPlayingId(null); }, 30000);
+    } catch {}
+  };
+
+  const load = async () => {
+    if (!userId) {
+      setErr("Connecte-toi pour choisir un son.");
+      setRows([]);
+      return;
+    }
+    setLoading(true);
+    setErr("");
+    stop();
+    try {
+      const { data, error } = await supabase
+        .from("music_library")
+        .select("id, owner_id, provider, track_id, title, artist, artwork, preview_url, external_url, created_at")
+        .or(`owner_id.is.null,owner_id.eq.${userId}`)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (error) {
+        console.error("music_library select error:", error);
+        setErr("Impossible de charger la bibliothèque.");
+        setRows([]);
+        return;
+      }
+      setRows(data || []);
+    } catch (e) {
+      console.error("music_library load exception:", e);
+      setErr("Impossible de charger la bibliothèque.");
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setQ("");
+    setErr("");
+    setRows([]);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, userId]);
+
+  const filtered = React.useMemo(() => {
+    const qx = String(q || "").toLowerCase().trim();
+    return (rows || []).filter(r =>
+      !qx || (`${r.title || ""} ${r.artist || ""}`).toLowerCase().includes(qx)
+    );
+  }, [rows, q]);
+
+  if (!open) return null;
+
+  return (
+    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
+      <div className="modal-card modal-card--sheet allowScroll" onClick={e => e.stopPropagation()}
+        style={{ width: "min(920px,98vw)", maxHeight: "calc(var(--appH,100vh)-18px)", borderRadius: 18 }}>
+        <div className="modal-header" style={{ display: "flex", alignItems: "center" }}>
+          <h3 style={{ marginRight: "auto" }}>Choisir un son</h3>
+          <button className="btn-ghost btn-sm" onClick={() => { stop(); onClose(); }}>Fermer</button>
+        </div>
+
+        <div className="modal-body modal-body--scroll allowScroll">
+          <input className="input" placeholder="Filtrer…" value={q} onChange={e => setQ(e.target.value)} />
+
+          {err ? <p className="form-message error">{err}</p> : null}
+          <audio ref={audioRef} />
+
+          {loading ? <p className="form-message">Chargement…</p> : null}
+
+          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+            {filtered.map(t => (
+              <div key={t.id} className="card" style={{ padding: 10, display: "flex", gap: 10 }}>
+                <img src={t.artwork || "/avatar.png"} style={{ width: 48, height: 48, borderRadius: 12 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 900 }}>{t.title}</div>
+                  <div style={{ opacity: .7, fontSize: 13 }}>{t.artist}</div>
+                </div>
+
+                {t.preview_url ? (
+                  <button className="btn-ghost btn-sm" onClick={() => playPreview(t)}>
+                    {playingId === t.id ? "⏸" : "▶"}
+                  </button>
+                ) : null}
+
+                <button className="btn-primary btn-sm" onClick={() => { stop(); onPick(t); }}>
+                  Utiliser
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function ProgressFeed({ user }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
@@ -480,6 +614,8 @@ export function ProgressFeed({ user }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
 
+
+  const [soundPickerOpen, setSoundPickerOpen] = useState(false);
   const load = async () => {
     setLoading(true);
     setErr("");
@@ -704,6 +840,29 @@ export function ProgressFeed({ user }) {
         postId={commentsPostId}
         user={user}
         onPosted={onCommentPosted}
+      />
+    
+      <SoundPickerModal
+        open={soundPickerOpen}
+        onClose={() => setSoundPickerOpen(false)}
+        userId={user?.id}
+        onPick={(t) => {
+          try {
+            localStorage.setItem(
+              "mf_selected_track",
+              JSON.stringify({
+                provider: t.provider || "spotify",
+                track_id: t.track_id,
+                title: t.title,
+                artist: t.artist,
+                artwork: t.artwork,
+                preview_url: t.preview_url,
+                external_url: t.external_url
+              })
+            );
+          } catch {}
+          navigate("/create");
+        }}
       />
     </main>
   );
