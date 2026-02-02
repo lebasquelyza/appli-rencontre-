@@ -6,63 +6,121 @@ import { supabase } from "../lib/supabase";
 const BUCKET = "progress-media";
 
 /**
- * ✅ NOTE LICENCE / TECH
- * Pour imiter TikTok sans SDK payant/licencié, on utilise iTunes Search API (gratuit, sans clé)
- * qui retourne un preview 30s (previewUrl). Donc la sélection de "partie du son" est sur 0–29s.
+ * ✅ OPTION B (Spotify plein morceau)
+ * - On utilise Spotify Search + Spotify Web Playback SDK (lecture complète, dans l'app)
+ * - Nécessite que l'utilisateur se connecte à Spotify (souvent Premium requis pour le Web Playback SDK)
+ *
+ * Config:
+ *   - VITE_SPOTIFY_CLIENT_ID dans Netlify/env
+ *   - Redirect URI autorisée côté Spotify (ex: https://ton-site.netlify.app/progress/create)
  */
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
 
-/**
- * ✅ Recherche "musiques trouvables" (catalogue large)
- *
- * IMPORTANT (droits/licences) : les API publiques (Spotify/Apple/Deezer) ne fournissent
- * généralement pas un fichier audio complet téléchargeable.
- *
- * Ici on fait :
- * 1) Appelle /api/music-search (serveur) pour chercher sur Spotify (catalogue énorme).
- *    - Certaines pistes ont preview_url (souvent 30s), d'autres non.
- * 2) Fallback iTunes Search (preview 30s) si l'endpoint n'est pas configuré.
- */
-async function searchItunesTracks(term) {
+// --- PKCE helpers (client-only) ---
+function b64url(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+async function sha256(str) {
+  const data = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return new Uint8Array(digest);
+}
+function randomVerifier(len = 64) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return b64url(arr);
+}
+async function makeChallenge(verifier) {
+  const hashed = await sha256(verifier);
+  return b64url(hashed);
+}
+
+function getRedirectUri() {
+  // On revient sur la même page
+  return window.location.origin + window.location.pathname;
+}
+
+async function spotifyLogin() {
+  if (!SPOTIFY_CLIENT_ID) throw new Error("VITE_SPOTIFY_CLIENT_ID manquant.");
+  const verifier = randomVerifier(64);
+  localStorage.setItem("spotify_pkce_verifier", verifier);
+  const challenge = await makeChallenge(verifier);
+
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: SPOTIFY_CLIENT_ID,
+    scope: [
+      "streaming",
+      "user-read-email",
+      "user-read-private",
+      "user-modify-playback-state",
+      "user-read-playback-state"
+    ].join(" "),
+    redirect_uri: getRedirectUri(),
+    code_challenge_method: "S256",
+    code_challenge: challenge
+  });
+
+  window.location.href = "https://accounts.spotify.com/authorize?" + params.toString();
+}
+
+async function spotifyExchangeCodeForToken(code) {
+  const verifier = localStorage.getItem("spotify_pkce_verifier") || "";
+  if (!verifier) throw new Error("PKCE verifier manquant.");
+  const body = new URLSearchParams({
+    client_id: SPOTIFY_CLIENT_ID,
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: getRedirectUri(),
+    code_verifier: verifier
+  });
+
+  const res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+  if (!res.ok) throw new Error("Connexion Spotify impossible.");
+  return await res.json();
+}
+
+async function spotifyRefreshToken(refreshToken) {
+  const body = new URLSearchParams({
+    client_id: SPOTIFY_CLIENT_ID,
+    grant_type: "refresh_token",
+    refresh_token: refreshToken
+  });
+
+  const res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+  if (!res.ok) throw new Error("Refresh Spotify impossible.");
+  return await res.json();
+}
+
+async function spotifySearchTracks(accessToken, term) {
   const q = String(term || "").trim();
   if (!q) return [];
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=25`;
-  const res = await fetch(url);
+  const url = "https://api.spotify.com/v1/search?" + new URLSearchParams({ q, type: "track", limit: "25" }).toString();
+  const res = await fetch(url, { headers: { Authorization: "Bearer " + accessToken } });
   if (!res.ok) return [];
   const data = await res.json();
-  const results = Array.isArray(data?.results) ? data.results : [];
-  return results
-    .map((t) => ({
-      provider: "itunes",
-      track_id: String(t.trackId || ""),
-      title: String(t.trackName || "Titre"),
-      artist: String(t.artistName || ""),
-      artwork: String(t.artworkUrl100 || t.artworkUrl60 || ""),
-      preview_url: String(t.previewUrl || ""),
-      duration_ms: Number(t.trackTimeMillis || 0),
-      external_url: String(t.trackViewUrl || "")
-    }))
-    .filter((t) => t.preview_url);
+  const items = data?.tracks?.items || [];
+  return items.map((t) => ({
+    provider: "spotify",
+    track_id: String(t.id || ""),
+    uri: String(t.uri || ""),
+    title: String(t.name || "Titre"),
+    artist: String((t.artists || []).map((a) => a.name).join(", ")),
+    artwork: String(t.album?.images?.[0]?.url || ""),
+    duration_ms: Number(t.duration_ms || 0),
+    external_url: String(t.external_urls?.spotify || "")
+  }));
 }
 
-async function searchMusicTracks(term) {
-  const q = String(term || "").trim();
-  if (!q) return [];
 
-  // 1) Spotify via endpoint serveur (recommandé)
-  try {
-    const res = await fetch(`/api/music-search?term=${encodeURIComponent(q)}`);
-    if (res.ok) {
-      const data = await res.json();
-      const list = Array.isArray(data?.results) ? data.results : [];
-      if (list.length) return list;
-    }
-  } catch {
-    // ignore, on fallback
-  }
-
-  // 2) Fallback iTunes (preview 30s)
-  return await searchItunesTracks(q);
-}
 function safeExt(file) {
   const byMime = (file?.type || "").split("/")[1];
   if (byMime) return byMime.replace("jpeg", "jpg");
@@ -82,6 +140,7 @@ function clamp01(n) {
 
 function MusicPickerModal({ open, onClose, onSelect }) {
   const [q, setQ] = useState("");
+  const [accessToken, setAccessToken] = useState(localStorage.getItem("spotify_access_token") || "");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [results, setResults] = useState([]);
@@ -98,6 +157,7 @@ function MusicPickerModal({ open, onClose, onSelect }) {
     setResults([]);
     setPlayingId(null);
     setQ("");
+    setAccessToken(localStorage.getItem("spotify_access_token") || "");
   }, [open]);
 
   const stop = () => {
@@ -115,6 +175,10 @@ function MusicPickerModal({ open, onClose, onSelect }) {
 
   const run = async () => {
     const term = String(q || "").trim();
+    if (!accessToken) {
+      setErr("Connecte-toi à Spotify pour rechercher une musique.");
+      return;
+    }
     if (!term) {
       setErr("Tape un titre ou un artiste.");
       return;
@@ -123,7 +187,7 @@ function MusicPickerModal({ open, onClose, onSelect }) {
     setErr("");
     stop();
     try {
-      const list = await searchMusicTracks(term);
+      const list = await spotifySearchTracks(accessToken, term);
       setResults(list);
       if (!list.length) setErr("Aucun résultat.");
     } catch (e) {
@@ -225,13 +289,35 @@ function MusicPickerModal({ open, onClose, onSelect }) {
             </button>
           </div>
 
+          {!accessToken ? (
+            <div className="card" style={{ padding: 10, marginTop: 10, borderRadius: 14 }}>
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>Connexion Spotify</div>
+              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 10 }}>
+                Pour chercher et lire la musique entière, connecte-toi à Spotify.
+              </div>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                onClick={async () => {
+                  try {
+                    await spotifyLogin();
+                  } catch (e) {
+                    setErr(String(e?.message || e));
+                  }
+                }}
+              >
+                Connecter Spotify
+              </button>
+            </div>
+          ) : null}
+
           {err ? (
             <p className="form-message error" style={{ marginTop: 10 }}>
               {err}
             </p>
           ) : (
             <p className="form-message" style={{ marginTop: 10, opacity: 0.8 }}>
-              Résultats via iTunes (preview 30s).
+              Résultats via Spotify. (Lecture complète via Spotify)
             </p>
           )}
 
@@ -267,17 +353,18 @@ function MusicPickerModal({ open, onClose, onSelect }) {
                     {t.artist}
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={() => playPreview(t)}
-                  title="Écouter"
-                  aria-label="Écouter"
-                >
-                  {playingId === t.track_id ? "⏸" : "▶︎"}
-                </button>
-
+                {t.external_url ? (
+                  <a
+                    className="btn-ghost btn-sm"
+                    href={t.external_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Ouvrir dans Spotify"
+                    title="Ouvrir dans Spotify"
+                  >
+                    🔗
+                  </a>
+                ) : null}
                 <button
                   type="button"
                   className="btn-primary btn-sm"
@@ -302,6 +389,149 @@ function MusicPickerModal({ open, onClose, onSelect }) {
 
 export function ProgressCreate({ user }) {
   const navigate = useNavigate();
+
+  // --- Spotify (Option B) ---
+  const [spotifyToken, setSpotifyToken] = useState(localStorage.getItem("spotify_access_token") || "");
+  const [spotifyRefreshTok, setSpotifyRefreshTok] = useState(localStorage.getItem("spotify_refresh_token") || "");
+  const [spotifyDeviceId, setSpotifyDeviceId] = useState("");
+  const spotifyStopTimerRef = useRef(null);
+
+  // Handle Spotify OAuth redirect (PKCE)
+  useEffect(() => {
+    (async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+        if (!code) return;
+        const token = await spotifyExchangeCodeForToken(code);
+        const access = token?.access_token || "";
+        const refresh = token?.refresh_token || spotifyRefreshTok || "";
+        const expiresIn = Number(token?.expires_in || 0);
+        if (access) {
+          localStorage.setItem("spotify_access_token", access);
+          setSpotifyToken(access);
+        }
+        if (refresh) {
+          localStorage.setItem("spotify_refresh_token", refresh);
+          setSpotifyRefreshTok(refresh);
+        }
+        if (expiresIn) {
+          localStorage.setItem("spotify_expires_at", String(Date.now() + (expiresIn - 30) * 1000));
+        }
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (e) {
+        console.log("Spotify OAuth error:", e);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const ensureSpotifyAccessToken = async () => {
+    const exp = Number(localStorage.getItem("spotify_expires_at") || 0);
+    if (spotifyToken && exp && Date.now() < exp) return spotifyToken;
+    if (!spotifyRefreshTok) return spotifyToken;
+    try {
+      const refreshed = await spotifyRefreshToken(spotifyRefreshTok);
+      const access = refreshed?.access_token || "";
+      const expiresIn = Number(refreshed?.expires_in || 0);
+      if (access) {
+        localStorage.setItem("spotify_access_token", access);
+        setSpotifyToken(access);
+      }
+      if (expiresIn) {
+        localStorage.setItem("spotify_expires_at", String(Date.now() + (expiresIn - 30) * 1000));
+      }
+      return access || spotifyToken;
+    } catch (e) {
+      console.log("Spotify refresh error:", e);
+      return spotifyToken;
+    }
+  };
+
+  // Load Spotify Web Playback SDK (Premium généralement requis)
+  useEffect(() => {
+    if (!spotifyToken) return;
+    if (window.__spotify_sdk_loading__) return;
+    window.__spotify_sdk_loading__ = true;
+
+    const load = () =>
+      new Promise((resolve) => {
+        if (document.getElementById("spotify-sdk")) return resolve();
+        const s = document.createElement("script");
+        s.id = "spotify-sdk";
+        s.src = "https://sdk.scdn.co/spotify-player.js";
+        s.async = true;
+        s.onload = () => resolve();
+        document.body.appendChild(s);
+      });
+
+    load().then(() => {
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        try {
+          const player = new window.Spotify.Player({
+            name: "MatchFit Player",
+            getOAuthToken: async (cb) => {
+              const tok = await ensureSpotifyAccessToken();
+              cb(tok || spotifyToken);
+            },
+            volume: 0.8
+          });
+
+          player.addListener("ready", ({ device_id }) => {
+            setSpotifyDeviceId(device_id);
+          });
+
+          player.addListener("not_ready", () => {});
+
+          player.connect();
+          window.__spotify_player__ = player;
+        } catch (e) {
+          console.log("Spotify SDK init error:", e);
+        }
+      };
+      // If SDK already ready, fire manually
+      if (window.Spotify && window.Spotify.Player) {
+        window.onSpotifyWebPlaybackSDKReady?.();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spotifyToken]);
+
+  const spotifyPlaySegment = async (uri, startMs = 0, durationMs = 30000) => {
+    if (!uri) return;
+    const token = await ensureSpotifyAccessToken();
+    if (!token) {
+      setBanner("Connecte-toi à Spotify pour lire la musique entière.", true);
+      return;
+    }
+    if (!spotifyDeviceId) {
+      setBanner("Player Spotify non prêt (Premium requis).", true);
+      return;
+    }
+    try {
+      // Start playback at position
+      await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(spotifyDeviceId)}`, {
+        method: "PUT",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ uris: [uri], position_ms: Math.max(0, Math.floor(startMs)) })
+      });
+
+      if (spotifyStopTimerRef.current) clearTimeout(spotifyStopTimerRef.current);
+      spotifyStopTimerRef.current = setTimeout(async () => {
+        try {
+          await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${encodeURIComponent(spotifyDeviceId)}`, {
+            method: "PUT",
+            headers: { Authorization: "Bearer " + token }
+          });
+        } catch {}
+      }, Math.max(1000, Math.floor(durationMs)));
+    } catch (e) {
+      console.log("Spotify play error:", e);
+      setBanner("Impossible de lire sur Spotify (Premium/login requis).", true);
+    }
+  };
+
 
   // Media
   const [files, setFiles] = useState([]);
@@ -529,7 +759,7 @@ useEffect(() => {
   // TikTok-like sound selection
 
 const clipLenSec = useMemo(() => {
-  // iTunes previews are ~30s; we limit the usable clip to 29s for safety
+   // Clip utilisé pour la musique (30s). Pour Spotify (piste entière) on joue 30s; iTunes fallback reste 29s.
   const raw = Number(videoDurationSec || 0);
   if (!Number.isFinite(raw) || raw <= 0) return 15;
   return Math.min(29, Math.max(1, Math.round(raw)));
@@ -599,7 +829,7 @@ const maxMusicStart = useMemo(() => {
 
     // Auto-play selected music as soon as media is picked (user gesture = picking media)
     try {
-      if (track?.preview_url) {
+      if (track?.uri || track?.preview_url) {
         // ensure audio element exists
         setTimeout(() => {
           try { previewFromStart(); } catch {}
@@ -621,9 +851,17 @@ const maxMusicStart = useMemo(() => {
     } catch {}
   };
 
-  const previewFromStart = async () => {
-    if (!track?.preview_url) return;
+    const previewFromStart = async () => {
     try {
+      // Spotify full track
+      if (track?.provider === "spotify" && track?.uri) {
+        const startMs = Math.max(0, Math.floor(Number(musicStart || 0) * 1000));
+        await spotifyPlaySegment(track.uri, startMs, 30000);
+        return;
+      }
+
+      // iTunes fallback (preview 30s)
+      if (!track?.preview_url) return;
       const a = audioRef.current;
       if (!a) return;
       a.src = track.preview_url;
@@ -631,15 +869,12 @@ const maxMusicStart = useMemo(() => {
       a.currentTime = Math.min(maxMusicStart, Math.max(0, Number(musicStart || 0)));
       const p = a.play();
       if (p?.catch) p.catch(() => {});
-      // Stop the preview at the end of the selected clip (Instagram-like)
       if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
       previewStopTimerRef.current = setTimeout(() => {
-        try {
-          a.pause();
-        } catch {}
+        try { a.pause(); } catch {}
       }, (clipLenSec + 0.15) * 1000);
     } catch (e) {
-      console.log("preview from start blocked:", e);
+      console.log("preview blocked:", e);
     }
   };
 
