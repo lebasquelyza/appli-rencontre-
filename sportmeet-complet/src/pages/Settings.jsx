@@ -16,8 +16,6 @@ function MusicLibraryModal({ open, onClose, userId }) {
   const [libQuery, setLibQuery] = useState("");
   const [library, setLibrary] = useState([]);
 
-  const [addToGlobal, setAddToGlobal] = useState(false);
-
   const audioRef = React.useRef(null);
   const previewStopTimerRef = React.useRef(null);
   const [playingId, setPlayingId] = useState(null);
@@ -90,7 +88,7 @@ function MusicLibraryModal({ open, onClose, userId }) {
     setLoading(true); setErr("");
     try {
       const payload = {
-        owner_id: addToGlobal ? null : userId,
+        owner_id: userId,
         created_by: userId,
         provider: "spotify",
         track_id: String(t?.track_id || ""),
@@ -102,7 +100,7 @@ function MusicLibraryModal({ open, onClose, userId }) {
       };
       const { error } = await supabase.from("music_library").insert(payload);
       if (error) { console.error("music_library insert error:", error); setErr("Déjà dans la bibliothèque (ou ajout impossible)."); }
-      else { setErr(addToGlobal ? "Ajouté au global ✅" : "Ajouté à tes sons ✅"); loadLibrary(); }
+      else { setErr("Ajouté à tes sons ✅"); loadLibrary(); }
     } catch (e) {
       console.error("music_library insert exception:", e);
       setErr("Impossible d’ajouter à la bibliothèque.");
@@ -161,13 +159,6 @@ function MusicLibraryModal({ open, onClose, userId }) {
             <button type="button" className={tab === "search" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setTab("search")}>
               Ajouter un son
             </button>
-
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, opacity: 0.9 }}>
-                <input type="checkbox" checked={addToGlobal} onChange={(e) => setAddToGlobal(!!e.target.checked)} />
-                Ajouter au global
-              </label>
-            </div>
           </div>
 
           {tab === "search" ? (
@@ -236,7 +227,7 @@ function MusicLibraryModal({ open, onClose, userId }) {
                     ) : (
                       filteredLibrary.map((t) => {
                         const isGlobal = t.owner_id == null;
-                        const canDelete = (t.created_by === userId) || (t.owner_id === userId);
+                        const canDelete = (t.owner_id === userId);
 
                         return (
                           <div key={t.id} className="card" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
