@@ -277,6 +277,26 @@ export function ProgressCreate({ user }) {
   const activeFile = files[activeIndex] || null;
   const previewVideoRef = useRef(null);
 
+  // Minimal preview controls (progress + play/pause)
+  const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [previewProgress, setPreviewProgress] = useState(0); // 0..1
+  const [previewDuration, setPreviewDuration] = useState(0);
+
+  const togglePreviewPlay = async () => {
+    const v = previewVideoRef.current;
+    if (!v) return;
+    try {
+      if (v.paused) {
+        const p = v.play();
+        if (p?.catch) p.catch(() => {});
+        setPreviewPlaying(true);
+      } else {
+        v.pause();
+        setPreviewPlaying(false);
+      }
+    } catch {}
+  };
+
   const hasVideo = useMemo(() => files.some((f) => String(f.type || "").startsWith("video/")), [files]);
   const imagesOnly = files.length > 0 && !hasVideo;
 
@@ -449,6 +469,31 @@ useEffect(() => {
     };
   }, [previewUrl]);
 
+  // Sync minimal preview controls for video
+  useEffect(() => {
+    if (!hasVideo) return;
+    const v = previewVideoRef.current;
+    if (!v) return;
+    const update = () => {
+      const dur = Number(v.duration || 0);
+      setPreviewDuration(dur);
+      const ct = Number(v.currentTime || 0);
+      setPreviewProgress(dur > 0 ? Math.min(1, Math.max(0, ct / dur)) : 0);
+      setPreviewPlaying(!v.paused);
+    };
+    update();
+    v.addEventListener("timeupdate", update);
+    v.addEventListener("loadedmetadata", update);
+    v.addEventListener("play", update);
+    v.addEventListener("pause", update);
+    return () => {
+      v.removeEventListener("timeupdate", update);
+      v.removeEventListener("loadedmetadata", update);
+      v.removeEventListener("play", update);
+      v.removeEventListener("pause", update);
+    };
+  }, [hasVideo, previewUrl]);
+
   // TikTok-like sound selection
 
 const clipLenSec = useMemo(() => {
@@ -519,6 +564,17 @@ const maxMusicStart = useMemo(() => {
       setFiles(cleaned);
       setActiveIndex(0);
     }
+
+    // Auto-play selected music as soon as media is picked (user gesture = picking media)
+    try {
+      if (track?.preview_url) {
+        // ensure audio element exists
+        setTimeout(() => {
+          try { previewFromStart(); } catch {}
+        }, 0);
+      }
+    } catch {}
+
 
     // allow re-picking the same file(s)
     try {
@@ -766,13 +822,71 @@ return (
         >
           {previewUrl ? (
             hasVideo ? (
+              <>
               <video
                 ref={previewVideoRef}
                 src={previewUrl}
                 playsInline
-                controls
+                muted={videoMuted || Number(videoVol) === 0}
+                onClick={togglePreviewPlay}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
+              {/* Minimal overlay: progress bar + play/pause */}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  pointerEvents: "none",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePreviewPlay();
+                  }}
+                  style={{
+                    position: "absolute",
+                    right: 12,
+                    bottom: 18,
+                    width: 34,
+                    height: 34,
+                    borderRadius: 999,
+                    border: "none",
+                    background: "rgba(0,0,0,0.55)",
+                    color: "white",
+                    fontSize: 16,
+                    fontWeight: 900,
+                    display: "grid",
+                    placeItems: "center",
+                    pointerEvents: "auto",
+                  }}
+                  title={previewPlaying ? "Pause" : "Lire"}
+                >
+                  {previewPlaying ? "⏸" : "▶︎"}
+                </button>
+
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 4,
+                    background: "rgba(255,255,255,0.25)",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${Math.round(previewProgress * 1000) / 10}%`,
+                      background: "rgba(255,255,255,0.95)",
+                    }}
+                  />
+                </div>
+              </div>
+            </>
             ) : imagesOnly && files.length > 1 ? (
               <>
                 <div
@@ -1133,6 +1247,12 @@ return (
       onSelect={(t) => {
         setTrack(t);
         setMusicStart(0);
+        // Auto-play chosen music as soon as a media exists (user gesture = selecting a track)
+        setTimeout(() => {
+          try {
+            if ((files?.length || 0) > 0) previewFromStart();
+          } catch {}
+        }, 0);
       }}
     />
   </main>
