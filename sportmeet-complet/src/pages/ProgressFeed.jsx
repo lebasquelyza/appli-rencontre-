@@ -480,8 +480,6 @@ export function ProgressFeed({ user }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
 
-
-  const [soundPickerOpen, setSoundPickerOpen] = useState(false);
   const load = async () => {
     setLoading(true);
     setErr("");
@@ -706,29 +704,6 @@ export function ProgressFeed({ user }) {
         postId={commentsPostId}
         user={user}
         onPosted={onCommentPosted}
-      />
-    
-      <SoundPickerModal
-        open={soundPickerOpen}
-        onClose={() => setSoundPickerOpen(false)}
-        userId={user?.id}
-        onPick={(t) => {
-          try {
-            localStorage.setItem(
-              "mf_selected_track",
-              JSON.stringify({
-                provider: t.provider || "spotify",
-                track_id: t.track_id,
-                title: t.title,
-                artist: t.artist,
-                artwork: t.artwork,
-                preview_url: t.preview_url,
-                external_url: t.external_url
-              })
-            );
-          } catch {}
-          navigate("/create");
-        }}
       />
     </main>
   );
