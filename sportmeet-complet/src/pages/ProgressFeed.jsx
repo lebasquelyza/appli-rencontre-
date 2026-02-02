@@ -265,7 +265,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     if (a) a.volume = effectiveMusicVol;
   }, [effectiveVideoVol, effectiveMusicVol]);
 
-    useEffect(() => {
+  useEffect(() => {
     const v = videoRef.current;
     const a = audioRef.current;
 
@@ -306,7 +306,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     }
   }, [visible, post.media_type, post.music_url, post.music_start_sec]);
 
-
   const onVideoTap = async () => {
     const v = videoRef.current;
     const a = audioRef.current;
@@ -340,6 +339,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
       } catch {}
     }
   };
+
   const canDelete = !!user?.id && user.id === post.user_id;
 
   const deletePost = async () => {
@@ -394,7 +394,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
         ) : null}
       </div>
 
-      {/* Media (TikTok logic: autoplay on visible) */}
+      {/* Media */}
       <div
         style={{
           position: "relative",
@@ -425,7 +425,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
 
         {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
 
-        {/* Actions (like/comment) */}
+        {/* Actions */}
         <div
           style={{
             position: "absolute",
@@ -470,7 +470,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   );
 }
 
-export 
 function SoundPickerModal({ open, onClose, userId, onPick }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -552,24 +551,27 @@ function SoundPickerModal({ open, onClose, userId, onPick }) {
 
   const filtered = React.useMemo(() => {
     const qx = String(q || "").toLowerCase().trim();
-    return (rows || []).filter(r =>
-      !qx || (`${r.title || ""} ${r.artist || ""}`).toLowerCase().includes(qx)
-    );
+    return (rows || []).filter((r) => !qx || (`${r.title || ""} ${r.artist || ""}`).toLowerCase().includes(qx));
   }, [rows, q]);
 
   if (!open) return null;
 
   return (
     <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
-      <div className="modal-card modal-card--sheet allowScroll" onClick={e => e.stopPropagation()}
-        style={{ width: "min(920px,98vw)", maxHeight: "calc(var(--appH,100vh)-18px)", borderRadius: 18 }}>
+      <div
+        className="modal-card modal-card--sheet allowScroll"
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: "min(920px,98vw)", maxHeight: "calc(var(--appH,100vh)-18px)", borderRadius: 18 }}
+      >
         <div className="modal-header" style={{ display: "flex", alignItems: "center" }}>
           <h3 style={{ marginRight: "auto" }}>Choisir un son</h3>
-          <button className="btn-ghost btn-sm" onClick={() => { stop(); onClose(); }}>Fermer</button>
+          <button className="btn-ghost btn-sm" onClick={() => { stop(); onClose(); }}>
+            Fermer
+          </button>
         </div>
 
         <div className="modal-body modal-body--scroll allowScroll">
-          <input className="input" placeholder="Filtrer…" value={q} onChange={e => setQ(e.target.value)} />
+          <input className="input" placeholder="Filtrer…" value={q} onChange={(e) => setQ(e.target.value)} />
 
           {err ? <p className="form-message error">{err}</p> : null}
           <audio ref={audioRef} />
@@ -577,12 +579,17 @@ function SoundPickerModal({ open, onClose, userId, onPick }) {
           {loading ? <p className="form-message">Chargement…</p> : null}
 
           <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-            {filtered.map(t => (
+            {filtered.map((t) => (
               <div key={t.id} className="card" style={{ padding: 10, display: "flex", gap: 10 }}>
-                <img src={t.artwork || "/avatar.png"} style={{ width: 48, height: 48, borderRadius: 12 }} />
+                <img
+                  src={t.artwork || "/avatar.png"}
+                  alt=""
+                  style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }}
+                />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 900 }}>{t.title}</div>
-                  <div style={{ opacity: .7, fontSize: 13 }}>{t.artist}</div>
+                  <div style={{ opacity: 0.7, fontSize: 13 }}>{t.artist}</div>
                 </div>
 
                 {t.preview_url ? (
@@ -603,7 +610,6 @@ function SoundPickerModal({ open, onClose, userId, onPick }) {
   );
 }
 
-
 function ProgressFeed({ user }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -614,8 +620,9 @@ function ProgressFeed({ user }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
 
-
+  // On garde l'état pour le modal (même si tu n'as pas de bouton "Son" dans le feed)
   const [soundPickerOpen, setSoundPickerOpen] = useState(false);
+
   const load = async () => {
     setLoading(true);
     setErr("");
@@ -841,7 +848,8 @@ function ProgressFeed({ user }) {
         user={user}
         onPosted={onCommentPosted}
       />
-    
+
+      {/* Modal bibliothèque sons (si tu réajoutes un bouton plus tard) */}
       <SoundPickerModal
         open={soundPickerOpen}
         onClose={() => setSoundPickerOpen(false)}
@@ -867,3 +875,5 @@ function ProgressFeed({ user }) {
     </main>
   );
 }
+
+export default ProgressFeed;
