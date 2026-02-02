@@ -138,249 +138,254 @@ function clamp01(n) {
   return Math.min(1, Math.max(0, x));
 }
 
-function MusicPickerModal({ open, onClose, onSelect }) {
+function MusicPickerModal({ open, onClose, onSelect, userId }) {
+  const [tab, setTab] = useState("search"); // "search" | "library"
   const [q, setQ] = useState("");
-  const [accessToken, setAccessToken] = useState(localStorage.getItem("spotify_access_token") || "");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [results, setResults] = useState([]);
+
+  const [libLoading, setLibLoading] = useState(false);
+  const [libErr, setLibErr] = useState("");
+  const [libScope, setLibScope] = useState("all"); // "all" | "global" | "mine"
+  const [libQuery, setLibQuery] = useState("");
+  const [library, setLibrary] = useState([]);
+
+  const [addToGlobal, setAddToGlobal] = useState(false);
+
   const audioRef = useRef(null);
-
-  // Local timer only for preview playback inside the modal
   const previewStopTimerRef = useRef(null);
-
   const [playingId, setPlayingId] = useState(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setErr("");
-    setResults([]);
-    setPlayingId(null);
-    setQ("");
-    setAccessToken(localStorage.getItem("spotify_access_token") || "");
-  }, [open]);
 
   const stop = () => {
     try {
       if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
       previewStopTimerRef.current = null;
       const a = audioRef.current;
-      if (a) {
-        a.pause();
-        a.currentTime = 0;
-      }
+      if (a) { a.pause(); a.currentTime = 0; a.src = ""; }
     } catch {}
     setPlayingId(null);
   };
 
-  const run = async () => {
-    const term = String(q || "").trim();
-    if (!accessToken) {
-      setErr("Connecte-toi à Spotify pour rechercher une musique.");
-      return;
-    }
-    if (!term) {
-      setErr("Tape un titre ou un artiste.");
-      return;
-    }
-    setLoading(true);
-    setErr("");
-    stop();
-    try {
-      const list = await spotifySearchTracks(accessToken, term);
-      setResults(list);
-      if (!list.length) setErr("Aucun résultat.");
-    } catch (e) {
-      console.error("music search error:", e);
-      setErr("Recherche impossible.");
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const playPreview = async (t) => {
     if (!t?.preview_url) return;
+    const id = t.track_id || t.id;
+    if (playingId === id) { stop(); return; }
+    stop();
     try {
       const a = audioRef.current;
       if (!a) return;
-      if (playingId === t.track_id) {
-        stop();
-        return;
-      }
       a.src = t.preview_url;
       a.currentTime = 0;
       const p = a.play();
       if (p?.catch) p.catch(() => {});
-      setPlayingId(t.track_id);
-
-      // Hard-stop after 30s (preview length) to avoid background audio
-      if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
-      previewStopTimerRef.current = setTimeout(() => {
-        try {
-          a.pause();
-        } catch {}
-        setPlayingId(null);
-      }, 30000);
-    } catch (e) {
-      console.log("preview blocked:", e);
-    }
+      setPlayingId(id);
+      previewStopTimerRef.current = setTimeout(() => { try { a.pause(); } catch {} setPlayingId(null); }, 30000);
+    } catch {}
   };
+
+  const runSearch = async () => {
+    const term = String(q || "").trim();
+    if (!term) { setErr("Tape un titre ou un artiste."); return; }
+    setLoading(true); setErr(""); stop();
+    try {
+      const res = await fetch(`/.netlify/functions/music-search?term=${encodeURIComponent(term)}&limit=25`);
+      const data = await res.json();
+      const list = Array.isArray(data?.results) ? data.results : [];
+      setResults(list);
+      if (!list.length) setErr("Aucun résultat.");
+    } catch (e) {
+      console.error("music-search error:", e);
+      setErr("Recherche impossible.");
+      setResults([]);
+    } finally { setLoading(false); }
+  };
+
+  const loadLibrary = async () => {
+    if (!userId) return;
+    setLibLoading(true); setLibErr("");
+    try {
+      const { data, error } = await supabase
+        .from("music_library")
+        .select("id, owner_id, provider, track_id, title, artist, artwork, preview_url, external_url, created_at, created_by")
+        .or(`owner_id.is.null,owner_id.eq.${userId}`)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) { console.error("music_library select error:", error); setLibErr("Impossible de charger la bibliothèque."); setLibrary([]); return; }
+      setLibrary(data || []);
+    } catch (e) {
+      console.error("music_library load exception:", e);
+      setLibErr("Impossible de charger la bibliothèque.");
+      setLibrary([]);
+    } finally { setLibLoading(false); }
+  };
+
+  const addToLibrary = async (t) => {
+    if (!userId) { setErr("Connecte-toi pour ajouter un son."); return; }
+    setLoading(true); setErr("");
+    try {
+      const payload = {
+        owner_id: addToGlobal ? null : userId,
+        created_by: userId,
+        provider: "spotify",
+        track_id: String(t?.track_id || ""),
+        title: String(t?.title || ""),
+        artist: String(t?.artist || ""),
+        artwork: String(t?.artwork || ""),
+        preview_url: String(t?.preview_url || ""),
+        external_url: String(t?.external_url || "")
+      };
+      const { error } = await supabase.from("music_library").insert(payload);
+      if (error) { console.error("music_library insert error:", error); setErr("Déjà dans la bibliothèque (ou ajout impossible)."); }
+      else { setErr(addToGlobal ? "Ajouté au global ✅" : "Ajouté à tes sons ✅"); if (tab === "library") loadLibrary(); }
+    } catch (e) {
+      console.error("music_library insert exception:", e);
+      setErr("Impossible d’ajouter à la bibliothèque.");
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setTab("search"); setQ(""); setResults([]); setErr("");
+    setLibErr(""); setLibQuery(""); setLibScope("all"); setAddToGlobal(false);
+    stop();
+    if (userId) loadLibrary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, userId]);
+
+  const filteredLibrary = React.useMemo(() => {
+    const qx = String(libQuery || "").trim().toLowerCase();
+    return (library || []).filter((r) => {
+      const isGlobal = r.owner_id == null;
+      if (libScope === "global" && !isGlobal) return false;
+      if (libScope === "mine" && isGlobal) return false;
+      if (!qx) return true;
+      return (`${r.title || ""} ${r.artist || ""}`).toLowerCase().includes(qx);
+    });
+  }, [library, libQuery, libScope]);
 
   if (!open) return null;
 
   return (
-    <div
-      className="modal-backdrop modal-backdrop--blur"
-      onClick={onClose}
-    >
-      <div
-        className="modal-card modal-card--sheet allowScroll"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "min(920px, 98vw)",
-          maxHeight: "calc(var(--appH, 100vh) - 18px)",
-          overflow: "hidden",
-          borderRadius: 18
-        }}
-      >
-        {/* Top bar TikTok-like */}
-        <div
-          className="modal-header"
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "12px 14px"
-          }}
-        >
-          <button className="btn-ghost btn-sm" onClick={onClose} aria-label="Fermer">
-            ✕
-          </button>
-          <div style={{ fontWeight: 900 }}>♪ Ajouter un son</div>
+    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
+      <div className="modal-card modal-card--sheet allowScroll" onClick={(e) => e.stopPropagation()}
+        style={{ width: "min(920px, 98vw)", maxHeight: "calc(var(--appH, 100vh) - 18px)", overflow: "hidden", borderRadius: 18 }}>
+        <div className="modal-header" style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between" }}>
+          <button className="btn-ghost btn-sm" onClick={() => { stop(); onClose?.(); }} aria-label="Fermer">✕</button>
+          <div style={{ fontWeight: 900 }}>Ajouter un son</div>
           <div style={{ width: 34 }} />
         </div>
 
         <div className="modal-body modal-body--scroll allowScroll" style={{ padding: 14, paddingTop: 8 }}>
-          <div
-            className="card"
-            style={{
-              padding: 10,
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              borderRadius: 14
-            }}
-          >
-            <input
-              className="input"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Rechercher un titre, un artiste…"
-              style={{ flex: 1, minWidth: 0 }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") run();
-              }}
-              disabled={loading}
-            />
-            <button className="btn-primary btn-sm" onClick={run} disabled={loading}>
-              {loading ? "..." : "Rechercher"}
-            </button>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <button type="button" className={tab === "search" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setTab("search")}>Rechercher</button>
+            <button type="button" className={tab === "library" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => { setTab("library"); if (userId) loadLibrary(); }}>Bibliothèque</button>
+
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, opacity: 0.9 }}>
+                <input type="checkbox" checked={addToGlobal} onChange={(e) => setAddToGlobal(!!e.target.checked)} />
+                Ajouter au global
+              </label>
+            </div>
           </div>
 
-          {!accessToken ? (
-            <div className="card" style={{ padding: 10, marginTop: 10, borderRadius: 14 }}>
-              <div style={{ fontWeight: 800, marginBottom: 6 }}>Connexion Spotify</div>
-              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 10 }}>
-                Pour chercher et lire la musique entière, connecte-toi à Spotify.
+          {tab === "search" ? (
+            <>
+              <div className="card" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un titre, un artiste…"
+                  style={{ flex: 1, minWidth: 0 }} onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }} disabled={loading} />
+                <button className="btn-primary btn-sm" onClick={runSearch} disabled={loading}>{loading ? "..." : "Rechercher"}</button>
               </div>
-              <button
-                type="button"
-                className="btn-primary btn-sm"
-                onClick={async () => {
-                  try {
-                    await spotifyLogin();
-                  } catch (e) {
-                    setErr(String(e?.message || e));
-                  }
-                }}
-              >
-                Connecter Spotify
-              </button>
-            </div>
+
+              {err ? <p className="form-message error" style={{ marginTop: 10 }}>{err}</p> : null}
+
+              <audio ref={audioRef} />
+
+              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                {results.map((t) => (
+                  <div key={(t.provider || "spotify") + "_" + (t.track_id || "")} className="card"
+                    style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                    <img src={t.artwork || "/avatar.png"} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }} />
+                    <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                      <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+                      <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.artist}</div>
+                    </div>
+
+                    {t.preview_url ? (
+                      <button type="button" className="btn-ghost btn-sm" onClick={() => playPreview(t)} title="Écouter un extrait">
+                        {playingId === t.track_id ? "⏸" : "▶"}
+                      </button>
+                    ) : null}
+
+                    <button type="button" className="btn-ghost btn-sm" onClick={() => addToLibrary(t)} disabled={loading} title="Ajouter à la bibliothèque">⭐</button>
+
+                    <button type="button" className="btn-primary btn-sm" onClick={() => { stop(); onSelect?.(t); onClose?.(); }}>
+                      Utiliser
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : null}
 
-          {err ? (
-            <p className="form-message error" style={{ marginTop: 10 }}>
-              {err}
-            </p>
-          ) : (
-            <p className="form-message" style={{ marginTop: 10, opacity: 0.8 }}>
-              Résultats via Spotify. (Lecture complète via Spotify)
-            </p>
-          )}
+          {tab === "library" ? (
+            <>
+              {!userId ? (
+                <p className="form-message error">Connecte-toi pour accéder à ta bibliothèque.</p>
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" className={libScope === "all" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("all")}>Tous</button>
+                      <button type="button" className={libScope === "global" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("global")}>Global</button>
+                      <button type="button" className={libScope === "mine" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("mine")}>Mes sons</button>
+                    </div>
 
-          <audio ref={audioRef} />
+                    <input className="input" value={libQuery} onChange={(e) => setLibQuery(e.target.value)} placeholder="Filtrer…" style={{ flex: 1, minWidth: 220 }} />
 
-          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-            {results.map((t) => (
-              <div
-                key={t.provider + "_" + t.track_id}
-                className="card"
-                style={{
-                  padding: 10,
-                  display: "flex",
-                  gap: 10,
-                  alignItems: "center",
-                  borderRadius: 14
-                }}
-              >
-                <img
-                  src={t.artwork || "/avatar.png"}
-                  alt=""
-                  style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = "/avatar.png";
-                  }}
-                />
-                <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
-                  <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {t.title}
+                    <button type="button" className="btn-ghost btn-sm" onClick={loadLibrary} disabled={libLoading}>{libLoading ? "..." : "Rafraîchir"}</button>
                   </div>
-                  <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {t.artist}
-                  </div>
-                </div>
-                {t.external_url ? (
-                  <a
-                    className="btn-ghost btn-sm"
-                    href={t.external_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Ouvrir dans Spotify"
-                    title="Ouvrir dans Spotify"
-                  >
-                    🔗
-                  </a>
-                ) : null}
-                <button
-                  type="button"
-                  className="btn-primary btn-sm"
-                  onClick={() => {
-                    stop();
-                    onSelect?.(t);
-                    onClose?.();
-                  }}
-                >
-                  Utiliser
-                </button>
-              </div>
-            ))}
-          </div>
 
-          {results.length ? <div style={{ height: 10 }} /> : null}
+                  {libErr ? <p className="form-message error" style={{ marginTop: 10 }}>{libErr}</p> : null}
+
+                  <audio ref={audioRef} />
+
+                  <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                    {libLoading ? <p className="form-message">Chargement…</p> :
+                      filteredLibrary.length === 0 ? <p className="form-message">Aucun son.</p> :
+                      filteredLibrary.map((t) => {
+                        const isGlobal = t.owner_id == null;
+                        return (
+                          <div key={t.id} className="card" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                            <img src={t.artwork || "/avatar.png"} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
+                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }} />
+                            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                              <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+                              <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {t.artist} {isGlobal ? "• Global" : "• Moi"}
+                              </div>
+                            </div>
+
+                            {t.preview_url ? (
+                              <button type="button" className="btn-ghost btn-sm" onClick={() => playPreview(t)} title="Écouter un extrait">
+                                {playingId === t.id ? "⏸" : "▶"}
+                              </button>
+                            ) : null}
+
+                            <button type="button" className="btn-primary btn-sm" onClick={() => { stop(); onSelect?.(t); onClose?.(); }}>
+                              Utiliser
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </>
+              )}
+            </>
+          ) : null}
+
+          <div style={{ height: 10 }} />
         </div>
       </div>
     </div>
