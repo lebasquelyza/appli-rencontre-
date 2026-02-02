@@ -3,6 +3,279 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
+function MusicLibraryModal({ open, onClose, userId }) {
+  const [tab, setTab] = useState("library");
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [results, setResults] = useState([]);
+
+  const [libLoading, setLibLoading] = useState(false);
+  const [libErr, setLibErr] = useState("");
+  const [libScope, setLibScope] = useState("all");
+  const [libQuery, setLibQuery] = useState("");
+  const [library, setLibrary] = useState([]);
+
+  const [addToGlobal, setAddToGlobal] = useState(false);
+
+  const audioRef = React.useRef(null);
+  const previewStopTimerRef = React.useRef(null);
+  const [playingId, setPlayingId] = useState(null);
+
+  const stop = () => {
+    try {
+      if (previewStopTimerRef.current) clearTimeout(previewStopTimerRef.current);
+      previewStopTimerRef.current = null;
+      const a = audioRef.current;
+      if (a) { a.pause(); a.currentTime = 0; a.src = ""; }
+    } catch {}
+    setPlayingId(null);
+  };
+
+  const playPreview = (t) => {
+    if (!t?.preview_url) return;
+    const id = t.track_id || t.id;
+    if (playingId === id) { stop(); return; }
+    stop();
+    try {
+      const a = audioRef.current;
+      if (!a) return;
+      a.src = t.preview_url;
+      a.currentTime = 0;
+      const p = a.play();
+      if (p?.catch) p.catch(() => {});
+      setPlayingId(id);
+      previewStopTimerRef.current = setTimeout(() => { try { a.pause(); } catch {} setPlayingId(null); }, 30000);
+    } catch {}
+  };
+
+  const runSearch = async () => {
+    const term = String(q || "").trim();
+    if (!term) { setErr("Tape un titre ou un artiste."); return; }
+    setLoading(true); setErr(""); stop();
+    try {
+      const res = await fetch(`/.netlify/functions/music-search?term=${encodeURIComponent(term)}&limit=25`);
+      const data = await res.json();
+      const list = Array.isArray(data?.results) ? data.results : [];
+      setResults(list);
+      if (!list.length) setErr("Aucun résultat.");
+    } catch (e) {
+      console.error("music-search error:", e);
+      setErr("Recherche impossible.");
+      setResults([]);
+    } finally { setLoading(false); }
+  };
+
+  const loadLibrary = async () => {
+    if (!userId) return;
+    setLibLoading(true); setLibErr("");
+    try {
+      const { data, error } = await supabase
+        .from("music_library")
+        .select("id, owner_id, provider, track_id, title, artist, artwork, preview_url, external_url, created_at, created_by")
+        .or(`owner_id.is.null,owner_id.eq.${userId}`)
+        .order("created_at", { ascending: false })
+        .limit(300);
+      if (error) { console.error("music_library select error:", error); setLibErr("Impossible de charger la bibliothèque."); setLibrary([]); return; }
+      setLibrary(data || []);
+    } catch (e) {
+      console.error("music_library load exception:", e);
+      setLibErr("Impossible de charger la bibliothèque.");
+      setLibrary([]);
+    } finally { setLibLoading(false); }
+  };
+
+  const addToLibrary = async (t) => {
+    if (!userId) { setErr("Connecte-toi pour ajouter un son."); return; }
+    setLoading(true); setErr("");
+    try {
+      const payload = {
+        owner_id: addToGlobal ? null : userId,
+        created_by: userId,
+        provider: "spotify",
+        track_id: String(t?.track_id || ""),
+        title: String(t?.title || ""),
+        artist: String(t?.artist || ""),
+        artwork: String(t?.artwork || ""),
+        preview_url: String(t?.preview_url || ""),
+        external_url: String(t?.external_url || "")
+      };
+      const { error } = await supabase.from("music_library").insert(payload);
+      if (error) { console.error("music_library insert error:", error); setErr("Déjà dans la bibliothèque (ou ajout impossible)."); }
+      else { setErr(addToGlobal ? "Ajouté au global ✅" : "Ajouté à tes sons ✅"); loadLibrary(); }
+    } catch (e) {
+      console.error("music_library insert exception:", e);
+      setErr("Impossible d’ajouter à la bibliothèque.");
+    } finally { setLoading(false); }
+  };
+
+  const removeFromLibrary = async (row) => {
+    if (!userId) return;
+    const ok = window.confirm("Supprimer ce son de la bibliothèque ?");
+    if (!ok) return;
+    setLibLoading(true); setLibErr("");
+    try {
+      const { error } = await supabase.from("music_library").delete().eq("id", row.id);
+      if (error) { console.error("music_library delete error:", error); setLibErr("Suppression impossible."); }
+      else loadLibrary();
+    } finally { setLibLoading(false); }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setTab("library"); setQ(""); setResults([]); setErr("");
+    setLibErr(""); setLibQuery(""); setLibScope("all"); setAddToGlobal(false);
+    stop();
+    if (userId) loadLibrary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, userId]);
+
+  const filteredLibrary = React.useMemo(() => {
+    const qx = String(libQuery || "").trim().toLowerCase();
+    return (library || []).filter((r) => {
+      const isGlobal = r.owner_id == null;
+      if (libScope === "global" && !isGlobal) return false;
+      if (libScope === "mine" && isGlobal) return false;
+      if (!qx) return true;
+      return (`${r.title || ""} ${r.artist || ""}`).toLowerCase().includes(qx);
+    });
+  }, [library, libQuery, libScope]);
+
+  if (!open) return null;
+
+  return (
+    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
+      <div className="modal-card modal-card--sheet allowScroll" onClick={(e) => e.stopPropagation()}
+        style={{ width: "min(920px, 98vw)", maxHeight: "calc(var(--appH, 100vh) - 18px)", overflow: "hidden", borderRadius: 18 }}>
+        <div className="modal-header" style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between" }}>
+          <button className="btn-ghost btn-sm" onClick={() => { stop(); onClose?.(); }} aria-label="Fermer">✕</button>
+          <div style={{ fontWeight: 900 }}>Bibliothèque musique</div>
+          <div style={{ width: 34 }} />
+        </div>
+
+        <div className="modal-body modal-body--scroll allowScroll" style={{ padding: 14, paddingTop: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <button type="button" className={tab === "library" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => { setTab("library"); if (userId) loadLibrary(); }}>
+              Bibliothèque
+            </button>
+            <button type="button" className={tab === "search" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setTab("search")}>
+              Ajouter un son
+            </button>
+
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, opacity: 0.9 }}>
+                <input type="checkbox" checked={addToGlobal} onChange={(e) => setAddToGlobal(!!e.target.checked)} />
+                Ajouter au global
+              </label>
+            </div>
+          </div>
+
+          {tab === "search" ? (
+            <>
+              <div className="card" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Titre, artiste…"
+                  style={{ flex: 1, minWidth: 0 }} onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }} disabled={loading} />
+                <button className="btn-primary btn-sm" onClick={runSearch} disabled={loading}>{loading ? "..." : "Rechercher"}</button>
+              </div>
+
+              {err ? <p className="form-message error" style={{ marginTop: 10 }}>{err}</p> : null}
+
+              <audio ref={audioRef} />
+
+              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                {results.map((t) => (
+                  <div key={(t.provider || "spotify") + "_" + (t.track_id || "")} className="card"
+                    style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                    <img src={t.artwork || "/avatar.png"} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }} />
+                    <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                      <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+                      <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.artist}</div>
+                    </div>
+
+                    {t.preview_url ? (
+                      <button type="button" className="btn-ghost btn-sm" onClick={() => playPreview(t)} title="Écouter un extrait">
+                        {playingId === t.track_id ? "⏸" : "▶"}
+                      </button>
+                    ) : null}
+
+                    <button type="button" className="btn-primary btn-sm" onClick={() => addToLibrary(t)} disabled={loading}>Ajouter</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
+
+          {tab === "library" ? (
+            <>
+              {!userId ? (
+                <p className="form-message error">Connecte-toi pour accéder à ta bibliothèque.</p>
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" className={libScope === "all" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("all")}>Tous</button>
+                      <button type="button" className={libScope === "global" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("global")}>Global</button>
+                      <button type="button" className={libScope === "mine" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("mine")}>Mes sons</button>
+                    </div>
+
+                    <input className="input" value={libQuery} onChange={(e) => setLibQuery(e.target.value)} placeholder="Filtrer…" style={{ flex: 1, minWidth: 220 }} />
+
+                    <button type="button" className="btn-ghost btn-sm" onClick={loadLibrary} disabled={libLoading}>{libLoading ? "..." : "Rafraîchir"}</button>
+                  </div>
+
+                  {libErr ? <p className="form-message error" style={{ marginTop: 10 }}>{libErr}</p> : null}
+
+                  <audio ref={audioRef} />
+
+                  <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                    {libLoading ? (
+                      <p className="form-message">Chargement…</p>
+                    ) : filteredLibrary.length === 0 ? (
+                      <p className="form-message">Aucun son.</p>
+                    ) : (
+                      filteredLibrary.map((t) => {
+                        const isGlobal = t.owner_id == null;
+                        const canDelete = (t.created_by === userId) || (t.owner_id === userId);
+
+                        return (
+                          <div key={t.id} className="card" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                            <img src={t.artwork || "/avatar.png"} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
+                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }} />
+                            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                              <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+                              <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {t.artist} {isGlobal ? "• Global" : "• Moi"}
+                              </div>
+                            </div>
+
+                            {t.preview_url ? (
+                              <button type="button" className="btn-ghost btn-sm" onClick={() => playPreview(t)} title="Écouter un extrait">
+                                {playingId === t.id ? "⏸" : "▶"}
+                              </button>
+                            ) : null}
+
+                            {canDelete ? (
+                              <button type="button" className="btn-ghost btn-sm" onClick={() => removeFromLibrary(t)} disabled={libLoading}>Supprimer</button>
+                            ) : null}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          ) : null}
+
+          <div style={{ height: 10 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
   const navigate = useNavigate();
 
@@ -10,6 +283,8 @@ export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
   const [msg, setMsg] = useState("");
   const [isError, setIsError] = useState(false);
 
+
+  const [musicLibOpen, setMusicLibOpen] = useState(false);
   // ✅ Préférences audio feed (localStorage)
   const LS_VIDEO_VOL = "mf_feed_video_vol";
   const LS_MUSIC_VOL = "mf_feed_music_vol";
@@ -435,6 +710,18 @@ const changeEmail = async () => {
               </button>
             </div>
 
+            
+            {/* 🎵 Bibliothèque musique */}
+            <div className="card" style={{ padding: 14 }}>
+              <h3 style={{ marginTop: 0 }}>Bibliothèque musique</h3>
+              <p style={{ opacity: 0.85, marginTop: 6 }}>
+                Accède aux sons globaux + tes sons, et ajoute des musiques depuis Spotify.
+              </p>
+              <button className="btn-primary" onClick={() => setMusicLibOpen(true)}>
+                Ouvrir
+              </button>
+            </div>
+
             {/* ✅ Cookies */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Cookies</h3>
@@ -460,6 +747,7 @@ const changeEmail = async () => {
           </div>
         </section>
       </div>
+          <MusicLibraryModal open={musicLibOpen} onClose={() => setMusicLibOpen(false)} userId={user?.id} />
     </main>
   );
 }
