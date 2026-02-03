@@ -120,7 +120,6 @@ async function spotifySearchTracks(accessToken, term) {
   }));
 }
 
-
 function safeExt(file) {
   const byMime = (file?.type || "").split("/")[1];
   if (byMime) return byMime.replace("jpeg", "jpg");
@@ -139,10 +138,19 @@ function clamp01(n) {
 }
 
 function MusicPickerModal({ open, onClose, onSelect, userId }) {
+  const [tab, setTab] = useState("search"); // "search" | "library"
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [results, setResults] = useState([]);
+
+  const [libLoading, setLibLoading] = useState(false);
+  const [libErr, setLibErr] = useState("");
+  const [libScope, setLibScope] = useState("all"); // "all" | "global" | "mine"
+  const [libQuery, setLibQuery] = useState("");
+  const [library, setLibrary] = useState([]);
+
+  const [addToGlobal, setAddToGlobal] = useState(false);
 
   const audioRef = useRef(null);
   const previewStopTimerRef = useRef(null);
@@ -192,12 +200,68 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
     } finally { setLoading(false); }
   };
 
+  const loadLibrary = async () => {
+    if (!userId) return;
+    setLibLoading(true); setLibErr("");
+    try {
+      const { data, error } = await supabase
+        .from("music_library")
+        .select("id, owner_id, provider, track_id, title, artist, artwork, preview_url, external_url, created_at, created_by")
+        .or(`owner_id.is.null,owner_id.eq.${userId}`)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) { console.error("music_library select error:", error); setLibErr("Impossible de charger la bibliothèque."); setLibrary([]); return; }
+      setLibrary(data || []);
+    } catch (e) {
+      console.error("music_library load exception:", e);
+      setLibErr("Impossible de charger la bibliothèque.");
+      setLibrary([]);
+    } finally { setLibLoading(false); }
+  };
+
+  const addToLibrary = async (t) => {
+    if (!userId) { setErr("Connecte-toi pour ajouter un son."); return; }
+    setLoading(true); setErr("");
+    try {
+      const payload = {
+        owner_id: addToGlobal ? null : userId,
+        created_by: userId,
+        provider: "spotify",
+        track_id: String(t?.track_id || ""),
+        title: String(t?.title || ""),
+        artist: String(t?.artist || ""),
+        artwork: String(t?.artwork || ""),
+        preview_url: String(t?.preview_url || ""),
+        external_url: String(t?.external_url || "")
+      };
+      const { error } = await supabase.from("music_library").insert(payload);
+      if (error) { console.error("music_library insert error:", error); setErr("Déjà dans la bibliothèque (ou ajout impossible)."); }
+      else { setErr(addToGlobal ? "Ajouté au global ✅" : "Ajouté à tes sons ✅"); if (tab === "library") loadLibrary(); }
+    } catch (e) {
+      console.error("music_library insert exception:", e);
+      setErr("Impossible d’ajouter à la bibliothèque.");
+    } finally { setLoading(false); }
+  };
+
   useEffect(() => {
     if (!open) return;
-    setQ(""); setResults([]); setErr("");
+    setTab("search"); setQ(""); setResults([]); setErr("");
+    setLibErr(""); setLibQuery(""); setLibScope("all"); setAddToGlobal(false);
     stop();
+    if (userId) loadLibrary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, userId]);
+
+  const filteredLibrary = React.useMemo(() => {
+    const qx = String(libQuery || "").trim().toLowerCase();
+    return (library || []).filter((r) => {
+      const isGlobal = r.owner_id == null;
+      if (libScope === "global" && !isGlobal) return false;
+      if (libScope === "mine" && isGlobal) return false;
+      if (!qx) return true;
+      return (`${r.title || ""} ${r.artist || ""}`).toLowerCase().includes(qx);
+    });
+  }, [library, libQuery, libScope]);
 
   if (!open) return null;
 
@@ -212,7 +276,19 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
         </div>
 
         <div className="modal-body modal-body--scroll allowScroll" style={{ padding: 14, paddingTop: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <button type="button" className={tab === "search" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setTab("search")}>Rechercher</button>
+            <button type="button" className={tab === "library" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => { setTab("library"); if (userId) loadLibrary(); }}>Bibliothèque</button>
+
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, opacity: 0.9 }}>
+                <input type="checkbox" checked={addToGlobal} onChange={(e) => setAddToGlobal(!!e.target.checked)} />
+                Ajouter au global
+              </label>
+            </div>
           </div>
+
+          {tab === "search" ? (
             <>
               <div className="card" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
                 <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un titre, un artiste…"
@@ -241,12 +317,70 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
                       </button>
                     ) : null}
 
+                    <button type="button" className="btn-ghost btn-sm" onClick={() => addToLibrary(t)} disabled={loading} title="Ajouter à la bibliothèque">⭐</button>
+
                     <button type="button" className="btn-primary btn-sm" onClick={() => { stop(); onSelect?.(t); onClose?.(); }}>
                       Utiliser
                     </button>
                   </div>
                 ))}
               </div>
+            </>
+          ) : null}
+
+          {tab === "library" ? (
+            <>
+              {!userId ? (
+                <p className="form-message error">Connecte-toi pour accéder à ta bibliothèque.</p>
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" className={libScope === "all" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("all")}>Tous</button>
+                      <button type="button" className={libScope === "global" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("global")}>Global</button>
+                      <button type="button" className={libScope === "mine" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("mine")}>Mes sons</button>
+                    </div>
+
+                    <input className="input" value={libQuery} onChange={(e) => setLibQuery(e.target.value)} placeholder="Filtrer…" style={{ flex: 1, minWidth: 220 }} />
+
+                    <button type="button" className="btn-ghost btn-sm" onClick={loadLibrary} disabled={libLoading}>{libLoading ? "..." : "Rafraîchir"}</button>
+                  </div>
+
+                  {libErr ? <p className="form-message error" style={{ marginTop: 10 }}>{libErr}</p> : null}
+
+                  <audio ref={audioRef} />
+
+                  <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                    {libLoading ? <p className="form-message">Chargement…</p> :
+                      filteredLibrary.length === 0 ? <p className="form-message">Aucun son.</p> :
+                      filteredLibrary.map((t) => {
+                        const isGlobal = t.owner_id == null;
+                        return (
+                          <div key={t.id} className="card" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                            <img src={t.artwork || "/avatar.png"} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
+                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }} />
+                            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                              <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+                              <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {t.artist} {isGlobal ? "• Global" : "• Moi"}
+                              </div>
+                            </div>
+
+                            {t.preview_url ? (
+                              <button type="button" className="btn-ghost btn-sm" onClick={() => playPreview(t)} title="Écouter un extrait">
+                                {playingId === t.id ? "⏸" : "▶"}
+                              </button>
+                            ) : null}
+
+                            <button type="button" className="btn-primary btn-sm" onClick={() => { stop(); onSelect?.(t); onClose?.(); }}>
+                              Utiliser
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </>
+              )}
             </>
           ) : null}
 
@@ -401,7 +535,6 @@ export function ProgressCreate({ user }) {
       setBanner("Impossible de lire sur Spotify (Premium/login requis).", true);
     }
   };
-
 
   // Media
   const [files, setFiles] = useState([]);
@@ -590,7 +723,6 @@ useEffect(() => {
   };
 }, [activeFile, previewUrl]);
 
-
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -639,8 +771,6 @@ const maxMusicStart = useMemo(() => {
   // We must fit the video length inside the 30s preview window (0..29)
   return Math.max(0, 29 - clipLenSec);
 }, [clipLenSec]);
-
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [track, setTrack] = useState(null);
 
   // Si l’utilisateur choisit un son depuis le feed, on le récupère ici
@@ -729,7 +859,6 @@ const maxMusicStart = useMemo(() => {
         }, 0);
       }
     } catch {}
-
 
     // allow re-picking the same file(s)
     try {
@@ -938,6 +1067,10 @@ return (
             disabled={!user?.id || loading}
             style={{ display: "none" }}
           />
+
+          <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={loading}>
+            + Son
+          </button>
 
           <button
             type="button"
@@ -1229,158 +1362,6 @@ return (
           </div>
         ) : null}
 
-        {/* Sound */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={loading}>
-            {track ? "♪ " + (track.title || "Son") : "♪ Ajouter un son"}
-          </button>
-
-          {track ? (
-            <>
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                onClick={previewFromStart}
-                disabled={loading}
-                title="Écouter le son depuis le début sélectionné"
-              >
-                ▶︎ Écouter
-              </button>
-
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                onClick={() => {
-                  setTrack(null);
-                  setMusicStart(0);
-                }}
-                disabled={loading}
-              >
-                Retirer
-              </button>
-            </>
-          ) : null}
-        </div>
-
-        {track ? (
-          <div className="card" style={{ padding: 12 }}>
-            <div style={{ fontWeight: 900, marginBottom: 8, lineHeight: 1.2 }}>
-              {track.title} <span style={{ opacity: 0.75, fontWeight: 600 }}>— {track.artist}</span>
-            </div>
-
-            <div style={{ display: "grid", gap: 10 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, opacity: 0.85 }}>Extrait de musique</span>
-
-                {/* UI "Instagram" : une barre + une "ligne" de début, et une fenêtre (durée = vidéo) qui glisse */}
-                <div
-                  style={{
-                    position: "relative",
-                    height: 22,
-                    borderRadius: 999,
-                    background: "rgba(255,255,255,0.16)",
-                    overflow: "hidden"
-                  }}
-                >
-                  {/* fenêtre sélectionnée */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: `${(maxMusicStart ? (musicStart / maxMusicStart) * 100 : 0)}%`,
-                      width: `${(29 ? (clipLenSec / 29) * 100 : 100)}%`,
-                      top: 0,
-                      bottom: 0,
-                      borderRadius: 999,
-                      background: "rgba(0,229,168,0.55)"
-                    }}
-                  />
-
-                  {/* ligne de début (comme Instagram) */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: `${(maxMusicStart ? (musicStart / maxMusicStart) * 100 : 0)}%`,
-                      top: 2,
-                      bottom: 2,
-                      width: 3,
-                      borderRadius: 999,
-                      background: "rgba(255,255,255,0.92)",
-                      transform: "translateX(-1px)",
-                      boxShadow: "0 0 0 2px rgba(0,0,0,0.12)"
-                    }}
-                  />
-
-                  {/* slider invisible au-dessus pour le drag (UX) */}
-                  <input
-                    type="range"
-                    min="0"
-                    max={maxMusicStart}
-                    step="1"
-                    value={musicStart}
-                    onChange={(e) => setMusicStart(Number(e.target.value))}
-                    disabled={loading}
-                    aria-label="Choisir l'extrait"
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      opacity: 0,
-                      cursor: loading ? "not-allowed" : "pointer"
-                    }}
-                  />
-                </div>
-              </label>
-
-              <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, opacity: 0.85 }}>Volume musique</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={musicVol}
-                  onChange={(e) => setMusicVol(Number(e.target.value))}
-                  disabled={loading}
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <span style={{ fontSize: 12, opacity: 0.85 }}>Volume vidéo</span>
-                  <button
-                    type="button"
-                    className="btn-ghost btn-sm"
-                    onClick={toggleVideoMuted}
-                    disabled={loading}
-                    title={videoMuted || clamp01(videoVol) === 0 ? "Activer le son de la vidéo" : "Couper le son de la vidéo"}
-                    aria-label="Couper/activer le son de la vidéo"
-                    style={{ paddingInline: 10 }}
-                  >
-                    {videoMuted || clamp01(videoVol) === 0 ? "🔇" : "🔊"}
-                  </button>
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={videoVol}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setVideoVol(v);
-                    if (v > 0 && videoMuted) setVideoMuted(false);
-                    if (v > 0) lastVideoVolRef.current = clamp01(v);
-                  }}
-                  disabled={loading}
-                />
-              </label>
-            </div>
-
-            <audio ref={audioRef} />
-          </div>
-        ) : null}
-
         {/* Caption */}
         <div style={{ display: "grid", gap: 6 }}>
           <div style={{ fontWeight: 900 }}>Description</div>
@@ -1396,21 +1377,6 @@ return (
         </div>
       </div>
     </div>
-
-    <MusicPickerModal
-      open={pickerOpen}
-      onClose={() => setPickerOpen(false)}
-      onSelect={(t) => {
-        setTrack(t);
-        setMusicStart(0);
-        // Auto-play chosen music as soon as a media exists (user gesture = selecting a track)
-        setTimeout(() => {
-          try {
-            if ((files?.length || 0) > 0) previewFromStart();
-          } catch {}
-        }, 0);
-      }}
-    />
   </main>
 );
 
