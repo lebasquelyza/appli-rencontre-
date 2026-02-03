@@ -52,11 +52,24 @@ function MusicLibraryModal({ open, onClose, userId }) {
     if (!term) { setErr("Tape un titre ou un artiste."); return; }
     setLoading(true); setErr(""); stop();
     try {
-      const res = await fetch(`/.netlify/functions/music-search?term=${encodeURIComponent(term)}&limit=25`);
-      const data = await res.json();
+      // previewOnly=1 => ne remonte que les titres ayant un extrait (preview_url)
+      const res = await fetch(`/.netlify/functions/music-search?term=${encodeURIComponent(term)}&limit=25&previewOnly=1`);
+
+      // Tolérant: si Netlify renvoie du HTML/texte, on évite de crasher sur res.json()
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`Non-JSON response (HTTP ${res.status})`);
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
       const list = Array.isArray(data?.results) ? data.results : [];
       setResults(list);
-      if (!list.length) setErr("Aucun résultat.");
+      if (!list.length) setErr("Aucun extrait Spotify disponible pour cette recherche.");
     } catch (e) {
       console.error("music-search error:", e);
       setErr("Recherche impossible.");
