@@ -772,6 +772,7 @@ const maxMusicStart = useMemo(() => {
   return Math.max(0, 29 - clipLenSec);
 }, [clipLenSec]);
   const [track, setTrack] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Si l’utilisateur choisit un son depuis le feed, on le récupère ici
   useEffect(() => {
@@ -1256,7 +1257,6 @@ return (
             <div style={{ color: "white", opacity: 0.85, textAlign: "center", padding: 14 }}>
               <div style={{ fontWeight: 900 }}>Ajoute une vidéo ou une image</div>
               <div style={{ marginTop: 6, lineHeight: 1.35, opacity: 0.9 }}>
-                Tu peux ensuite ajouter un son (logique type TikTok) et régler les volumes.
               </div>
               <div style={{ marginTop: 12 }}>
                 <button
@@ -1377,6 +1377,14 @@ return (
         </div>
       </div>
     </div>
+
+      <MusicPickerModal
+        open={pickerOpen}
+        userId={user?.id}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(t) => { setTrack(t); setPickerOpen(false); }}
+      />
+
   </main>
 );
 
