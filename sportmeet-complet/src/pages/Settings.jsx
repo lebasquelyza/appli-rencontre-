@@ -141,10 +141,361 @@ function MusicLibraryModal({ open, onClose, userId }) {
   if (!open) return null;
 
   return (
-    
+    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
+      <div className="modal-card modal-card--sheet allowScroll" onClick={(e) => e.stopPropagation()}
+        style={{ width: "min(920px, 98vw)", maxHeight: "calc(var(--appH, 100vh) - 18px)", overflow: "hidden", borderRadius: 18 }}>
+        <div className="modal-header" style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between" }}>
+          <button className="btn-ghost btn-sm" onClick={() => { stop(); onClose?.(); }} aria-label="Fermer">✕</button>
+          <div style={{ fontWeight: 900 }}>Bibliothèque musique</div>
+          <div style={{ width: 34 }} />
+        </div>
+
+        <div className="modal-body modal-body--scroll allowScroll" style={{ padding: 14, paddingTop: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <button type="button" className={tab === "library" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => { setTab("library"); if (userId) loadLibrary(); }}>
+              Bibliothèque
+            </button>
+            <button type="button" className={tab === "search" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setTab("search")}>
+              Ajouter un son
+            </button>
+          </div>
+
+          {tab === "search" ? (
+            <>
+              <div className="card" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Titre, artiste…"
+                  style={{ flex: 1, minWidth: 0 }} onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }} disabled={loading} />
+                <button className="btn-primary btn-sm" onClick={runSearch} disabled={loading}>{loading ? "..." : "Rechercher"}</button>
+              </div>
+
+              {err ? <p className="form-message error" style={{ marginTop: 10 }}>{err}</p> : null}
+
+              <audio ref={audioRef} />
+
+              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                {results.map((t) => (
+                  <div key={(t.provider || "spotify") + "_" + (t.track_id || "")} className="card"
+                    style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                    <img src={t.artwork || "/avatar.png"} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }} />
+                    <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                      <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+                      <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.artist}</div>
+                    </div>
+
+                    {t.preview_url ? (
+                      <button type="button" className="btn-ghost btn-sm" onClick={() => playPreview(t)} title="Écouter un extrait">
+                        {playingId === t.track_id ? "⏸" : "▶"}
+                      </button>
+                    ) : null}
+
+                    <button type="button" className="btn-primary btn-sm" onClick={() => addToLibrary(t)} disabled={loading}>Ajouter</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
+
+          {tab === "library" ? (
+            <>
+              {!userId ? (
+                <p className="form-message error">Connecte-toi pour accéder à ta bibliothèque.</p>
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" className={libScope === "all" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("all")}>Tous</button>
+                      <button type="button" className={libScope === "global" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("global")}>Global</button>
+                      <button type="button" className={libScope === "mine" ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setLibScope("mine")}>Mes sons</button>
+                    </div>
+
+                    <input className="input" value={libQuery} onChange={(e) => setLibQuery(e.target.value)} placeholder="Filtrer…" style={{ flex: 1, minWidth: 220 }} />
+
+                    <button type="button" className="btn-ghost btn-sm" onClick={loadLibrary} disabled={libLoading}>{libLoading ? "..." : "Rafraîchir"}</button>
+                  </div>
+
+                  {libErr ? <p className="form-message error" style={{ marginTop: 10 }}>{libErr}</p> : null}
+
+                  <audio ref={audioRef} />
+
+                  <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                    {libLoading ? (
+                      <p className="form-message">Chargement…</p>
+                    ) : filteredLibrary.length === 0 ? (
+                      <p className="form-message">Aucun son.</p>
+                    ) : (
+                      filteredLibrary.map((t) => {
+                        const isGlobal = t.owner_id == null;
+                        const canDelete = (t.owner_id === userId);
+
+                        return (
+                          <div key={t.id} className="card" style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
+                            <img src={t.artwork || "/avatar.png"} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
+                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }} />
+                            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                              <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+                              <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {t.artist} {isGlobal ? "• Global" : "• Moi"}
+                              </div>
+                            </div>
+
+                            {t.preview_url ? (
+                              <button type="button" className="btn-ghost btn-sm" onClick={() => playPreview(t)} title="Écouter un extrait">
+                                {playingId === t.id ? "⏸" : "▶"}
+                              </button>
+                            ) : null}
+
+                            {canDelete ? (
+                              <button type="button" className="btn-ghost btn-sm" onClick={() => removeFromLibrary(t)} disabled={libLoading}>Supprimer</button>
+                            ) : null}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          ) : null}
+
+          <div style={{ height: 10 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 
-            {/* ✅ Mes infos (toujours visible, non modifiable) */}
+export function Settings({ user, onClearHiddenProfiles, hiddenCount = 0 }) {
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [isError, setIsError] = useState(false);
+
+
+  const [musicLibOpen, setMusicLibOpen] = useState(false);
+  // ✅ Préférences audio feed (localStorage)
+  const LS_VIDEO_VOL = "mf_feed_video_vol";
+  const LS_MUSIC_VOL = "mf_feed_music_vol";
+
+  const readVol = (key, fallback) => {
+    try {
+      const raw = localStorage.getItem(key);
+      const n = Number(raw);
+      if (Number.isFinite(n)) return Math.min(1, Math.max(0, n));
+    } catch {}
+    return fallback;
+  };
+
+  const [feedVideoVol, setFeedVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
+  const [feedMusicVol, setFeedMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
+
+  useEffect(() => {
+    try { localStorage.setItem(LS_VIDEO_VOL, String(feedVideoVol)); } catch {}
+  }, [feedVideoVol]);
+
+  useEffect(() => {
+    try { localStorage.setItem(LS_MUSIC_VOL, String(feedMusicVol)); } catch {}
+  }, [feedMusicVol]);
+
+
+  // ✅ Mot de passe dépliable
+  const [openPassword, setOpenPassword] = useState(false);
+
+  // ✅ Mes infos (lecture seule, toujours visible)
+  const [email, setEmail] = useState(user?.email || "");
+  const [newEmail, setNewEmail] = useState("");
+  const [openEmailEdit, setOpenEmailEdit] = useState(false);
+  const [name, setName] = useState("");
+  const [age, setAge] = useState("");
+
+  // ✅ Mot de passe
+  const [newPass, setNewPass] = useState("");
+  const [newPass2, setNewPass2] = useState("");
+
+  useEffect(() => {
+    setEmail(user?.email || "");
+  }, [user?.email]);
+
+  const setBanner = (text, err = false) => {
+    setMsg(text);
+    setIsError(err);
+    window.clearTimeout(setBanner.__t);
+    setBanner.__t = window.setTimeout(() => setMsg(""), 3500);
+  };
+
+  // ✅ Partager MatchFit (Web Share API + fallback copie)
+  const handleShare = async () => {
+    const url = window.location.origin;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "MatchFit",
+          text: "Rejoins-moi sur MatchFit 💪",
+          url
+        });
+        return;
+      }
+    } catch {
+      // l'utilisateur peut annuler -> on ignore
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setBanner("Lien copié ✅");
+    } catch {
+      window.prompt("Copie ce lien :", url);
+    }
+  };
+
+  const goFeed = () => navigate("/feed");
+  const goPost = () => navigate("/post");
+
+
+  // ✅ Charger profil pour afficher nom/âge (read-only)
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!user) return;
+
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("name, age")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (error) {
+          console.error("Settings fetch profile error:", error);
+          setName("");
+          setAge("");
+          return;
+        }
+
+        setName(typeof data?.name === "string" ? data.name : "");
+        setAge(data?.age ?? "");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+
+const changeEmail = async () => {
+  if (!user) return;
+
+  const next = (newEmail || "").trim().toLowerCase();
+  if (!next || !next.includes("@")) {
+    return setBanner("Adresse email invalide.", true);
+  }
+  if ((email || "").trim().toLowerCase() === next) {
+    return setBanner("C’est déjà ton email actuel.", true);
+  }
+
+  setLoading(true);
+  try {
+    const { error } = await supabase.auth.updateUser(
+      { email: next },
+      { emailRedirectTo: `${window.location.origin}/auth/callback` }
+    );
+
+    if (error) {
+      console.error("update email error:", error);
+      return setBanner("Impossible de modifier l’email.", true);
+    }
+
+    setNewEmail("");
+    setBanner(
+      "Un email de confirmation vient d’être envoyé. Le changement sera effectif après validation ✅"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const changePassword = async () => {
+    if (!user) return;
+
+    if (!newPass || newPass.length < 6) {
+      return setBanner("Mot de passe : 6 caractères minimum.", true);
+    }
+    if (newPass !== newPass2) {
+      return setBanner("Les mots de passe ne correspondent pas.", true);
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPass });
+      if (error) {
+        console.error("update password error:", error);
+        return setBanner("Impossible de changer le mot de passe.", true);
+      }
+
+      setNewPass("");
+      setNewPass2("");
+      setBanner("Mot de passe changé ✅");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const displayName = (name || "").trim() || "Non renseigné";
+  const displayAge = age === "" || age == null ? "Non renseigné" : String(age);
+
+  const whiteDisabledInputStyle = {
+    color: "#fff",
+    WebkitTextFillColor: "#fff",
+    opacity: 1
+  };
+
+  // ✅ style lien "primary" (même couleur que les boutons primary)
+  const primaryLinkStyle = {
+    color: "var(--primary)",
+    fontWeight: 600,
+    textDecoration: "none"
+  };
+
+  return (
+    <main className="page page--settings" style={{ minHeight: "calc(var(--appH, 100vh))" }}>
+      <div className="shell">
+        <section className="card" style={{ padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button className="btn-ghost" onClick={() => navigate("/")}>
+              ← Retour
+            </button>
+            <h1 style={{ margin: 0 }}>Réglages</h1>
+          </div>
+
+          {!user && (
+            <p className="form-message" style={{ marginTop: 12 }}>
+              Connecte-toi pour accéder à la configuration du compte.
+            </p>
+          )}
+
+          {msg && (
+            <p className={`form-message ${isError ? "error" : ""}`} style={{ marginTop: 12 }}>
+              {msg}
+            </p>
+          )}
+
+          <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+
+            
+
+{/* ✅ Mes infos (toujours visible, non modifiable) */}
             <div className="card" style={{ padding: 14 }}>
               <h3 style={{ marginTop: 0 }}>Mes infos</h3>
               <p style={{ opacity: 0.85, marginTop: 6 }}>Informations de ton compte.</p>
