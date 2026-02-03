@@ -1,14 +1,5 @@
 // sportmeet-complet/src/pages/ProgressFeed.jsx
-import React, {
-  const [videoVol, setVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
-  const [musicVol, setMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
-
-  const setVol = (key, v) => {
-    const x = Math.min(1, Math.max(0, Number(v)));
-    try { localStorage.setItem(key, String(x)); } catch {}
-    return x;
-  };
- useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -620,6 +611,17 @@ function SoundPickerModal({ open, onClose, userId, onPick }) {
 }
 
 function ProgressFeed({ user }) {
+  // Volumes globaux du feed (stockés en localStorage)
+  const [videoVol, setVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
+  const [musicVol, setMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
+
+  const setVol = (key, v) => {
+    const x = Math.min(1, Math.max(0, Number(v)));
+    try { localStorage.setItem(key, String(x)); } catch {}
+    return x;
+  };
+
+
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
@@ -887,4 +889,3 @@ function ProgressFeed({ user }) {
 
 export { ProgressFeed };
 export default ProgressFeed;
-
