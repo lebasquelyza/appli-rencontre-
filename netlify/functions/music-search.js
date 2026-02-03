@@ -1,9 +1,25 @@
 // netlify/functions/music-search.js
-// Env vars: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
+// Spotify catalogue search (metadata + preview_url when available)
+//
+// Env vars required:
+// - SPOTIFY_CLIENT_ID
+// - SPOTIFY_CLIENT_SECRET
+//
+// Endpoint:
+//   GET /.netlify/functions/music-search?term=your+query
+// Optional:
+//   limit (default 25, max 50)
+//   previewOnly (default 1) => return only tracks that have preview_url
+//   market (optional) => e.g. FR, US... (affects availability)
+//
+// Important:
+// Spotify preview_url is frequently null for many tracks. With previewOnly=1
+// you may get few/no results for some searches.
 
 async function getSpotifyToken() {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+
   if (!clientId || !clientSecret) {
     throw new Error("Missing SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET env vars");
   }
@@ -14,41 +30,57 @@ async function getSpotifyToken() {
     method: "POST",
     headers: {
       Authorization: `Basic ${basic}`,
-      "Content-Type": "application/x-www-form-urlencoded",
+      "Content-Type": "application/x-www-form-urlencoded"
     },
-    body: "grant_type=client_credentials",
+    body: "grant_type=client_credentials"
   });
 
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     throw new Error(`Spotify token error: ${res.status} ${txt}`);
   }
+
   const data = await res.json();
   return String(data.access_token || "");
 }
 
+function json(statusCode, obj) {
+  return {
+    statusCode,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type"
+    },
+    body: JSON.stringify(obj)
+  };
+}
+
 exports.handler = async (event) => {
   try {
-    const term = String(event.queryStringParameters?.term || "").trim();
-    const limit = Math.max(
-      1,
-      Math.min(50, Number(event.queryStringParameters?.limit || 25))
-    );
+    const qs = event.queryStringParameters || {};
+
+    const term = String(qs.term || "").trim();
+    const limit = Math.max(1, Math.min(50, Number(qs.limit || 25)));
+    const previewOnly = String(qs.previewOnly || "1") === "1";
+    const market = qs.market ? String(qs.market).trim() : "";
 
     if (!term) {
-      return {
-        statusCode: 200,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ results: [] }),
-      };
+      return json(200, { results: [] });
     }
 
     const token = await getSpotifyToken();
+
+    // Ask Spotify for more items than the UI limit so we can filter to preview tracks.
+    // This increases the chance of returning results when previewOnly=1.
+    const fetchLimit = Math.max(limit, previewOnly ? 50 : limit);
+
     const q = encodeURIComponent(term);
-    const searchUrl = `https://api.spotify.com/v1/search?type=track&limit=${limit}&q=${q}`;
+    const marketParam = market ? `&market=${encodeURIComponent(market)}` : "";
+    const searchUrl = `https://api.spotify.com/v1/search?type=track&limit=${fetchLimit}&q=${q}${marketParam}`;
 
     const res = await fetch(searchUrl, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}` }
     });
 
     if (!res.ok) {
@@ -59,7 +91,9 @@ exports.handler = async (event) => {
     const data = await res.json();
     const items = Array.isArray(data?.tracks?.items) ? data.tracks.items : [];
 
-    const results = items.map((t) => {
+    const filtered = previewOnly ? items.filter((t) => !!t?.preview_url) : items;
+
+    const results = filtered.slice(0, limit).map((t) => {
       const artists = Array.isArray(t?.artists)
         ? t.artists.map((a) => a?.name).filter(Boolean)
         : [];
@@ -74,20 +108,13 @@ exports.handler = async (event) => {
         artwork: String(artwork || ""),
         preview_url: String(t?.preview_url || ""),
         duration_ms: Number(t?.duration_ms || 0),
-        external_url: String(t?.external_urls?.spotify || ""),
+        external_url: String(t?.external_urls?.spotify || "")
       };
     });
 
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ results }),
-    };
+    return json(200, { results });
   } catch (err) {
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: String(err?.message || err), results: [] }),
-    };
+    // Keep statusCode 200 so the UI can show a friendly message without a hard failure.
+    return json(200, { error: String(err?.message || err), results: [] });
   }
 };
