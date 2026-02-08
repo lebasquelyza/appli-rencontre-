@@ -1,6 +1,7 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
 
 [dev]
   command = "npm run dev"
@@ -16,6 +17,13 @@
 [[redirects]]
   from = "/manifest.webmanifest"
   to = "/manifest.webmanifest"
+  status = 200
+
+
+# ✅ IMPORTANT : laisser passer les Netlify Functions
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
   status = 200
 
 [[redirects]]
