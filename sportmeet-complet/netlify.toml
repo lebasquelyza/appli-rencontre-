@@ -1,15 +1,14 @@
 [build]
   base = "sportmeet-complet"
   command = "npm run build"
-  publish = "sportmeet-complet/dist"
-  functions = "sportmeet-complet/netlify/functions"
+  # ✅ FIX: these paths must be RELATIVE to the base directory
+  publish = "dist"
+  functions = "netlify/functions"
 
 [dev]
   command = "npm run dev"
   port = 5173
   targetPort = 5173
-
-# --- REDIRECTS ---
 
 [[redirects]]
   from = "/sw.js"
@@ -21,19 +20,17 @@
   to = "/manifest.webmanifest"
   status = 200
 
-# 🔥 PRIORITÉ AUX FUNCTIONS
+# ✅ IMPORTANT: Netlify Functions BEFORE SPA fallback
 [[redirects]]
   from = "/.netlify/functions/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
-# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Headers manifest
 [[headers]]
   for = "/manifest.webmanifest"
   [headers.values]
