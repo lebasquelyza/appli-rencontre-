@@ -1184,7 +1184,7 @@ function ProgressFeed({ user }) {
   const [posts, setPosts] = useState([]);
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
-  const [viewMode] = useState("mine"); // filtre: mes publications (bouton "Tous" supprimé)
+  const [viewMode, setViewMode] = useState("all"); // "all" par défaut, "mine" quand on ouvre "Mes publications"
 
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
@@ -1385,17 +1385,43 @@ const { data, error } = await q;
 
   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
     <div className="card" style={{ padding: 6, display: "flex", gap: 6, borderRadius: 999 }}>
-      <div
-        className="btn-ghost btn-sm"
-        style={{
-          borderRadius: 999,
-          background: "rgba(255,255,255,0.10)",
-          cursor: "default"
-        }}
-        title="Mes publications"
-      >
-        Mes publications
-      </div>
+      {viewMode === "mine" ? (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div
+            className="btn-ghost btn-sm"
+            style={{
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.10)",
+              cursor: "default"
+            }}
+            title="Mes publications"
+          >
+            Mes publications
+          </div>
+
+          <button
+            className="btn-ghost btn-sm"
+            onClick={() => setViewMode("all")}
+            title="Fermer"
+            aria-label="Fermer"
+            style={{ borderRadius: 999, width: 34, paddingInline: 0, textAlign: "center" }}
+          >
+            ✕
+          </button>
+        </div>
+      ) : (
+        <button
+          className="btn-ghost btn-sm"
+          onClick={() => setViewMode("mine")}
+          title="Mes publications"
+          style={{
+            borderRadius: 999,
+            background: "rgba(255,255,255,0.10)"
+          }}
+        >
+          Mes publications
+        </button>
+      )}
     </div>
 
     <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
