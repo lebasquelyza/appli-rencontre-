@@ -1184,7 +1184,7 @@ function ProgressFeed({ user }) {
   const [posts, setPosts] = useState([]);
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
-  const [viewMode, setViewMode] = useState("all"); // "all" | "mine"
+  const [viewMode] = useState("mine"); // filtre: mes publications (bouton "Tous" supprimé)
 
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
@@ -1385,29 +1385,17 @@ const { data, error } = await q;
 
   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
     <div className="card" style={{ padding: 6, display: "flex", gap: 6, borderRadius: 999 }}>
-      <button
+      <div
         className="btn-ghost btn-sm"
-        onClick={() => setViewMode("all")}
         style={{
           borderRadius: 999,
-          background: viewMode === "all" ? "rgba(255,255,255,0.10)" : "transparent"
+          background: "rgba(255,255,255,0.10)",
+          cursor: "default"
         }}
-        title="Voir tout"
-      >
-        Tous
-      </button>
-      <button
-        className="btn-ghost btn-sm"
-        onClick={() => setViewMode("mine")}
-        style={{
-          borderRadius: 999,
-          background: viewMode === "mine" ? "rgba(255,255,255,0.10)" : "transparent"
-        }}
-        title="Voir mes publications"
-        disabled={!user?.id}
+        title="Mes publications"
       >
         Mes publications
-      </button>
+      </div>
     </div>
 
     <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
