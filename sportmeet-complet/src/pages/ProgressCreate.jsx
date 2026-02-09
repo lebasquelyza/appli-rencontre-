@@ -188,7 +188,7 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
     if (!term) { setErr("Tape un titre ou un artiste."); return; }
     setLoading(true); setErr(""); stop();
     try {
-      const res = await fetch(`/.netlify/functions/music-search?term=${encodeURIComponent(term)}&limit=25`);
+      const res = await fetch(`/.netlify/functions/music-search?term=${encodeURIComponent(term)}&limit=25&previewOnly=0`);
       const data = await res.json();
       const list = Array.isArray(data?.results) ? data.results : [];
       setResults(list);
