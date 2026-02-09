@@ -153,7 +153,30 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
   const [addToGlobal, setAddToGlobal] = useState(false);
 
   const audioRef = useRef(null);
-  const previewStopTimerRef = useRef(null);
+  
+  // --- Auto preview: play selected track when user adds photo/video (user gesture) ---
+  const playSelectedTrackPreview = async () => {
+    const t = selectedTrackRef.current || selectedTrack;
+    const url = t?.preview_url;
+    if (!url) return;
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    // If different track, swap src
+    if (audio.src !== url) {
+      audio.src = url;
+    }
+
+    try {
+      await audio.play();
+      setIsPreviewPlaying(true);
+    } catch (e) {
+      // Autoplay can be blocked in some cases; user can still press play manually.
+      console.warn("Preview play blocked:", e);
+    }
+  };
+const previewStopTimerRef = useRef(null);
   const [playingId, setPlayingId] = useState(null);
 
   const stop = () => {
@@ -298,7 +321,7 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
 
               {err ? <p className="form-message error" style={{ marginTop: 10 }}>{err}</p> : null}
 
-              <audio ref={audioRef} />
+              <audio ref={audioRef} / onEnded={() => setIsPreviewPlaying(false)}>
 
               <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
                 {results.map((t) => (
