@@ -358,50 +358,34 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   const authorName = post?.author_name || "Utilisateur";
   const authorPhoto = post?.author_photo || "";
 
+  // Overlay UI like a "story" (screenshot logic). Tap on media to show/hide overlays.
+  const [uiOpen, setUiOpen] = useState(true);
+  const toggleUi = () => setUiOpen((v) => !v);
+
+  const onMediaTap = () => {
+    // For videos we keep the existing play/pause+music behavior, and also toggle the UI.
+    if (post.media_type === "video") onVideoTap();
+    toggleUi();
+  };
+
   return (
     <article
       ref={ref}
       className="card"
       style={{
         scrollSnapAlign: "start",
-        padding: 12,
+        padding: 0,
         borderRadius: 18,
         overflow: "hidden"
       }}
     >
-      {/* Header */}
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-        <img
-          src={authorPhoto || "/avatar.png"}
-          alt={authorName}
-          style={{ width: 34, height: 34, borderRadius: 999, objectFit: "cover" }}
-          onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src = "/avatar.png";
-          }}
-        />
-        <div style={{ lineHeight: 1.2, flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {authorName}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.75 }}>{formatAgo(post.created_at)}</div>
-        </div>
-
-        {canDelete ? (
-          <button className="btn-ghost btn-sm" onClick={deletePost} title="Supprimer">
-            🗑️
-          </button>
-        ) : null}
-      </div>
-
-      {/* Media */}
       <div
         style={{
           position: "relative",
-          borderRadius: 16,
-          overflow: "hidden",
           background: "#000",
-          aspectRatio: "9 / 16"
+          // Big "story" viewer area, while keeping your page styles (card + spacing) intact.
+          height: "calc(var(--appH, 100vh) - 190px)",
+          minHeight: 540
         }}
       >
         {post.media_type === "video" ? (
@@ -412,60 +396,228 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
             loop
             controls={false}
             muted={false}
-            onClick={onVideoTap}
+            onClick={onMediaTap}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : (
           <img
             src={post.media_url}
             alt={post.caption || "Progress"}
+            onClick={onMediaTap}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         )}
 
         {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
 
-        {/* Actions */}
-        <div
-          style={{
-            position: "absolute",
-            right: 10,
-            bottom: 10,
-            display: "grid",
-            gap: 8
-          }}
-        >
-          <button
-            type="button"
-            className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
-            onClick={() => onLike?.(post)}
-            aria-label="Like"
-            title="Like"
-            style={{ borderRadius: 999, backdropFilter: "blur(6px)" }}
-          >
-            ❤️ {post.likes_count ?? 0}
-          </button>
+        {/* Overlay UI (screenshot-like) */}
+        {uiOpen ? (
+          <>
+            {/* Top left: author */}
+            <div
+              style={{
+                position: "absolute",
+                left: 12,
+                top: 12,
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                padding: 10,
+                borderRadius: 999,
+                background: "rgba(0,0,0,0.35)",
+                backdropFilter: "blur(8px)",
+                maxWidth: "calc(100% - 140px)"
+              }}
+            >
+              <img
+                src={authorPhoto || "/avatar.png"}
+                alt={authorName}
+                style={{ width: 34, height: 34, borderRadius: 999, objectFit: "cover" }}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/avatar.png";
+                }}
+              />
+              <div style={{ lineHeight: 1.1, minWidth: 0 }}>
+                <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {authorName}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
+              </div>
+            </div>
 
+            {/* Top center: music pill like the screenshot */}
+            {post.music_title ? (
+              <div
+                title={post.music_title}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: 14,
+                  transform: "translateX(-50%)",
+                  padding: "10px 14px",
+                  borderRadius: 999,
+                  background: "rgba(0,0,0,0.35)",
+                  backdropFilter: "blur(10px)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  maxWidth: "min(520px, calc(100% - 40px))"
+                }}
+              >
+                <span aria-hidden>🎵</span>
+                <span
+                  style={{
+                    fontWeight: 800,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis"
+                  }}
+                >
+                  {post.music_title}
+                </span>
+              </div>
+            ) : null}
+
+            {/* Top right: actions (settings / delete) */}
+            <div style={{ position: "absolute", right: 12, top: 12, display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={toggleUi}
+                title="Masquer l'UI"
+                style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+              >
+                ⚙️
+              </button>
+              {canDelete ? (
+                <button
+                  className="btn-ghost btn-sm"
+                  onClick={deletePost}
+                  title="Supprimer"
+                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+                >
+                  🗑️
+                </button>
+              ) : null}
+            </div>
+
+            {/* Right rail: screenshot-like tool icons + social actions */}
+            <div
+              style={{
+                position: "absolute",
+                right: 12,
+                top: 84,
+                bottom: 12,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: 12
+              }}
+            >
+              <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  title="Texte"
+                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+                >
+                  Aa
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  title="Effets"
+                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+                >
+                  ✨
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  title="Stickers"
+                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+                >
+                  😊
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  title="Recadrer"
+                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+                >
+                  ⛶
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
+                <button
+                  type="button"
+                  className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
+                  onClick={() => onLike?.(post)}
+                  aria-label="Like"
+                  title="Like"
+                  style={{ borderRadius: 999, background: liked ? undefined : "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+                >
+                  ❤️ {post.likes_count ?? 0}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={() => onOpenComments?.(post)}
+                  aria-label="Commentaires"
+                  title="Commentaires"
+                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+                >
+                  💬 {post.comments_count ?? 0}
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom left: caption */}
+            <div
+              style={{
+                position: "absolute",
+                left: 12,
+                bottom: 12,
+                right: 84,
+                padding: 12,
+                borderRadius: 16,
+                background: "rgba(0,0,0,0.35)",
+                backdropFilter: "blur(10px)"
+              }}
+            >
+              {post.caption ? <div style={{ fontWeight: 800, lineHeight: 1.25 }}>{post.caption}</div> : null}
+              {post.music_title ? (
+                <div style={{ marginTop: post.caption ? 6 : 0, fontSize: 12, opacity: 0.9 }}>
+                  ♪ {post.music_title}
+                </div>
+              ) : null}
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+                <span style={{ opacity: 0.85 }}>Astuce :</span> tape sur le média pour afficher/masquer l'UI
+              </div>
+            </div>
+          </>
+        ) : (
           <button
             type="button"
             className="btn-ghost btn-sm"
-            onClick={() => onOpenComments?.(post)}
-            aria-label="Commentaires"
-            title="Commentaires"
-            style={{ borderRadius: 999, backdropFilter: "blur(6px)" }}
+            onClick={toggleUi}
+            title="Afficher l'UI"
+            style={{
+              position: "absolute",
+              right: 12,
+              top: 12,
+              borderRadius: 999,
+              background: "rgba(0,0,0,0.35)",
+              backdropFilter: "blur(8px)"
+            }}
           >
-            💬 {post.comments_count ?? 0}
+            👁️
           </button>
-        </div>
+        )}
       </div>
-
-      {/* Caption + music */}
-      {post.caption ? <p style={{ margin: "10px 0 0", lineHeight: 1.35 }}>{post.caption}</p> : null}
-      {post.music_title ? (
-        <p style={{ margin: "8px 0 0", fontSize: 12, opacity: 0.8 }}>
-          ♪ {post.music_title}
-        </p>
-      ) : null}
     </article>
   );
 }
