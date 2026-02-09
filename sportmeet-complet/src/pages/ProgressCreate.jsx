@@ -1048,7 +1048,18 @@ const maxMusicStart = useMemo(() => {
         }
       }
 setBanner("Publié ✅");
-      setTimeout(() => navigate("/feed"), 350);
+      // navigation robuste: on tente /feed puis fallback "retour"
+      try {
+        navigate("/feed", { replace: true });
+      } catch {}
+      window.setTimeout(() => {
+        // si on est encore sur la page create, on revient en arrière
+        try {
+          if (window.location.pathname.includes("/progress/create") || window.location.pathname.includes("/create")) {
+            navigate(-1);
+          }
+        } catch {}
+      }, 250);
     } catch (e) {
       console.error("progress create exception:", e);
       setBanner("Impossible de publier.", true);
