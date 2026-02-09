@@ -570,7 +570,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
       ref={ref}
       className="card"
       style={{
-        scrollSnapAlign: "start",
         padding: 0,
         borderRadius: 18,
         overflow: "hidden"
@@ -582,8 +581,8 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
           position: "relative",
           background: "#000",
           // Big "story" viewer area, while keeping your page styles (card + spacing) intact.
-          height: "calc(var(--appH, 100vh) - 190px)",
-          minHeight: 540
+          height: "min(70vh, 620px)",
+          minHeight: 420
         }}
       >
         {/* Media container to support crop/zoom */}
@@ -1185,6 +1184,7 @@ function ProgressFeed({ user }) {
   const [posts, setPosts] = useState([]);
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
+  const [viewMode, setViewMode] = useState("all"); // "all" | "mine"
 
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
@@ -1193,15 +1193,29 @@ function ProgressFeed({ user }) {
     setErr("");
 
     try {
-      const { data, error } = await supabase
-        .from("progress_posts")
-        .select(
-          "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume"
-        )
-        .eq("is_deleted", false)
-        .eq("is_public", true)
-        .order("created_at", { ascending: false })
-        .limit(80);
+      let q = supabase
+  .from("progress_posts")
+  .select(
+    "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public"
+  )
+  .eq("is_deleted", false)
+  .order("created_at", { ascending: false })
+  .limit(80);
+
+if (viewMode === "all") {
+  q = q.eq("is_public", true);
+} else {
+  // Mes publications: on affiche tout (public + privé) de l'utilisateur connecté
+  if (!user?.id) {
+    setErr("Connecte-toi pour voir tes publications.");
+    setPosts([]);
+    setLoading(false);
+    return;
+  }
+  q = q.eq("user_id", user.id);
+}
+
+const { data, error } = await q;
 
       if (error) {
         console.error("progress_posts fetch error:", error);
@@ -1300,7 +1314,7 @@ function ProgressFeed({ user }) {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, viewMode]);
 
   const onLike = async (post) => {
     if (!user?.id) {
@@ -1364,15 +1378,43 @@ function ProgressFeed({ user }) {
   return (
     <main className="page">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-        <div>
-          <h2 style={{ margin: 0 }}>Progressions</h2>
-          <div style={{ fontSize: 13, opacity: 0.75 }}>Scroll vertical + auto-play (logique TikTok)</div>
-        </div>
+  <div>
+    <h2 style={{ margin: 0 }}>Progressions</h2>
+    <div style={{ fontSize: 13, opacity: 0.75 }}>Feed</div>
+  </div>
 
-        <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
-          + Publier
-        </button>
-      </div>
+  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    <div className="card" style={{ padding: 6, display: "flex", gap: 6, borderRadius: 999 }}>
+      <button
+        className="btn-ghost btn-sm"
+        onClick={() => setViewMode("all")}
+        style={{
+          borderRadius: 999,
+          background: viewMode === "all" ? "rgba(255,255,255,0.10)" : "transparent"
+        }}
+        title="Voir tout"
+      >
+        Tous
+      </button>
+      <button
+        className="btn-ghost btn-sm"
+        onClick={() => setViewMode("mine")}
+        style={{
+          borderRadius: 999,
+          background: viewMode === "mine" ? "rgba(255,255,255,0.10)" : "transparent"
+        }}
+        title="Voir mes publications"
+        disabled={!user?.id}
+      >
+        Mes publications
+      </button>
+    </div>
+
+    <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
+      + Publier
+    </button>
+  </div>
+</div>
 
       {err ? <p className="form-message error">{err}</p> : null}
 
@@ -1386,10 +1428,7 @@ function ProgressFeed({ user }) {
           style={{
             display: "grid",
             gap: 12,
-            overflowY: "auto",
-            scrollSnapType: "y mandatory",
-            paddingBottom: 12,
-            maxHeight: "calc(var(--appH, 100vh) - 160px)"
+            paddingBottom: 12
           }}
         >
           {posts.map((p) => (
