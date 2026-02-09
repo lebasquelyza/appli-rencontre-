@@ -306,15 +306,10 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
                     key={(t.provider || "spotify") + "_" + (t.track_id || "")}
                     className="card"
                     onClick={() => {
-                      if (t.preview_url) {
-                        playPreview(t);
-                      } else if (t.external_url) {
-                        try {
-                          window.open(t.external_url, "_blank", "noopener,noreferrer");
-                        } catch {}
-                      }
+                      // Lecture uniquement via preview_url (pas de redirection Spotify)
+                      if (t.preview_url) playPreview(t);
                     }}
-                    style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14, cursor: t.preview_url || t.external_url ? "pointer" : "default" }}
+                    style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14, cursor: t.preview_url ? "pointer" : "default" }}
                   >
                     <img src={t.artwork || "/avatar.png"} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
                       onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }} />
@@ -1089,64 +1084,7 @@ return (
           <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={loading}>
             + Son
           </button>
-          {track ? (
-            <div className="card" style={{ padding: 10, borderRadius: 14, display: "flex", alignItems: "center", gap: 10, marginLeft: 10, maxWidth: "min(520px, 60vw)" }}>
-              <img
-                src={track.artwork || "/avatar.png"}
-                alt=""
-                style={{ width: 34, height: 34, borderRadius: 10, objectFit: "cover" }}
-                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }}
-              />
-              <div style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
-                <div style={{ fontWeight: 900, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {track.title || "Son sélectionné"}
-                </div>
-                <div style={{ opacity: 0.85, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {track.artist || ""}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                onClick={() => {
-                  try {
-                    const a = audioRef.current;
-                    if (!a) return;
-                    if (!track?.preview_url) return;
-                    if (!a.paused && a.src === track.preview_url) {
-                      a.pause();
-                      return;
-                    }
-                    // play from start position for the selected clip
-                    previewFromStart();
-                  } catch {}
-                }}
-                disabled={!track?.preview_url}
-                title={track?.preview_url ? "Écouter l'extrait" : "Pas d'extrait disponible"}
-                style={!track?.preview_url ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-              >
-                ▶
-              </button>
-
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                onClick={() => {
-                  try {
-                    const a = audioRef.current;
-                    if (a) a.pause();
-                  } catch {}
-                  setTrack(null);
-                  setMusicStart(0);
-                }}
-                aria-label="Supprimer le son"
-                title="Supprimer le son"
-              >
-                ✕
-              </button>
-            </div>
-          ) : null}
+          {/* Son sélectionné affiché juste au-dessus de la photo */}
 
 
           <button
@@ -1173,7 +1111,91 @@ return (
       >
         {msg ? <p className={`form-message ${isError ? "error" : ""}`}>{msg}</p> : null}
 
-        {/* Preview */}
+        
+        {/* ✅ Son sélectionné (au-dessus de la photo) */}
+        {track ? (
+          <div
+            className="card"
+            style={{
+              padding: "8px 10px",
+              borderRadius: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              maxWidth: "100%",
+            }}
+          >
+            <img
+              src={track.artwork || "/avatar.png"}
+              alt=""
+              style={{ width: 28, height: 28, borderRadius: 10, objectFit: "cover" }}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = "/avatar.png";
+              }}
+            />
+            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
+              <div
+                style={{
+                  fontWeight: 900,
+                  fontSize: 12,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {track.title || "Son sélectionné"}
+              </div>
+              <div
+                style={{
+                  opacity: 0.75,
+                  fontSize: 11,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {track.artist || ""}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => {
+                  // Lecture uniquement via preview_url (pas de redirection Spotify)
+                  if (!track?.preview_url) return;
+                  previewFromStart();
+                }}
+                disabled={!track?.preview_url}
+                title={track?.preview_url ? "Écouter l'extrait" : "Extrait indisponible"}
+                style={!track?.preview_url ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              >
+                ▶
+              </button>
+
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => {
+                  try {
+                    const a = audioRef.current;
+                    if (a) a.pause();
+                  } catch {}
+                  setTrack(null);
+                  setMusicStart(0);
+                }}
+                aria-label="Supprimer le son"
+                title="Supprimer le son"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+{/* Preview */}
         <div
           style={{
             borderRadius: 18,
