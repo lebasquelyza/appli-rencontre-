@@ -392,6 +392,31 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
 }
 
 export function ProgressCreate({ user }) {
+  // Fallback: if the parent doesn't pass `user`, recover it from Supabase auth
+  const [authUser, setAuthUser] = useState(null);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!mounted) return;
+        setAuthUser(data?.user ?? null);
+      } catch {
+        if (mounted) setAuthUser(null);
+      }
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      setAuthUser(session?.user ?? null);
+    });
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  const u = user ?? authUser;
+
   const navigate = useNavigate();
 
   // --- Spotify (Option B) ---
@@ -820,9 +845,9 @@ const maxMusicStart = useMemo(() => {
   };
 
   useEffect(() => {
-    if (!user?.id) setBanner("Connecte-toi pour publier.", true);
+    if (!u?.id) setBanner("Connecte-toi pour publier.", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [u?.id]);
 
   const onPick = (e) => {
     const list = Array.from(e.target.files || []);
@@ -868,7 +893,7 @@ const maxMusicStart = useMemo(() => {
   };
 
   const openMediaPicker = () => {
-    if (loading || !user?.id) return;
+    if (loading || !u?.id) return;
     try {
       fileInputRef.current?.click();
     } catch {}
@@ -926,7 +951,7 @@ const maxMusicStart = useMemo(() => {
   };
 
   const uploadAndCreate = async () => {
-    if (!user?.id) {
+    if (!u?.id) {
       navigate("/settings");
       return;
     }
@@ -944,7 +969,7 @@ const maxMusicStart = useMemo(() => {
       const { data: prof, error: pErr } = await withTimeout(supabase
         .from("profiles")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", u.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(), 15000, "Chargement profil");
@@ -962,7 +987,7 @@ const maxMusicStart = useMemo(() => {
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
         const ext = safeExt(f);
-        const path = `progress/${user.id}/${randomId()}_${i}.${ext}`;
+        const path = `progress/${u.id}/${randomId()}_${i}.${ext}`;
 
         setBanner(`Upload… (${i + 1}/${files.length})`);
 
@@ -994,7 +1019,7 @@ const maxMusicStart = useMemo(() => {
 
         const { error: insErr } = await withTimeout(
           supabase.from("progress_posts").insert({
-            user_id: user.id,
+            user_id: u.id,
             profile_id: profileId,
             media_url: publicUrl,
             media_type: mediaType,
@@ -1058,7 +1083,7 @@ return (
             accept="video/*,image/*"
             multiple
             onChange={onPick}
-            disabled={!user?.id || loading}
+            disabled={!u?.id || loading}
             style={{ display: "none" }}
           />
 
@@ -1070,7 +1095,7 @@ return (
             type="button"
             className="btn-primary btn-sm"
             onClick={uploadAndCreate}
-            disabled={!user?.id || loading || files.length === 0}
+            disabled={!u?.id || loading || files.length === 0}
             title="Publier"
           >
             {loading ? "..." : "Publier"}
@@ -1256,7 +1281,7 @@ return (
                   type="button"
                   className="btn-primary btn-sm"
                   onClick={openMediaPicker}
-                  disabled={!user?.id || loading}
+                  disabled={!u?.id || loading}
                 >
                   Ajouter une photo ou une vidéo
                 </button>
@@ -1345,7 +1370,7 @@ return (
               type="button"
               className="btn-ghost btn-sm"
               onClick={openMediaPicker}
-              disabled={!user?.id || loading}
+              disabled={!u?.id || loading}
             >
               Ajouter
             </button>
@@ -1364,7 +1389,7 @@ return (
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Ajouter une description…"
             rows={3}
-            disabled={!user?.id || loading}
+            disabled={!u?.id || loading}
             style={{ width: "100%", resize: "vertical" }}
           />
         </div>
@@ -1373,7 +1398,7 @@ return (
 
       <MusicPickerModal
         open={pickerOpen}
-        userId={user?.id}
+        userId={u?.id}
         onClose={() => setPickerOpen(false)}
         onSelect={(t) => { setTrack(t); setPickerOpen(false); }}
       />
