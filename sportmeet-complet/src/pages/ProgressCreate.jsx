@@ -298,19 +298,12 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
 
               {err ? <p className="form-message error" style={{ marginTop: 10 }}>{err}</p> : null}
 
-              <audio ref={audioRef} />
+              <audio ref={audioRef} onEnded={() => setPlayingId(null)} />
 
               <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
                 {results.map((t) => (
-                  <div
-                    key={(t.provider || "spotify") + "_" + (t.track_id || "")}
-                    className="card"
-                    onClick={() => {
-                      // Lecture uniquement via preview_url (pas de redirection Spotify)
-                      if (t.preview_url) playPreview(t);
-                    }}
-                    style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14, cursor: t.preview_url ? "pointer" : "default" }}
-                  >
+                  <div key={(t.provider || "spotify") + "_" + (t.track_id || "")} className="card"
+                    style={{ padding: 10, display: "flex", gap: 10, alignItems: "center", borderRadius: 14 }}>
                     <img src={t.artwork || "/avatar.png"} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }}
                       onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }} />
                     <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
@@ -318,20 +311,15 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
                       <div style={{ opacity: 0.8, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.artist}</div>
                     </div>
 
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm"
-                      onClick={(e) => { e.stopPropagation(); if (t.preview_url) playPreview(t); }}
-                      title={t.preview_url ? "Écouter un extrait" : "Pas d'extrait disponible"}
-                      disabled={!t.preview_url}
-                      style={!t.preview_url ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                    >
-                      {playingId === t.track_id ? "⏸" : "▶"}
-                    </button>
+                    {t.preview_url ? (
+                      <button type="button" className="btn-ghost btn-sm" onClick={() => playPreview(t)} title="Écouter un extrait">
+                        {playingId === t.track_id ? "⏸" : "▶"}
+                      </button>
+                    ) : null}
 
-                    <button type="button" className="btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); addToLibrary(t); }} disabled={loading} title="Ajouter à la bibliothèque">⭐</button>
+                    <button type="button" className="btn-ghost btn-sm" onClick={() => addToLibrary(t)} disabled={loading} title="Ajouter à la bibliothèque">⭐</button>
 
-                    <button type="button" className="btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); stop(); onSelect?.(t); onClose?.(); }}>
+                    <button type="button" className="btn-primary btn-sm" onClick={() => { stop(); onSelect?.(t); onClose?.(); }}>
                       Utiliser
                     </button>
                   </div>
@@ -384,7 +372,7 @@ function MusicPickerModal({ open, onClose, onSelect, userId }) {
                               </button>
                             ) : null}
 
-                            <button type="button" className="btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); stop(); onSelect?.(t); onClose?.(); }}>
+                            <button type="button" className="btn-primary btn-sm" onClick={() => { stop(); onSelect?.(t); onClose?.(); }}>
                               Utiliser
                             </button>
                           </div>
@@ -888,13 +876,6 @@ const maxMusicStart = useMemo(() => {
 
     const previewFromStart = async () => {
     try {
-      // Spotify full track
-      if (track?.provider === "spotify" && track?.uri) {
-        const startMs = Math.max(0, Math.floor(Number(musicStart || 0) * 1000));
-        await spotifyPlaySegment(track.uri, startMs, 30000);
-        return;
-      }
-
       // iTunes fallback (preview 30s)
       if (!track?.preview_url) return;
       const a = audioRef.current;
@@ -1084,8 +1065,6 @@ return (
           <button type="button" className="btn-ghost btn-sm" onClick={() => setPickerOpen(true)} disabled={loading}>
             + Son
           </button>
-          {/* Son sélectionné affiché juste au-dessus de la photo */}
-
 
           <button
             type="button"
@@ -1111,91 +1090,7 @@ return (
       >
         {msg ? <p className={`form-message ${isError ? "error" : ""}`}>{msg}</p> : null}
 
-        
-        {/* ✅ Son sélectionné (au-dessus de la photo) */}
-        {track ? (
-          <div
-            className="card"
-            style={{
-              padding: "8px 10px",
-              borderRadius: 14,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              maxWidth: "100%",
-            }}
-          >
-            <img
-              src={track.artwork || "/avatar.png"}
-              alt=""
-              style={{ width: 28, height: 28, borderRadius: 10, objectFit: "cover" }}
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = "/avatar.png";
-              }}
-            />
-            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
-              <div
-                style={{
-                  fontWeight: 900,
-                  fontSize: 12,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {track.title || "Son sélectionné"}
-              </div>
-              <div
-                style={{
-                  opacity: 0.75,
-                  fontSize: 11,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {track.artist || ""}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                onClick={() => {
-                  // Lecture uniquement via preview_url (pas de redirection Spotify)
-                  if (!track?.preview_url) return;
-                  previewFromStart();
-                }}
-                disabled={!track?.preview_url}
-                title={track?.preview_url ? "Écouter l'extrait" : "Extrait indisponible"}
-                style={!track?.preview_url ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-              >
-                ▶
-              </button>
-
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                onClick={() => {
-                  try {
-                    const a = audioRef.current;
-                    if (a) a.pause();
-                  } catch {}
-                  setTrack(null);
-                  setMusicStart(0);
-                }}
-                aria-label="Supprimer le son"
-                title="Supprimer le son"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-{/* Preview */}
+        {/* Preview */}
         <div
           style={{
             borderRadius: 18,
