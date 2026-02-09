@@ -1,7 +1,6 @@
 [build]
   base = "sportmeet-complet"
   command = "npm run build"
-  # ✅ FIX: these paths must be RELATIVE to the base directory
   publish = "dist"
   functions = "netlify/functions"
 
@@ -9,6 +8,8 @@
   command = "npm run dev"
   port = 5173
   targetPort = 5173
+
+# --- REDIRECTS EXISTANTS (inchangés) ---
 
 [[redirects]]
   from = "/sw.js"
@@ -20,17 +21,13 @@
   to = "/manifest.webmanifest"
   status = 200
 
-# ✅ IMPORTANT: Netlify Functions BEFORE SPA fallback
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
+# --- SPA fallback ---
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
+# --- HEADERS ---
 [[headers]]
   for = "/manifest.webmanifest"
   [headers.values]
