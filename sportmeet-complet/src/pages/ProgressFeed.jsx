@@ -1367,30 +1367,30 @@ const { data, error } = await q;
     <main className="page" style={{ position: "relative" }}>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-  <div>
-    <h2 style={{ margin: 0 }}>Progressions</h2>
-  </div>
+        <div>
+          <h2 style={{ margin: 0 }}>Progressions</h2>
+        </div>
 
-  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-    <button
-      className="btn-ghost btn-sm"
-      onClick={() => navigate("/progress/mine")}
-      title="Mes publications"
-      style={{
-        borderRadius: 999,
-        background: "rgba(255,255,255,0.10)",
-        fontSize: 10,
-        padding: "4px 7px"
-      }}
-    >
-      Mes publications
-    </button></div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            className="btn-ghost btn-sm"
+            onClick={() => navigate("/progress/mine")}
+            title="Mes publications"
+            style={{
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.10)",
+              fontSize: 10,
+              padding: "4px 7px",
+            }}
+          >
+            Mes publications
+          </button>
 
-    <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
-      + Publier
-    </button>
-  </div>
-</div>
+          <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
+            + Publier
+          </button>
+        </div>
+      </div>
 
       {err ? <p className="form-message error">{err}</p> : null}
 
