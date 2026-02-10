@@ -1364,7 +1364,7 @@ const { data, error } = await q;
   };
 
   return (
-    <main className="page" style={{ position: "relative" }}>
+    <main className="page" style={{ position: "relative", background: "radial-gradient(1200px 800px at 20% 10%, rgba(255, 80, 80, 0.18), transparent 55%), radial-gradient(1000px 700px at 80% 15%, rgba(255, 140, 80, 0.12), transparent 55%), radial-gradient(900px 700px at 50% 90%, rgba(70, 80, 255, 0.18), transparent 60%), linear-gradient(180deg, rgba(10,10,15,0.92), rgba(10,10,15,0.92))" }}>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
         <div>
@@ -1374,19 +1374,19 @@ const { data, error } = await q;
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             className="btn-ghost btn-sm"
-            onClick={() => navigate("/progress/mine")}
+            onClick={() => navigate("/feed/mine")}
             title="Mes publications"
             style={{
               borderRadius: 999,
               background: "rgba(255,255,255,0.10)",
-              fontSize: 10,
-              padding: "4px 7px",
+              fontSize: 9,
+              padding: "3px 6px",
             }}
           >
             Mes publications
           </button>
 
-          <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
+          <button className="btn-primary btn-sm" onClick={() => navigate("/post")} disabled={!user} title="Publier" style={{ padding: "8px 12px", borderRadius: 999, fontSize: 14, lineHeight: "16px" }}>
             + Publier
           </button>
         </div>
@@ -1432,5 +1432,4 @@ const { data, error } = await q;
   );
 }
 
-export { ProgressFeed };
 export default ProgressFeed;
