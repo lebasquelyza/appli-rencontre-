@@ -1167,7 +1167,7 @@ function TextTool({ onAdd, existing, onUpdate, onDelete }) {
 
 
 
-function ProgressFeed({ user }) {
+export default function ProgressMyPublications({ user }) {
   // Volumes globaux du feed (stockés en localStorage)
   const [videoVol, setVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
   const [musicVol, setMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
@@ -1373,7 +1373,15 @@ const { data, error } = await q;
   return (
     <main className="page" style={{ position: "relative" }}>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+      <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 12,
+  }}
+>
   <div>
     <h2 style={{ margin: 0 }}>Mes publications</h2>
   </div>
@@ -1391,19 +1399,24 @@ const { data, error } = await q;
         paddingInline: 0,
         background: "rgba(255,255,255,0.10)",
         fontSize: 14,
-        lineHeight: 1
+        lineHeight: 1,
       }}
     >
       ✕
-    </button></div>
+    </button>
 
-    <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
+    <button
+      className="btn-primary btn-sm"
+      onClick={() => navigate("/post")}
+      disabled={!user}
+      title="Publier"
+    >
       + Publier
     </button>
   </div>
 </div>
 
-      {err ? <p className="form-message error">{err}</p> : null}
+{err ? <p className="form-message error">{err}</p> : null}
 
       {loading ? (
         <p className="form-message">Chargement…</p>
@@ -1443,5 +1456,3 @@ const { data, error } = await q;
   );
 }
 
-export { ProgressFeed };
-export default ProgressFeed;
