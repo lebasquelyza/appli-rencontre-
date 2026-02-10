@@ -60,8 +60,8 @@ import { ChatPage } from "./pages/ChatPage";
 import { AccountReview } from "./pages/AccountReview";
 
 // ✅ Feed "progressions"
-import { ProgressFeed } from "./pages/ProgressFeed";
-import { ProgressCreate } from "./pages/ProgressCreate";
+import ProgressFeed from "./pages/ProgressFeed";
+import ProgressCreate from "./pages/ProgressCreate";
 import ProgressMyPublications from "./pages/ProgressMyPublications";
 
 const BUCKET = "profile-photos";
