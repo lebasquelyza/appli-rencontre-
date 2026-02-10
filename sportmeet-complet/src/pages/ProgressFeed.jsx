@@ -1376,15 +1376,31 @@ const { data, error } = await q;
   };
 
   return (
-    <main className="page">
+    <main className="page" style={{ position: "relative" }}>
+      {/* Mask léger pour atténuer/faire disparaître le trait vertical au milieu (sans casser le style global) */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: "50%",
+          width: 18,
+          transform: "translateX(-50%)",
+          pointerEvents: "none",
+          // Le trait vient souvent d'un background/effet global : on le "diffuse" localement
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          background: "rgba(0,0,0,0.02)"
+        }}
+      />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
   <div>
     <h2 style={{ margin: 0 }}>Progressions</h2>
-    <div style={{ fontSize: 13, opacity: 0.75 }}>Feed</div>
   </div>
 
   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-    <div className="card" style={{ padding: 6, display: "flex", gap: 6, borderRadius: 999 }}>
+    <div className="card" style={{ padding: 3, display: "flex", gap: 6, borderRadius: 999 }}>
       {viewMode === "mine" ? (
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <div
@@ -1392,6 +1408,8 @@ const { data, error } = await q;
             style={{
               borderRadius: 999,
               background: "rgba(255,255,255,0.10)",
+              fontSize: 11,
+              padding: "5px 8px",
               cursor: "default"
             }}
             title="Mes publications"
@@ -1404,7 +1422,7 @@ const { data, error } = await q;
             onClick={() => setViewMode("all")}
             title="Fermer"
             aria-label="Fermer"
-            style={{ borderRadius: 999, width: 34, paddingInline: 0, textAlign: "center" }}
+            style={{ borderRadius: 999, width: 28, height: 28, paddingInline: 0, textAlign: "center", fontSize: 13 }}
           >
             ✕
           </button>
@@ -1416,7 +1434,9 @@ const { data, error } = await q;
           title="Mes publications"
           style={{
             borderRadius: 999,
-            background: "rgba(255,255,255,0.10)"
+            background: "rgba(255,255,255,0.10)",
+            fontSize: 11,
+            padding: "5px 8px"
           }}
         >
           Mes publications
