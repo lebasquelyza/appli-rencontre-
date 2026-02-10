@@ -62,6 +62,7 @@ import { AccountReview } from "./pages/AccountReview";
 // ✅ Feed "progressions"
 import { ProgressFeed } from "./pages/ProgressFeed";
 import { ProgressCreate } from "./pages/ProgressCreate";
+import ProgressMyPublications from "./pages/ProgressMyPublications";
 
 const BUCKET = "profile-photos";
 
@@ -1923,6 +1924,7 @@ const navigate = useNavigate();
 
         
         <Route path="/feed" element={<ProgressFeed user={userForUI} />} />
+        <Route path="/feed/mine" element={<ProgressMyPublications user={userForUI} />} />
         <Route path="/post" element={<ProgressCreate user={userForUI} />} />
 
 <Route path="/chat/:matchId" element={<ChatPage />} />
