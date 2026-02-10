@@ -1184,7 +1184,6 @@ function ProgressFeed({ user }) {
   const [posts, setPosts] = useState([]);
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
-  const [viewMode, setViewMode] = useState("all"); // "all" par défaut, "mine" quand on ouvre "Mes publications"
 
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
@@ -1202,18 +1201,7 @@ function ProgressFeed({ user }) {
   .order("created_at", { ascending: false })
   .limit(80);
 
-if (viewMode === "all") {
-  q = q.eq("is_public", true);
-} else {
-  // Mes publications: on affiche tout (public + privé) de l'utilisateur connecté
-  if (!user?.id) {
-    setErr("Connecte-toi pour voir tes publications.");
-    setPosts([]);
-    setLoading(false);
-    return;
-  }
-  q = q.eq("user_id", user.id);
-}
+q = q.eq("is_public", true);
 
 const { data, error } = await q;
 
@@ -1314,7 +1302,7 @@ const { data, error } = await q;
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, viewMode]);
+  }, [user?.id]);
 
   const onLike = async (post) => {
     if (!user?.id) {
@@ -1377,72 +1365,26 @@ const { data, error } = await q;
 
   return (
     <main className="page" style={{ position: "relative" }}>
-      {/* Mask léger pour atténuer/faire disparaître le trait vertical au milieu (sans casser le style global) */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          top: 0,
-          bottom: 0,
-          left: "50%",
-          width: 18,
-          transform: "translateX(-50%)",
-          pointerEvents: "none",
-          // Le trait vient souvent d'un background/effet global : on le "diffuse" localement
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-          background: "rgba(0,0,0,0.02)"
-        }}
-      />
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
   <div>
     <h2 style={{ margin: 0 }}>Progressions</h2>
   </div>
 
   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-    <div className="card" style={{ padding: 3, display: "flex", gap: 6, borderRadius: 999 }}>
-      {viewMode === "mine" ? (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <div
-            className="btn-ghost btn-sm"
-            style={{
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.10)",
-              fontSize: 11,
-              padding: "5px 8px",
-              cursor: "default"
-            }}
-            title="Mes publications"
-          >
-            Mes publications
-          </div>
-
-          <button
-            className="btn-ghost btn-sm"
-            onClick={() => setViewMode("all")}
-            title="Fermer"
-            aria-label="Fermer"
-            style={{ borderRadius: 999, width: 28, height: 28, paddingInline: 0, textAlign: "center", fontSize: 13 }}
-          >
-            ✕
-          </button>
-        </div>
-      ) : (
-        <button
-          className="btn-ghost btn-sm"
-          onClick={() => setViewMode("mine")}
-          title="Mes publications"
-          style={{
-            borderRadius: 999,
-            background: "rgba(255,255,255,0.10)",
-            fontSize: 11,
-            padding: "5px 8px"
-          }}
-        >
-          Mes publications
-        </button>
-      )}
-    </div>
+    <button
+      className="btn-ghost btn-sm"
+      onClick={() => navigate("/progress/mine")}
+      title="Mes publications"
+      style={{
+        borderRadius: 999,
+        background: "rgba(255,255,255,0.10)",
+        fontSize: 10,
+        padding: "4px 7px"
+      }}
+    >
+      Mes publications
+    </button></div>
 
     <button className="btn-primary" onClick={() => navigate("/post")} disabled={!user} title="Publier">
       + Publier
