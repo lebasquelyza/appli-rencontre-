@@ -1113,7 +1113,7 @@ export function ProgressCreate({ user }) {
           className="card"
           style={{
             padding: 12,
-            maxWidth: 520,
+            maxWidth: 720,
             margin: "0 auto",
             display: "grid",
             gap: 12
@@ -1128,7 +1128,8 @@ export function ProgressCreate({ user }) {
               overflow: "hidden",
               background: "#000",
               width: "100%",
-              aspectRatio: "9 / 16",
+              aspectRatio: "16 / 10",
+              maxHeight: "58vh",
               display: "grid",
               placeItems: "center",
               position: "relative"
