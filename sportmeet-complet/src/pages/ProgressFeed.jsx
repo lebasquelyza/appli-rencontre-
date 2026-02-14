@@ -51,38 +51,39 @@ function useVisibility(threshold = 0.65) {
 
 // --- Mock posts (pour voir le rendu même sans data) ---
 function svgDataUrl({ title, subtitle }) {
-  const safe = (s) =>
-    String(s || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+  const t = String(title || "MATCH-FIT").toUpperCase();
+  const st = String(subtitle || "Progression").trim();
 
-  const t = safe(title);
-  const st = safe(subtitle);
-
-  const svg = `
+  // iOS Safari est parfois strict avec rgba() dans le SVG -> on utilise stop-opacity.
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
   <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
     <defs>
-      <radialGradient id="g1" cx="20%" cy="10%" r="90%">
-        <stop offset="0" stop-color="rgba(255,80,80,0.85)"/>
-        <stop offset="0.6" stop-color="rgba(10,10,15,0.9)"/>
-        <stop offset="1" stop-color="rgba(10,10,15,1)"/>
+      <radialGradient id="g1" cx="20%" cy="10%" r="85%">
+        <stop offset="0" stop-color="#ff5a6b" stop-opacity="0.35"/>
+        <stop offset="0.65" stop-color="#0a0a0f" stop-opacity="0"/>
       </radialGradient>
       <radialGradient id="g2" cx="80%" cy="20%" r="90%">
-        <stop offset="0" stop-color="rgba(80,140,255,0.70)"/>
-        <stop offset="0.7" stop-color="rgba(10,10,15,0)"/>
+        <stop offset="0" stop-color="#4f8cff" stop-opacity="0.30"/>
+        <stop offset="0.70" stop-color="#0a0a0f" stop-opacity="0"/>
       </radialGradient>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#0b0b12"/>
+        <stop offset="1" stop-color="#05050a"/>
+      </linearGradient>
     </defs>
+
+    <rect width="1080" height="1920" fill="url(#bg)"/>
     <rect width="1080" height="1920" fill="url(#g1)"/>
     <rect width="1080" height="1920" fill="url(#g2)"/>
-    <g opacity="0.92">
-      <text x="80" y="980" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="84" font-weight="900" fill="#fff">${t}</text>
-      <text x="80" y="1080" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="44" font-weight="700" fill="rgba(255,255,255,0.85)">${st}</text>
-      <text x="80" y="1160" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="34" font-weight="600" fill="rgba(255,255,255,0.65)">Mock post • pour prévisualiser le feed</text>
+
+    <g opacity="0.95">
+      <text x="80" y="980" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="88" font-weight="900" fill="#ffffff">${t}</text>
+      <text x="80" y="1086" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="46" font-weight="800" fill="#ffffff" opacity="0.85">${st}</text>
+      <text x="80" y="1162" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="34" font-weight="700" fill="#ffffff" opacity="0.65">Mock post • pour prévisualiser le feed</text>
     </g>
   </svg>`;
 
-  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.trim());
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 }
 
 const MOCK_POSTS = [
