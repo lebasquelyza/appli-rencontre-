@@ -49,6 +49,121 @@ function useVisibility(threshold = 0.65) {
   return [ref, visible];
 }
 
+// --- Mock posts (pour voir le rendu même sans data) ---
+function svgDataUrl({ title, subtitle }) {
+  const safe = (s) =>
+    String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  const t = safe(title);
+  const st = safe(subtitle);
+
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+    <defs>
+      <radialGradient id="g1" cx="20%" cy="10%" r="90%">
+        <stop offset="0" stop-color="rgba(255,80,80,0.85)"/>
+        <stop offset="0.6" stop-color="rgba(10,10,15,0.9)"/>
+        <stop offset="1" stop-color="rgba(10,10,15,1)"/>
+      </radialGradient>
+      <radialGradient id="g2" cx="80%" cy="20%" r="90%">
+        <stop offset="0" stop-color="rgba(80,140,255,0.70)"/>
+        <stop offset="0.7" stop-color="rgba(10,10,15,0)"/>
+      </radialGradient>
+    </defs>
+    <rect width="1080" height="1920" fill="url(#g1)"/>
+    <rect width="1080" height="1920" fill="url(#g2)"/>
+    <g opacity="0.92">
+      <text x="80" y="980" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="84" font-weight="900" fill="#fff">${t}</text>
+      <text x="80" y="1080" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="44" font-weight="700" fill="rgba(255,255,255,0.85)">${st}</text>
+      <text x="80" y="1160" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="34" font-weight="600" fill="rgba(255,255,255,0.65)">Mock post • pour prévisualiser le feed</text>
+    </g>
+  </svg>`;
+
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.trim());
+}
+
+const MOCK_POSTS = [
+  {
+    id: "mock-1",
+    user_id: "mock",
+    media_type: "image",
+    media_url: svgDataUrl({ title: "MATCH-FIT", subtitle: "Progression du jour" }),
+    caption: "Mock • Retour à l’entraînement 💪",
+    created_at: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
+    music_title: "Mock • Julia — Mt. Joy",
+    music_url: "",
+    music_start_sec: 0,
+    music_volume: 0.6,
+    video_volume: 1,
+    is_public: true,
+    author_name: "Alex",
+    author_photo: "/avatar.png",
+    likes_count: 12,
+    comments_count: 3,
+    __mock: true
+  },
+  {
+    id: "mock-2",
+    user_id: "mock",
+    media_type: "image",
+    media_url: svgDataUrl({ title: "SQUAT", subtitle: "+5kg cette semaine" }),
+    caption: "Mock • Nouveau PR 🎯",
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+    music_title: "Mock • Beat",
+    music_url: "",
+    music_start_sec: 0,
+    music_volume: 0.6,
+    video_volume: 1,
+    is_public: true,
+    author_name: "Sam",
+    author_photo: "/avatar.png",
+    likes_count: 34,
+    comments_count: 8,
+    __mock: true
+  },
+  {
+    id: "mock-3",
+    user_id: "mock",
+    media_type: "image",
+    media_url: svgDataUrl({ title: "RUN", subtitle: "5km en 24:10" }),
+    caption: "Mock • Cardio du soir 🌙",
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
+    music_title: "Mock • Chill",
+    music_url: "",
+    music_start_sec: 0,
+    music_volume: 0.6,
+    video_volume: 1,
+    is_public: true,
+    author_name: "Maya",
+    author_photo: "/avatar.png",
+    likes_count: 5,
+    comments_count: 1,
+    __mock: true
+  },
+  {
+    id: "mock-4",
+    user_id: "mock",
+    media_type: "image",
+    media_url: svgDataUrl({ title: "ABS", subtitle: "Finisher 6 min" }),
+    caption: "Mock • Core 🔥",
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
+    music_title: "Mock • Energy",
+    music_url: "",
+    music_start_sec: 0,
+    music_volume: 0.6,
+    video_volume: 1,
+    is_public: true,
+    author_name: "Nina",
+    author_photo: "/avatar.png",
+    likes_count: 21,
+    comments_count: 0,
+    __mock: true
+  }
+];
+
 function CommentsModal({ open, onClose, postId, user, onPosted }) {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
@@ -57,6 +172,12 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
 
   const load = async () => {
     if (!postId) return;
+    // Mock: pas de commentaires
+    if (String(postId).startsWith("mock-")) {
+      setRows([]);
+      return;
+    }
+
     setLoading(true);
     setErr("");
 
@@ -121,6 +242,9 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
   }, [open, postId]);
 
   const submit = async () => {
+    // Mock: commentaires désactivés
+    if (String(postId).startsWith("mock-")) return;
+
     if (!user?.id) {
       setErr("Connecte-toi pour commenter.");
       return;
@@ -157,6 +281,8 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
 
   if (!open) return null;
 
+  const isMock = String(postId).startsWith("mock-");
+
   return (
     <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
       <div
@@ -177,58 +303,64 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
         </div>
 
         <div className="modal-body modal-body--scroll allowScroll" style={{ paddingTop: 8 }}>
+          {isMock ? <p className="form-message">Mock post : commentaires désactivés 🙂</p> : null}
+
           {err ? (
             <p className="form-message error" style={{ marginBottom: 10 }}>
               {err}
             </p>
           ) : null}
 
-          {loading ? (
-            <p className="form-message">Chargement…</p>
-          ) : rows.length === 0 ? (
-            <p className="form-message">Aucun commentaire. Sois le/la premier(e) 🙂</p>
-          ) : (
-            <div style={{ display: "grid", gap: 10 }}>
-              {rows.map((c) => (
-                <div key={c.id} className="card" style={{ padding: 10 }}>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <img
-                      src={c.author_photo || "/avatar.png"}
-                      alt={c.author_name}
-                      style={{ width: 28, height: 28, borderRadius: 999, objectFit: "cover" }}
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = "/avatar.png";
-                      }}
-                    />
-                    <div style={{ lineHeight: 1.15 }}>
-                      <div style={{ fontWeight: 800 }}>{c.author_name}</div>
-                      <div style={{ fontSize: 12, opacity: 0.75 }}>{formatAgo(c.created_at)}</div>
+          {!isMock ? (
+            loading ? (
+              <p className="form-message">Chargement…</p>
+            ) : rows.length === 0 ? (
+              <p className="form-message">Aucun commentaire. Sois le/la premier(e) 🙂</p>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {rows.map((c) => (
+                  <div key={c.id} className="card" style={{ padding: 10 }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <img
+                        src={c.author_photo || "/avatar.png"}
+                        alt={c.author_name}
+                        style={{ width: 28, height: 28, borderRadius: 999, objectFit: "cover" }}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/avatar.png";
+                        }}
+                      />
+                      <div style={{ lineHeight: 1.15 }}>
+                        <div style={{ fontWeight: 800 }}>{c.author_name}</div>
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>{formatAgo(c.created_at)}</div>
+                      </div>
                     </div>
+                    <p style={{ margin: "8px 0 0", lineHeight: 1.35 }}>{c.body}</p>
                   </div>
-                  <p style={{ margin: "8px 0 0", lineHeight: 1.35 }}>{c.body}</p>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )
+          ) : null}
 
-          <div className="card" style={{ padding: 12, marginTop: 12 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Ajouter un commentaire</div>
-            <textarea
-              className="input"
-              rows={2}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder={user?.id ? "Écris un commentaire…" : "Connecte-toi pour commenter"}
-              disabled={!user?.id || loading}
-              style={{ width: "100%", resize: "vertical" }}
-            />
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-              <button className="btn-primary btn-sm" onClick={submit} disabled={!user?.id || loading || !body.trim()}>
-                Envoyer
-              </button>
+          {!isMock ? (
+            <div className="card" style={{ padding: 12, marginTop: 12 }}>
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Ajouter un commentaire</div>
+              <textarea
+                className="input"
+                rows={2}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={user?.id ? "Écris un commentaire…" : "Connecte-toi pour commenter"}
+                disabled={!user?.id || loading}
+                style={{ width: "100%", resize: "vertical" }}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                <button className="btn-primary btn-sm" onClick={submit} disabled={!user?.id || loading || !body.trim()}>
+                  Envoyer
+                </button>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -314,8 +446,8 @@ function DraggableOverlay({ item, onUpdate, onDelete, boundsRef, children }) {
     draggingRef.current = {
       startX,
       startY,
-      startPxX: (item.xPct ?? 50),
-      startPxY: (item.yPct ?? 50),
+      startPxX: item.xPct ?? 50,
+      startPxY: item.yPct ?? 50,
       w: bounds.width,
       h: bounds.height
     };
@@ -389,18 +521,16 @@ function DraggableOverlay({ item, onUpdate, onDelete, boundsRef, children }) {
   );
 }
 
-function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) {
+function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted, snapHeight }) {
   const [ref, visible] = useVisibility(0.65);
   const boundsRef = useRef(null);
   const videoRef = useRef(null);
   const audioRef = useRef(null);
 
-  // Global user preferences multipliers (from Settings)
   const [globalVideoVol, setGlobalVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
   const [globalMusicVol, setGlobalMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
 
   useEffect(() => {
-    // Keep synced even in same tab
     const t = window.setInterval(() => {
       setGlobalVideoVol(readVol(LS_VIDEO_VOL, 1));
       setGlobalMusicVol(readVol(LS_MUSIC_VOL, 0.6));
@@ -442,14 +572,12 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
 
     if (visible) {
       if (post.media_type === "video") {
-        // Autoplay video, but DO NOT autoplay music (music starts on user pause)
         try {
           const pv = v?.play();
           if (pv?.catch) pv.catch(() => {});
         } catch {}
         stopMusic();
       } else {
-        // Photo post: autoplay music when visible
         stopMusic();
         playMusic();
       }
@@ -470,7 +598,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
 
     if (!v.paused) {
-      // User pauses -> start music (user gesture)
       try {
         v.pause();
       } catch {}
@@ -482,7 +609,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
         } catch {}
       }
     } else {
-      // User resumes -> stop music, resume video
       if (hasMusic) {
         try {
           a.pause();
@@ -495,7 +621,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
     }
   };
 
-  const canDelete = !!user?.id && user.id === post.user_id;
+  const canDelete = !!user?.id && user.id === post.user_id && !post.__mock;
 
   const deletePost = async () => {
     if (!canDelete) return;
@@ -513,23 +639,20 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   const authorName = post?.author_name || "Utilisateur";
   const authorPhoto = post?.author_photo || "";
 
-  // Overlay UI like a "story" (screenshot logic). Tap on media to show/hide overlays.
   const [uiOpen, setUiOpen] = useState(true);
   const toggleUi = () => setUiOpen((v) => !v);
 
-  // Tools state (client-side, per item)
-  const [activeTool, setActiveTool] = useState(null); // "text" | "effects" | "stickers" | "crop" | null
+  const [activeTool, setActiveTool] = useState(null);
   const [effectsKey, setEffectsKey] = useState("none");
 
-  const [crop, setCrop] = useState({ zoom: 1, x: 0, y: 0 }); // x/y in % translate (approx)
-  const [texts, setTexts] = useState([]); // {id, text, color, size, bg, xPct, yPct}
-  const [stickers, setStickers] = useState([]); // {id, emoji, size, xPct, yPct}
+  const [crop, setCrop] = useState({ zoom: 1, x: 0, y: 0 });
+  const [texts, setTexts] = useState([]);
+  const [stickers, setStickers] = useState([]);
 
   const mediaFilter = EFFECT_PRESETS.find((p) => p.key === effectsKey)?.filter ?? "none";
   const mediaTransform = `translate(${crop.x}%, ${crop.y}%) scale(${crop.zoom})`;
 
   const onMediaTap = () => {
-    // For videos we keep the existing play/pause+music behavior, and also toggle the UI.
     if (post.media_type === "video") onVideoTap();
     toggleUi();
   };
@@ -572,7 +695,8 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
       style={{
         padding: 0,
         borderRadius: 18,
-        overflow: "hidden"
+        overflow: "hidden",
+        scrollSnapAlign: "start"
       }}
     >
       <div
@@ -580,20 +704,11 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
         style={{
           position: "relative",
           background: "#000",
-          // Big "story" viewer area, while keeping your page styles (card + spacing) intact.
-          height: "min(70vh, 620px)",
+          height: snapHeight || "min(70vh, 620px)",
           minHeight: 420
         }}
       >
-        {/* Media container to support crop/zoom */}
-        <div
-          onClick={onMediaTap}
-          style={{
-            position: "absolute",
-            inset: 0,
-            overflow: "hidden"
-          }}
-        >
+        <div onClick={onMediaTap} style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
           {post.media_type === "video" ? (
             <video
               ref={videoRef}
@@ -602,43 +717,22 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
               loop
               controls={false}
               muted={false}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                filter: mediaFilter,
-                transform: mediaTransform,
-                transformOrigin: "center center"
-              }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: mediaFilter, transform: mediaTransform, transformOrigin: "center center" }}
             />
           ) : (
             <img
               src={post.media_url}
               alt={post.caption || "Progress"}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                filter: mediaFilter,
-                transform: mediaTransform,
-                transformOrigin: "center center"
-              }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: mediaFilter, transform: mediaTransform, transformOrigin: "center center" }}
             />
           )}
         </div>
 
         {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
 
-        {/* Always-visible overlays (text + stickers) */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: uiOpen ? "auto" : "none" }}>
           {texts.map((t) => (
-            <DraggableOverlay
-              key={t.id}
-              item={t}
-              boundsRef={boundsRef}
-              onUpdate={updateText}
-              onDelete={deleteText}
-            >
+            <DraggableOverlay key={t.id} item={t} boundsRef={boundsRef} onUpdate={updateText} onDelete={deleteText}>
               <div
                 style={{
                   fontWeight: 900,
@@ -660,22 +754,14 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
           ))}
 
           {stickers.map((s) => (
-            <DraggableOverlay
-              key={s.id}
-              item={s}
-              boundsRef={boundsRef}
-              onUpdate={updateSticker}
-              onDelete={deleteSticker}
-            >
+            <DraggableOverlay key={s.id} item={s} boundsRef={boundsRef} onUpdate={updateSticker} onDelete={deleteSticker}>
               <div style={{ fontSize: s.size, filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.45))" }}>{s.emoji}</div>
             </DraggableOverlay>
           ))}
         </div>
 
-        {/* Overlay UI (screenshot-like) */}
         {uiOpen ? (
           <>
-            {/* Top left: author */}
             <div
               style={{
                 position: "absolute",
@@ -701,14 +787,11 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
                 }}
               />
               <div style={{ lineHeight: 1.1, minWidth: 0 }}>
-                <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {authorName}
-                </div>
+                <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{authorName}</div>
                 <div style={{ fontSize: 12, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
               </div>
             </div>
 
-            {/* Top center: music pill like the screenshot */}
             {post.music_title ? (
               <div
                 title={post.music_title}
@@ -728,20 +811,10 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
                 }}
               >
                 <span aria-hidden>🎵</span>
-                <span
-                  style={{
-                    fontWeight: 800,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis"
-                  }}
-                >
-                  {post.music_title}
-                </span>
+                <span style={{ fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.music_title}</span>
               </div>
             ) : null}
 
-            {/* Top right: actions (settings / delete) */}
             <div style={{ position: "absolute", right: 12, top: 12, display: "flex", gap: 8 }}>
               <button
                 type="button"
@@ -753,18 +826,12 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
                 ⚙️
               </button>
               {canDelete ? (
-                <button
-                  className="btn-ghost btn-sm"
-                  onClick={deletePost}
-                  title="Supprimer"
-                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
-                >
+                <button className="btn-ghost btn-sm" onClick={deletePost} title="Supprimer" style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}>
                   🗑️
                 </button>
               ) : null}
             </div>
 
-            {/* Right rail: screenshot-like tool icons + social actions */}
             <div
               style={{
                 position: "absolute",
@@ -778,52 +845,16 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
               }}
             >
               <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  title="Texte"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTool("text");
-                  }}
-                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
-                >
+                <button type="button" className="btn-ghost btn-sm" title="Texte" onClick={(e) => { e.stopPropagation(); setActiveTool("text"); }} style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}>
                   Aa
                 </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  title="Effets"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTool("effects");
-                  }}
-                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
-                >
+                <button type="button" className="btn-ghost btn-sm" title="Effets" onClick={(e) => { e.stopPropagation(); setActiveTool("effects"); }} style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}>
                   ✨
                 </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  title="Stickers"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTool("stickers");
-                  }}
-                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
-                >
+                <button type="button" className="btn-ghost btn-sm" title="Stickers" onClick={(e) => { e.stopPropagation(); setActiveTool("stickers"); }} style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}>
                   😊
                 </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  title="Recadrer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTool("crop");
-                  }}
-                  style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
-                >
+                <button type="button" className="btn-ghost btn-sm" title="Recadrer" onClick={(e) => { e.stopPropagation(); setActiveTool("crop"); }} style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}>
                   ⛶
                 </button>
               </div>
@@ -838,11 +869,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
                   }}
                   aria-label="Like"
                   title="Like"
-                  style={{
-                    borderRadius: 999,
-                    background: liked ? undefined : "rgba(0,0,0,0.35)",
-                    backdropFilter: "blur(8px)"
-                  }}
+                  style={{ borderRadius: 999, background: liked ? undefined : "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
                 >
                   ❤️ {post.likes_count ?? 0}
                 </button>
@@ -863,43 +890,20 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
               </div>
             </div>
 
-            {/* Bottom left: caption */}
-            <div
-              style={{
-                position: "absolute",
-                left: 12,
-                bottom: 12,
-                right: 84,
-                padding: 12,
-                borderRadius: 16,
-                background: "rgba(0,0,0,0.35)",
-                backdropFilter: "blur(10px)"
-              }}
-            >
+            <div style={{ position: "absolute", left: 12, bottom: 12, right: 84, padding: 12, borderRadius: 16, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(10px)" }}>
               {post.caption ? <div style={{ fontWeight: 800, lineHeight: 1.25 }}>{post.caption}</div> : null}
-              {post.music_title ? (
-                <div style={{ marginTop: post.caption ? 6 : 0, fontSize: 12, opacity: 0.9 }}>
-                  ♪ {post.music_title}
-                </div>
-              ) : null}
+              {post.music_title ? <div style={{ marginTop: post.caption ? 6 : 0, fontSize: 12, opacity: 0.9 }}>♪ {post.music_title}</div> : null}
               <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
                 <span style={{ opacity: 0.85 }}>Astuce :</span> tape sur le média pour afficher/masquer l'UI
               </div>
             </div>
 
-            {/* Tool modals */}
-            <ModalSheet
-              open={activeTool === "settings"}
-              title="Options"
-              onClose={() => setActiveTool(null)}
-              width="min(720px, 96vw)"
-            >
+            <ModalSheet open={activeTool === "settings"} title="Options" onClose={() => setActiveTool(null)} width="min(720px, 96vw)">
               <div style={{ display: "grid", gap: 10 }}>
                 <div className="card" style={{ padding: 12 }}>
                   <div style={{ fontWeight: 900, marginBottom: 6 }}>Outils (client)</div>
                   <div style={{ fontSize: 13, opacity: 0.8, lineHeight: 1.35 }}>
-                    Texte / stickers / effets / recadrage s’appliquent localement (dans ton feed). Si tu veux que ça se
-                    sauvegarde en base, je te le branche sur Supabase ensuite.
+                    Texte / stickers / effets / recadrage s’appliquent localement (dans ton feed). Si tu veux que ça se sauvegarde en base, je te le branche sur Supabase ensuite.
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
@@ -913,103 +917,36 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
               </div>
             </ModalSheet>
 
-            <ModalSheet
-              open={activeTool === "effects"}
-              title="Effets"
-              onClose={() => setActiveTool(null)}
-              width="min(760px, 96vw)"
-            >
+            <ModalSheet open={activeTool === "effects"} title="Effets" onClose={() => setActiveTool(null)} width="min(760px, 96vw)">
               <div style={{ display: "grid", gap: 10 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
                   {EFFECT_PRESETS.map((p) => (
-                    <button
-                      key={p.key}
-                      className={effectsKey === p.key ? "btn-primary" : "btn-ghost"}
-                      onClick={() => setEffectsKey(p.key)}
-                      style={{ justifyContent: "center" }}
-                    >
+                    <button key={p.key} className={effectsKey === p.key ? "btn-primary" : "btn-ghost"} onClick={() => setEffectsKey(p.key)} style={{ justifyContent: "center" }}>
                       {p.label}
                     </button>
                   ))}
                 </div>
-                <div className="card" style={{ padding: 12 }}>
-                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Aperçu</div>
-                  <div style={{ fontSize: 13, opacity: 0.8 }}>
-                    Effet actif : <b>{EFFECT_PRESETS.find((x) => x.key === effectsKey)?.label}</b>
-                  </div>
+              </div>
+            </ModalSheet>
+
+            <ModalSheet open={activeTool === "stickers"} title="Stickers" onClose={() => setActiveTool(null)} width="min(760px, 96vw)">
+              <div className="card" style={{ padding: 12 }}>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Choisis un sticker</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(10, minmax(0, 1fr))", gap: 8 }}>
+                  {EMOJIS.map((e) => (
+                    <button key={e} className="btn-ghost btn-sm" onClick={() => addSticker(e)} style={{ fontSize: 20, height: 38, borderRadius: 12 }} title={e}>
+                      {e}
+                    </button>
+                  ))}
                 </div>
               </div>
             </ModalSheet>
 
-            <ModalSheet
-              open={activeTool === "stickers"}
-              title="Stickers"
-              onClose={() => setActiveTool(null)}
-              width="min(760px, 96vw)"
-            >
-              <div style={{ display: "grid", gap: 10 }}>
-                <div className="card" style={{ padding: 12 }}>
-                  <div style={{ fontWeight: 900, marginBottom: 6 }}>Choisis un sticker</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(10, minmax(0, 1fr))", gap: 8 }}>
-                    {EMOJIS.map((e) => (
-                      <button
-                        key={e}
-                        className="btn-ghost btn-sm"
-                        onClick={() => addSticker(e)}
-                        style={{ fontSize: 20, height: 38, borderRadius: 12 }}
-                        title={e}
-                      >
-                        {e}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {stickers.length ? (
-                  <div className="card" style={{ padding: 12 }}>
-                    <div style={{ fontWeight: 900, marginBottom: 10 }}>Taille des stickers</div>
-                    <div style={{ display: "grid", gap: 10 }}>
-                      {stickers.slice(0, 6).map((s) => (
-                        <div key={s.id} style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <div style={{ fontSize: 22, width: 40, textAlign: "center" }}>{s.emoji}</div>
-                          <input
-                            type="range"
-                            min={18}
-                            max={120}
-                            step={1}
-                            value={s.size}
-                            onChange={(e) => updateSticker({ ...s, size: Number(e.target.value) })}
-                            style={{ width: "100%" }}
-                          />
-                          <button className="btn-ghost btn-sm" onClick={() => deleteSticker(s.id)}>
-                            Supprimer
-                          </button>
-                        </div>
-                      ))}
-                      {stickers.length > 6 ? (
-                        <div style={{ fontSize: 12, opacity: 0.7 }}>Astuce : déplace-les directement sur l’image.</div>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+            <ModalSheet open={activeTool === "text"} title="Texte" onClose={() => setActiveTool(null)} width="min(760px, 96vw)">
+              <TextTool onAdd={addText} />
             </ModalSheet>
 
-            <ModalSheet
-              open={activeTool === "text"}
-              title="Texte"
-              onClose={() => setActiveTool(null)}
-              width="min(760px, 96vw)"
-            >
-              <TextTool onAdd={addText} existing={texts} onUpdate={updateText} onDelete={deleteText} />
-            </ModalSheet>
-
-            <ModalSheet
-              open={activeTool === "crop"}
-              title="Recadrer"
-              onClose={() => setActiveTool(null)}
-              width="min(760px, 96vw)"
-            >
+            <ModalSheet open={activeTool === "crop"} title="Recadrer" onClose={() => setActiveTool(null)} width="min(760px, 96vw)">
               <div style={{ display: "grid", gap: 10 }}>
                 <RangeRow label="Zoom" value={crop.zoom} min={1} max={2.5} step={0.01} onChange={(v) => setCrop((c) => ({ ...c, zoom: v }))} />
                 <RangeRow label="Décalage horizontal" value={crop.x} min={-30} max={30} step={0.5} onChange={(v) => setCrop((c) => ({ ...c, x: v }))} />
@@ -1034,14 +971,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
               toggleUi();
             }}
             title="Afficher l'UI"
-            style={{
-              position: "absolute",
-              right: 12,
-              top: 12,
-              borderRadius: 999,
-              background: "rgba(0,0,0,0.35)",
-              backdropFilter: "blur(8px)"
-            }}
+            style={{ position: "absolute", right: 12, top: 12, borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
           >
             👁️
           </button>
@@ -1051,7 +981,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments, onDeleted }) 
   );
 }
 
-function TextTool({ onAdd, existing, onUpdate, onDelete }) {
+function TextTool({ onAdd }) {
   const [text, setText] = useState("");
   const [size, setSize] = useState(34);
   const [color, setColor] = useState("#ffffff");
@@ -1070,27 +1000,12 @@ function TextTool({ onAdd, existing, onUpdate, onDelete }) {
     <div style={{ display: "grid", gap: 10 }}>
       <div className="card" style={{ padding: 12 }}>
         <div style={{ fontWeight: 900, marginBottom: 8 }}>Ajouter du texte</div>
-        <textarea
-          className="input"
-          rows={3}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Écris quelque chose…"
-          style={{ width: "100%", resize: "vertical" }}
-        />
+        <textarea className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="Écris quelque chose…" style={{ width: "100%", resize: "vertical" }} />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
           <div>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>Taille</div>
-            <input
-              type="range"
-              min={16}
-              max={64}
-              step={1}
-              value={size}
-              onChange={(e) => setSize(Number(e.target.value))}
-              style={{ width: "100%" }}
-            />
+            <input type="range" min={16} max={64} step={1} value={size} onChange={(e) => setSize(Number(e.target.value))} style={{ width: "100%" }} />
             <div style={{ fontSize: 12, opacity: 0.75 }}>{size}px</div>
           </div>
 
@@ -1098,12 +1013,7 @@ function TextTool({ onAdd, existing, onUpdate, onDelete }) {
             <div style={{ fontWeight: 800, marginBottom: 6 }}>Couleur</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {colors.map((c) => (
-                <button
-                  key={c.k}
-                  className={color === c.k ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
-                  onClick={() => setColor(c.k)}
-                  style={{ borderRadius: 999 }}
-                >
+                <button key={c.k} className={color === c.k ? "btn-primary btn-sm" : "btn-ghost btn-sm"} onClick={() => setColor(c.k)} style={{ borderRadius: 999 }}>
                   {c.n}
                 </button>
               ))}
@@ -1131,51 +1041,11 @@ function TextTool({ onAdd, existing, onUpdate, onDelete }) {
           </button>
         </div>
       </div>
-
-      {existing?.length ? (
-        <div className="card" style={{ padding: 12 }}>
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>Tes textes (déplace-les sur l’image)</div>
-          <div style={{ display: "grid", gap: 10 }}>
-            {existing.slice(0, 6).map((t) => (
-              <div key={t.id} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "center" }}>
-                <div style={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {t.text}
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    type="range"
-                    min={16}
-                    max={80}
-                    step={1}
-                    value={t.size}
-                    onChange={(e) => onUpdate?.({ ...t, size: Number(e.target.value) })}
-                    style={{ width: 140 }}
-                  />
-                  <button className="btn-ghost btn-sm" onClick={() => onDelete?.(t.id)}>
-                    Supprimer
-                  </button>
-                </div>
-              </div>
-            ))}
-            {existing.length > 6 ? <div style={{ fontSize: 12, opacity: 0.7 }}>Tu peux en ajouter autant que tu veux 🙂</div> : null}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
 
 function ProgressFeed({ user }) {
-  // Volumes globaux du feed (stockés en localStorage)
-  const [videoVol, setVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
-  const [musicVol, setMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
-
-  const setVol = (key, v) => {
-    const x = Math.min(1, Math.max(0, Number(v)));
-    try { localStorage.setItem(key, String(x)); } catch {}
-    return x;
-  };
-
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
@@ -1192,9 +1062,7 @@ function ProgressFeed({ user }) {
     try {
       let q = supabase
         .from("progress_posts")
-        .select(
-          "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public"
-        )
+        .select("id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public")
         .eq("is_deleted", false)
         .order("created_at", { ascending: false })
         .limit(80);
@@ -1206,11 +1074,9 @@ function ProgressFeed({ user }) {
       if (error) {
         console.error("progress_posts fetch error:", error);
         setErr("Impossible de charger le feed pour le moment.");
-        setPosts([]);
-        return;
       }
 
-      const rows = data || [];
+      const rows = Array.isArray(data) ? data : [];
       const authorIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
 
       const authorByUser = new Map();
@@ -1236,62 +1102,45 @@ function ProgressFeed({ user }) {
 
       const postIds = rows.map((r) => r.id);
 
-      // likes count
       const likeCounts = new Map();
       if (postIds.length) {
-        const { data: likeRows, error: lErr } = await supabase
-          .from("progress_likes")
-          .select("post_id")
-          .in("post_id", postIds)
-          .limit(8000);
-
+        const { data: likeRows, error: lErr } = await supabase.from("progress_likes").select("post_id").in("post_id", postIds).limit(8000);
         if (lErr) console.error("progress likes fetch error:", lErr);
         for (const lr of likeRows || []) likeCounts.set(lr.post_id, (likeCounts.get(lr.post_id) || 0) + 1);
       }
 
-      // comments count
       const commentCounts = new Map();
       if (postIds.length) {
-        const { data: cRows, error: cErr } = await supabase
-          .from("progress_comments")
-          .select("post_id")
-          .in("post_id", postIds)
-          .limit(8000);
-
+        const { data: cRows, error: cErr } = await supabase.from("progress_comments").select("post_id").in("post_id", postIds).limit(8000);
         if (cErr) console.error("progress comments count fetch error:", cErr);
         for (const cr of cRows || []) commentCounts.set(cr.post_id, (commentCounts.get(cr.post_id) || 0) + 1);
       }
 
-      // my liked set
       let myLiked = new Set();
       if (user?.id && postIds.length) {
-        const { data: my, error: myErr } = await supabase
-          .from("progress_likes")
-          .select("post_id")
-          .eq("user_id", user.id)
-          .in("post_id", postIds);
-
+        const { data: my, error: myErr } = await supabase.from("progress_likes").select("post_id").eq("user_id", user.id).in("post_id", postIds);
         if (myErr) console.error("progress my likes fetch error:", myErr);
         myLiked = new Set((my || []).map((x) => x.post_id));
       }
       setLikedSet(myLiked);
 
-      setPosts(
-        rows.map((r) => {
-          const a = authorByUser.get(r.user_id) || { name: "Utilisateur", photo: "" };
-          return {
-            ...r,
-            author_name: a.name,
-            author_photo: a.photo,
-            likes_count: likeCounts.get(r.id) || 0,
-            comments_count: commentCounts.get(r.id) || 0
-          };
-        })
-      );
+      const mapped = rows.map((r) => {
+        const a = authorByUser.get(r.user_id) || { name: "Utilisateur", photo: "" };
+        return {
+          ...r,
+          author_name: a.name,
+          author_photo: a.photo,
+          likes_count: likeCounts.get(r.id) || 0,
+          comments_count: commentCounts.get(r.id) || 0
+        };
+      });
+
+      const merged = [...MOCK_POSTS.slice(0, 2), ...mapped, ...MOCK_POSTS.slice(2)];
+      setPosts(merged.length ? merged : MOCK_POSTS);
     } catch (e) {
       console.error("progress feed exception:", e);
       setErr("Impossible de charger le feed pour le moment.");
-      setPosts([]);
+      setPosts(MOCK_POSTS);
     } finally {
       setLoading(false);
     }
@@ -1303,15 +1152,27 @@ function ProgressFeed({ user }) {
   }, [user?.id]);
 
   const onLike = async (post) => {
+    if (!post?.id) return;
+
+    if (post.__mock) {
+      const already = likedSet.has(post.id);
+      setLikedSet((prev) => {
+        const next = new Set(prev);
+        if (already) next.delete(post.id);
+        else next.add(post.id);
+        return next;
+      });
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? -1 : 1)) } : p)));
+      return;
+    }
+
     if (!user?.id) {
       navigate("/settings");
       return;
     }
-    if (!post?.id) return;
 
     const already = likedSet.has(post.id);
 
-    // optimistic UI
     setLikedSet((prev) => {
       const next = new Set(prev);
       if (already) next.delete(post.id);
@@ -1319,9 +1180,7 @@ function ProgressFeed({ user }) {
       return next;
     });
 
-    setPosts((prev) =>
-      prev.map((p) => (p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? -1 : 1)) } : p))
-    );
+    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? -1 : 1)) } : p)));
 
     try {
       if (already) {
@@ -1333,16 +1192,13 @@ function ProgressFeed({ user }) {
       }
     } catch (e) {
       console.error("progress like error:", e);
-      // revert
       setLikedSet((prev) => {
         const next = new Set(prev);
         if (already) next.add(post.id);
         else next.delete(post.id);
         return next;
       });
-      setPosts((prev) =>
-        prev.map((p) => (p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? 1 : -1)) } : p))
-      );
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? 1 : -1)) } : p)));
     }
   };
 
@@ -1361,6 +1217,8 @@ function ProgressFeed({ user }) {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
   };
 
+  const headerH = 56;
+
   return (
     <main
       className="page"
@@ -1372,40 +1230,18 @@ function ProgressFeed({ user }) {
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* ✅ Nouveau: bouton retour vers la page principale */}
-          <button
-            className="btn-ghost btn-sm"
-            onClick={() => navigate("/")}
-            title="Retour"
-            style={{ padding: "6px 10px", borderRadius: 999 }}
-          >
+          <button className="btn-ghost btn-sm" onClick={() => navigate("/")} title="Retour" style={{ padding: "6px 10px", borderRadius: 999 }}>
             ←
           </button>
           <h2 style={{ margin: 0 }}>Progressions</h2>
         </div>
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            className="btn-ghost btn-sm"
-            onClick={() => navigate("/feed/mine")}
-            title="Mes publications"
-            style={{
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.10)",
-              fontSize: 9,
-              padding: "3px 6px"
-            }}
-          >
+          <button className="btn-ghost btn-sm" onClick={() => navigate("/feed/mine")} title="Mes publications" style={{ borderRadius: 999, background: "rgba(255,255,255,0.10)", fontSize: 9, padding: "3px 6px" }}>
             Mes publications
           </button>
 
-          <button
-            className="btn-primary btn-sm"
-            onClick={() => navigate("/post")}
-            disabled={!user}
-            title="Publier"
-            style={{ padding: "8px 12px", borderRadius: 999, fontSize: 14, lineHeight: "16px" }}
-          >
+          <button className="btn-primary btn-sm" onClick={() => navigate("/post")} disabled={!user} title="Publier" style={{ padding: "8px 12px", borderRadius: 999, fontSize: 14, lineHeight: "16px" }}>
             + Publier
           </button>
         </div>
@@ -1418,28 +1254,25 @@ function ProgressFeed({ user }) {
       ) : posts.length === 0 ? (
         <p className="form-message">Aucun post pour le moment.</p>
       ) : (
-        <div className="allowScroll" style={{ display: "grid", gap: 12, paddingBottom: 12 }}>
+        <div
+          className="allowScroll"
+          style={{
+            height: `calc(var(--appH, 100vh) - ${headerH}px)`,
+            overflowY: "auto",
+            scrollSnapType: "y mandatory",
+            scrollBehavior: "smooth",
+            display: "grid",
+            gap: 12,
+            paddingBottom: 12
+          }}
+        >
           {posts.map((p) => (
-            <ProgressItem
-              key={p.id}
-              post={p}
-              user={user}
-              onLike={onLike}
-              liked={likedSet.has(p.id)}
-              onOpenComments={openComments}
-              onDeleted={onDeleted}
-            />
+            <ProgressItem key={p.id} post={p} user={user} onLike={onLike} liked={likedSet.has(p.id)} onOpenComments={openComments} onDeleted={onDeleted} snapHeight={`calc(var(--appH, 100vh) - ${headerH + 16}px)`} />
           ))}
         </div>
       )}
 
-      <CommentsModal
-        open={commentsOpen}
-        onClose={() => setCommentsOpen(false)}
-        postId={commentsPostId}
-        user={user}
-        onPosted={onCommentPosted}
-      />
+      <CommentsModal open={commentsOpen} onClose={() => setCommentsOpen(false)} postId={commentsPostId} user={user} onPosted={onCommentPosted} />
     </main>
   );
 }
