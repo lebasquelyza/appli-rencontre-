@@ -1048,7 +1048,7 @@ function TextTool({ onAdd }) {
 function ProgressFeed({ user }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState(() => MOCK_POSTS);
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
 
@@ -1217,18 +1217,34 @@ function ProgressFeed({ user }) {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
   };
 
-  const headerH = 56;
+  const headerRef = useRef(null);
+  const [headerH, setHeaderH] = useState(140);
+  useEffect(() => {
+    const measure = () => {
+      const h = headerRef.current?.getBoundingClientRect?.().height;
+      if (h && Number.isFinite(h) && h > 40) setHeaderH(Math.round(h));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const id = window.setInterval(measure, 800);
+    return () => { window.removeEventListener('resize', measure); window.clearInterval(id); };
+  }, []);
+
+  const postsToRender = posts && posts.length ? posts : MOCK_POSTS;
 
   return (
     <main
       className="page"
       style={{
         position: "relative",
+        minHeight: "calc(var(--appH, 100vh))",
+        display: "flex",
+        flexDirection: "column",
         background:
           "radial-gradient(1200px 800px at 20% 10%, rgba(255, 80, 80, 0.18), transparent 55%), radial-gradient(1000px 700px at 80% 15%, rgba(255, 140, 80, 0.12), transparent 55%), radial-gradient(900px 700px at 50% 90%, rgba(70, 80, 255, 0.18), transparent 60%), linear-gradient(180deg, rgba(10,10,15,0.92), rgba(10,10,15,0.92))"
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+      <div ref={headerRef} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button className="btn-ghost btn-sm" onClick={() => navigate("/")} title="Retour" style={{ padding: "6px 10px", borderRadius: 999 }}>
             ←
@@ -1251,23 +1267,19 @@ function ProgressFeed({ user }) {
 
       {loading ? (
         <p className="form-message">Chargement…</p>
-      ) : posts.length === 0 ? (
-        <p className="form-message">Aucun post pour le moment.</p>
       ) : (
         <div
           className="allowScroll"
           style={{
-            height: `calc(var(--appH, 100vh) - ${headerH}px)`,
+            flex: 1,
+            minHeight: 0,
             overflowY: "auto",
             scrollSnapType: "y mandatory",
-            scrollBehavior: "smooth",
-            display: "grid",
-            gap: 12,
-            paddingBottom: 12
+            scrollBehavior: "smooth"
           }}
         >
-          {posts.map((p) => (
-            <ProgressItem key={p.id} post={p} user={user} onLike={onLike} liked={likedSet.has(p.id)} onOpenComments={openComments} onDeleted={onDeleted} snapHeight={`calc(var(--appH, 100vh) - ${headerH + 16}px)`} />
+          {postsToRender.map((p) => (
+            <ProgressItem key={p.id} post={p} user={user} onLike={onLike} liked={likedSet.has(p.id)} onOpenComments={openComments} onDeleted={onDeleted} snapHeight={`calc(var(--appH, 100vh) - ${headerH}px)`} />
           ))}
         </div>
       )}
