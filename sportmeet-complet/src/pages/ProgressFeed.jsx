@@ -1165,8 +1165,6 @@ function TextTool({ onAdd, existing, onUpdate, onDelete }) {
   );
 }
 
-
-
 function ProgressFeed({ user }) {
   // Volumes globaux du feed (stockés en localStorage)
   const [videoVol, setVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
@@ -1178,7 +1176,6 @@ function ProgressFeed({ user }) {
     return x;
   };
 
-
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
@@ -1187,23 +1184,24 @@ function ProgressFeed({ user }) {
 
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
+
   const load = async () => {
     setLoading(true);
     setErr("");
 
     try {
       let q = supabase
-  .from("progress_posts")
-  .select(
-    "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public"
-  )
-  .eq("is_deleted", false)
-  .order("created_at", { ascending: false })
-  .limit(80);
+        .from("progress_posts")
+        .select(
+          "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public"
+        )
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false })
+        .limit(80);
 
-q = q.eq("is_public", true);
+      q = q.eq("is_public", true);
 
-const { data, error } = await q;
+      const { data, error } = await q;
 
       if (error) {
         console.error("progress_posts fetch error:", error);
@@ -1364,10 +1362,25 @@ const { data, error } = await q;
   };
 
   return (
-    <main className="page" style={{ position: "relative", background: "radial-gradient(1200px 800px at 20% 10%, rgba(255, 80, 80, 0.18), transparent 55%), radial-gradient(1000px 700px at 80% 15%, rgba(255, 140, 80, 0.12), transparent 55%), radial-gradient(900px 700px at 50% 90%, rgba(70, 80, 255, 0.18), transparent 60%), linear-gradient(180deg, rgba(10,10,15,0.92), rgba(10,10,15,0.92))" }}>
-
+    <main
+      className="page"
+      style={{
+        position: "relative",
+        background:
+          "radial-gradient(1200px 800px at 20% 10%, rgba(255, 80, 80, 0.18), transparent 55%), radial-gradient(1000px 700px at 80% 15%, rgba(255, 140, 80, 0.12), transparent 55%), radial-gradient(900px 700px at 50% 90%, rgba(70, 80, 255, 0.18), transparent 60%), linear-gradient(180deg, rgba(10,10,15,0.92), rgba(10,10,15,0.92))"
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-        <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* ✅ Nouveau: bouton retour vers la page principale */}
+          <button
+            className="btn-ghost btn-sm"
+            onClick={() => navigate("/")}
+            title="Retour"
+            style={{ padding: "6px 10px", borderRadius: 999 }}
+          >
+            ←
+          </button>
           <h2 style={{ margin: 0 }}>Progressions</h2>
         </div>
 
@@ -1380,13 +1393,19 @@ const { data, error } = await q;
               borderRadius: 999,
               background: "rgba(255,255,255,0.10)",
               fontSize: 9,
-              padding: "3px 6px",
+              padding: "3px 6px"
             }}
           >
             Mes publications
           </button>
 
-          <button className="btn-primary btn-sm" onClick={() => navigate("/post")} disabled={!user} title="Publier" style={{ padding: "8px 12px", borderRadius: 999, fontSize: 14, lineHeight: "16px" }}>
+          <button
+            className="btn-primary btn-sm"
+            onClick={() => navigate("/post")}
+            disabled={!user}
+            title="Publier"
+            style={{ padding: "8px 12px", borderRadius: 999, fontSize: 14, lineHeight: "16px" }}
+          >
             + Publier
           </button>
         </div>
@@ -1399,14 +1418,7 @@ const { data, error } = await q;
       ) : posts.length === 0 ? (
         <p className="form-message">Aucun post pour le moment.</p>
       ) : (
-        <div
-          className="allowScroll"
-          style={{
-            display: "grid",
-            gap: 12,
-            paddingBottom: 12
-          }}
-        >
+        <div className="allowScroll" style={{ display: "grid", gap: 12, paddingBottom: 12 }}>
           {posts.map((p) => (
             <ProgressItem
               key={p.id}
