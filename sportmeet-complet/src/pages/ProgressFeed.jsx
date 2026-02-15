@@ -379,12 +379,12 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : (
-          // Mock (no media_url): CSS gradient background (always visible on iOS)
           <div
             style={{
               position: "absolute",
               inset: 0,
-              background: post.mock_bg ||
+              background:
+                post.mock_bg ||
                 "radial-gradient(800px 500px at 20% 20%, rgba(255,77,109,.30), transparent 55%), radial-gradient(700px 520px at 80% 30%, rgba(255,138,75,.22), transparent 55%), radial-gradient(700px 600px at 50% 90%, rgba(124,58,237,.18), transparent 60%), linear-gradient(180deg, rgba(8,8,12,.95), rgba(8,8,12,.95))"
             }}
           />
@@ -396,35 +396,45 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
       {/* UI */}
       {uiOpen ? (
         <>
+          {/* ✅ Auteur (plus petit) */}
           <div
             style={{
               position: "absolute",
-              left: 12,
-              top: 12,
+              left: 10,
+              top: 10,
               display: "flex",
-              gap: 10,
+              gap: 8,
               alignItems: "center",
-              padding: 10,
+              padding: "6px 8px",
               borderRadius: 999,
-              background: "rgba(0,0,0,0.35)",
+              background: "rgba(0,0,0,0.32)",
               backdropFilter: "blur(8px)",
-              maxWidth: "calc(100% - 160px)"
+              WebkitBackdropFilter: "blur(8px)",
+              maxWidth: "calc(100% - 150px)"
             }}
           >
             <img
               src={authorPhoto || "/avatar.png"}
               alt={authorName}
-              style={{ width: 34, height: 34, borderRadius: 999, objectFit: "cover" }}
+              style={{ width: 26, height: 26, borderRadius: 999, objectFit: "cover" }}
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = "/avatar.png";
               }}
             />
-            <div style={{ lineHeight: 1.1, minWidth: 0 }}>
-              <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ lineHeight: 1.05, minWidth: 0 }}>
+              <div
+                style={{
+                  fontWeight: 900,
+                  fontSize: 13,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis"
+                }}
+              >
                 {authorName}
               </div>
-              <div style={{ fontSize: 12, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
+              <div style={{ fontSize: 11, opacity: 0.8 }}>{formatAgo(post.created_at)}</div>
             </div>
           </div>
 
@@ -434,16 +444,18 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
               style={{
                 position: "absolute",
                 left: "50%",
-                top: 14,
+                top: 12,
                 transform: "translateX(-50%)",
-                padding: "10px 14px",
+                padding: "8px 12px",
                 borderRadius: 999,
                 background: "rgba(0,0,0,0.35)",
                 backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
-                maxWidth: "min(520px, calc(100% - 40px))"
+                gap: 8,
+                maxWidth: "min(460px, calc(100% - 40px))",
+                fontSize: 13
               }}
             >
               <span aria-hidden>🎵</span>
@@ -453,7 +465,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
             </div>
           ) : null}
 
-          {/* Right rail actions (always visible, like TikTok) */}
+          {/* Right rail actions */}
           <div
             style={{
               position: "absolute",
@@ -474,7 +486,11 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
               }}
               aria-label="Like"
               title="Like"
-              style={{ borderRadius: 999, background: liked ? undefined : "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+              style={{
+                borderRadius: 999,
+                background: liked ? undefined : "rgba(0,0,0,0.35)",
+                backdropFilter: "blur(8px)"
+              }}
             >
               ❤️ {post.likes_count ?? 0}
             </button>
@@ -493,8 +509,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
               💬 {post.comments_count ?? 0}
             </button>
           </div>
-
-          {/* Caption block removed ("Séance du jour…") */}
         </>
       ) : (
         <button
@@ -523,13 +537,13 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
 
 function makeMockPosts() {
   const now = Date.now();
-  const base = [
+  return [
     {
       id: "mock-1",
       is_mock: true,
       user_id: "mock",
       media_type: "image",
-      media_url: "", // empty -> use CSS gradient background
+      media_url: "",
       caption: "Séance du jour 💪 (mock)",
       created_at: new Date(now - 45 * 60 * 1000).toISOString(),
       music_title: "Julia — Mt. Joy",
@@ -573,8 +587,6 @@ function makeMockPosts() {
         "radial-gradient(820px 520px at 20% 20%, rgba(255,138,75,.28), transparent 55%), radial-gradient(720px 520px at 70% 80%, rgba(255,77,109,.22), transparent 55%), linear-gradient(180deg, rgba(8,8,12,.95), rgba(8,8,12,.95))"
     }
   ];
-
-  return base;
 }
 
 function ProgressFeed({ user }) {
@@ -585,18 +597,18 @@ function ProgressFeed({ user }) {
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
 
-  // TikTok scroll container ref (for pull-to-refresh)
   const scrollerRef = useRef(null);
   const refreshingRef = useRef(false);
   const lastRefreshRef = useRef(0);
 
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
-  // ✅ Remove the "vertical line" / noise overlay drawn by body::before on some devices.
+
   useEffect(() => {
     document.body.classList.add("mf-noise-off");
     return () => document.body.classList.remove("mf-noise-off");
   }, []);
+
   const load = async () => {
     setLoading(true);
     setErr("");
@@ -624,7 +636,6 @@ function ProgressFeed({ user }) {
 
       const rows = data || [];
 
-      // attach minimal author info (best effort)
       const authorIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
       const authorByUser = new Map();
       if (authorIds.length) {
@@ -649,7 +660,6 @@ function ProgressFeed({ user }) {
 
       const postIds = rows.map((r) => r.id);
 
-      // likes count
       const likeCounts = new Map();
       if (postIds.length) {
         const { data: likeRows, error: lErr } = await supabase
@@ -662,7 +672,6 @@ function ProgressFeed({ user }) {
         for (const lr of likeRows || []) likeCounts.set(lr.post_id, (likeCounts.get(lr.post_id) || 0) + 1);
       }
 
-      // comments count
       const commentCounts = new Map();
       if (postIds.length) {
         const { data: cRows, error: cErr } = await supabase
@@ -675,7 +684,6 @@ function ProgressFeed({ user }) {
         for (const cr of cRows || []) commentCounts.set(cr.post_id, (commentCounts.get(cr.post_id) || 0) + 1);
       }
 
-      // my liked set
       let myLiked = new Set();
       if (user?.id && postIds.length) {
         const { data: my, error: myErr } = await supabase
@@ -700,7 +708,6 @@ function ProgressFeed({ user }) {
         };
       });
 
-      // ✅ Always mix in mock posts so you can see the TikTok rendering.
       const mixed = [...makeMockPosts(), ...normalized];
       setPosts(mixed);
     } catch (e) {
@@ -717,8 +724,6 @@ function ProgressFeed({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Pull-to-refresh: if user is at the very top and keeps scrolling up,
-  // we reload to fetch the newest posts.
   const handleScroll = () => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -775,7 +780,6 @@ function ProgressFeed({ user }) {
       }
     } catch (e) {
       console.error("progress like error:", e);
-      // revert
       setLikedSet((prev) => {
         const next = new Set(prev);
         if (already) next.add(post.id);
@@ -798,6 +802,7 @@ function ProgressFeed({ user }) {
     if (!commentsPostId) return;
     setPosts((prev) => prev.map((p) => (p.id === commentsPostId ? { ...p, comments_count: (p.comments_count || 0) + 1 } : p)));
   };
+
   return (
     <main
       style={{
@@ -811,12 +816,8 @@ function ProgressFeed({ user }) {
         background: "transparent"
       }}
     >
-      {/* This style is intentionally inside this page so you don't have to touch global CSS. */}
       <style>{`
-        /* Disable the noise overlay that can create a visible seam/line on some devices */
         body.mf-noise-off::before{ display:none !important; content:none !important; }
-
-        /* Hide the right scrollbar (iOS/desktop) for the TikTok snap container */
         .mf-tiktok-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
         .mf-tiktok-scroll::-webkit-scrollbar{ width:0 !important; height:0 !important; display:none !important; }
       `}</style>
@@ -870,18 +871,25 @@ function ProgressFeed({ user }) {
         </div>
       </div>
 
-      {err ? <p className="form-message error" style={{ padding: "0 14px 10px" }}>{err}</p> : null}
+      {err ? (
+        <p className="form-message error" style={{ padding: "0 14px 10px" }}>
+          {err}
+        </p>
+      ) : null}
 
-      {/* TikTok snap container */}
       {loading ? (
-        <p className="form-message" style={{ padding: "0 14px" }}>Chargement…</p>
+        <p className="form-message" style={{ padding: "0 14px" }}>
+          Chargement…
+        </p>
       ) : posts.length === 0 ? (
-        <p className="form-message" style={{ padding: "0 14px" }}>Aucun post pour le moment.</p>
+        <p className="form-message" style={{ padding: "0 14px" }}>
+          Aucun post pour le moment.
+        </p>
       ) : (
-      <div
-        className="allowScroll mf-tiktok-scroll"
-        ref={scrollerRef}
-        onScroll={handleScroll}
+        <div
+          className="allowScroll mf-tiktok-scroll"
+          ref={scrollerRef}
+          onScroll={handleScroll}
           style={{
             position: "absolute",
             inset: 0,
