@@ -353,11 +353,11 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
         scrollSnapAlign: "start",
         height: "100%",
         position: "relative",
-        borderRadius: 18,
+        borderRadius: 0,
         overflow: "hidden",
-        background: "rgba(255,255,255,.06)",
-        border: "1px solid rgba(255,255,255,.10)",
-        boxShadow: "0 18px 50px rgba(0,0,0,.45)"
+        background: "transparent",
+        border: "none",
+        boxShadow: "none"
       }}
     >
       {/* Media */}
@@ -606,25 +606,11 @@ function ProgressFeed({ user }) {
 
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
-
-  const headerRef = useRef(null);
-  const [headerH, setHeaderH] = useState(0);
-
   // ✅ Remove the "vertical line" / noise overlay drawn by body::before on some devices.
   useEffect(() => {
     document.body.classList.add("mf-noise-off");
     return () => document.body.classList.remove("mf-noise-off");
   }, []);
-
-  useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setHeaderH(el.getBoundingClientRect().height || 0));
-    ro.observe(el);
-    setHeaderH(el.getBoundingClientRect().height || 0);
-    return () => ro.disconnect();
-  }, []);
-
   const load = async () => {
     setLoading(true);
     setErr("");
@@ -798,24 +784,17 @@ function ProgressFeed({ user }) {
     if (!commentsPostId) return;
     setPosts((prev) => prev.map((p) => (p.id === commentsPostId ? { ...p, comments_count: (p.comments_count || 0) + 1 } : p)));
   };
-
-  const snapH = useMemo(() => {
-    // Take full remaining height under header (safe area included)
-    const safeTop = 0;
-    return `calc(var(--appH, 100dvh) - ${Math.round(headerH + safeTop)}px)`;
-  }, [headerH]);
-
   return (
     <main
-      className="page"
       style={{
-        alignItems: "stretch",
         width: "100%",
-        padding: 0,
+        height: "var(--appH, 100dvh)",
         minHeight: "var(--appH, 100dvh)",
-        background: "transparent",
+        padding: 0,
+        margin: 0,
         position: "relative",
-        overflow: "hidden"
+        overflow: "hidden",
+        background: "transparent"
       }}
     >
       {/* This style is intentionally inside this page so you don't have to touch global CSS. */}
@@ -826,14 +805,22 @@ function ProgressFeed({ user }) {
 
       {/* Header */}
       <div
-        ref={headerRef}
         style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 50,
           padding: "12px 14px",
           paddingTop: "calc(env(safe-area-inset-top) + 10px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 10
+          gap: 10,
+          background: "rgba(0,0,0,0.18)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)"
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -876,18 +863,18 @@ function ProgressFeed({ user }) {
         <div
           className="allowScroll"
           style={{
-            height: snapH,
+            position: "absolute",
+            inset: 0,
+            height: "var(--appH, 100dvh)",
             overflowY: "auto",
             scrollSnapType: "y mandatory",
             overscrollBehavior: "contain",
             WebkitOverflowScrolling: "touch",
-            padding: "0 14px 14px",
-            display: "grid",
-            gap: 12
+            scrollPaddingTop: "96px"
           }}
         >
           {posts.map((p) => (
-            <div key={p.id} style={{ height: snapH, scrollSnapAlign: "start" }}>
+            <div key={p.id} style={{ height: "var(--appH, 100dvh)", scrollSnapAlign: "start" }}>
               <ProgressItem
                 post={p}
                 user={user}
