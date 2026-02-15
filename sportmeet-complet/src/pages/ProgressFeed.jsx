@@ -453,12 +453,13 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
             </div>
           ) : null}
 
-          {/* Right rail actions */}
+          {/* Right rail actions (always visible, like TikTok) */}
           <div
             style={{
               position: "absolute",
               right: 12,
-              bottom: 16,
+              top: "52%",
+              transform: "translateY(-50%)",
               display: "grid",
               gap: 10,
               justifyItems: "end"
@@ -583,6 +584,11 @@ function ProgressFeed({ user }) {
   const [posts, setPosts] = useState([]);
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
+
+  // TikTok scroll container ref (for pull-to-refresh)
+  const scrollerRef = useRef(null);
+  const refreshingRef = useRef(false);
+  const lastRefreshRef = useRef(0);
 
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
@@ -710,6 +716,34 @@ function ProgressFeed({ user }) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Pull-to-refresh: if user is at the very top and keeps scrolling up,
+  // we reload to fetch the newest posts.
+  const handleScroll = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (el.scrollTop > 4) return;
+
+    const now = Date.now();
+    if (refreshingRef.current) return;
+    if (now - lastRefreshRef.current < 1500) return;
+
+    refreshingRef.current = true;
+    lastRefreshRef.current = now;
+
+    Promise.resolve(load())
+      .catch(() => {})
+      .finally(() => {
+        try {
+          requestAnimationFrame(() => {
+            try {
+              el.scrollTo({ top: 0, behavior: "auto" });
+            } catch {}
+          });
+        } catch {}
+        refreshingRef.current = false;
+      });
+  };
 
   const onLike = async (post) => {
     if (!user?.id) {
@@ -844,8 +878,10 @@ function ProgressFeed({ user }) {
       ) : posts.length === 0 ? (
         <p className="form-message" style={{ padding: "0 14px" }}>Aucun post pour le moment.</p>
       ) : (
-        <div
-          className="allowScroll mf-tiktok-scroll"
+      <div
+        className="allowScroll mf-tiktok-scroll"
+        ref={scrollerRef}
+        onScroll={handleScroll}
           style={{
             position: "absolute",
             inset: 0,
