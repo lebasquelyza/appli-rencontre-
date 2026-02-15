@@ -493,27 +493,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
             </button>
           </div>
 
-          {/* Bottom caption */}
-          <div
-            style={{
-              position: "absolute",
-              left: 12,
-              right: 84,
-              bottom: 12,
-              padding: 12,
-              borderRadius: 16,
-              background: "rgba(0,0,0,0.35)",
-              backdropFilter: "blur(10px)"
-            }}
-          >
-            {post.caption ? <div style={{ fontWeight: 800, lineHeight: 1.25 }}>{post.caption}</div> : null}
-            {!post.caption && post.is_mock ? (
-              <div style={{ fontWeight: 800, lineHeight: 1.25 }}>Mock post (exemple)</div>
-            ) : null}
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
-              <span style={{ opacity: 0.85 }}>Astuce :</span> tape sur le média pour afficher/masquer l'UI
-            </div>
-          </div>
+          {/* Caption block removed ("Séance du jour…") */}
         </>
       ) : (
         <button
@@ -801,6 +781,10 @@ function ProgressFeed({ user }) {
       <style>{`
         /* Disable the noise overlay that can create a visible seam/line on some devices */
         body.mf-noise-off::before{ display:none !important; content:none !important; }
+
+        /* Hide the right scrollbar (iOS/desktop) for the TikTok snap container */
+        .mf-tiktok-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
+        .mf-tiktok-scroll::-webkit-scrollbar{ width:0 !important; height:0 !important; display:none !important; }
       `}</style>
 
       {/* Header */}
@@ -861,7 +845,7 @@ function ProgressFeed({ user }) {
         <p className="form-message" style={{ padding: "0 14px" }}>Aucun post pour le moment.</p>
       ) : (
         <div
-          className="allowScroll"
+          className="allowScroll mf-tiktok-scroll"
           style={{
             position: "absolute",
             inset: 0,
