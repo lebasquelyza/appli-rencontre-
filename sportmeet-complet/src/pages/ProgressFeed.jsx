@@ -1,5 +1,5 @@
 // sportmeet-complet/src/pages/ProgressFeed.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -29,7 +29,7 @@ function formatAgo(iso) {
   return `${d}j`;
 }
 
-function useVisibility(threshold = 0.65) {
+function useVisibility(threshold = 0.7) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
 
@@ -48,6 +48,8 @@ function useVisibility(threshold = 0.65) {
 
   return [ref, visible];
 }
+
+/* ---------------- COMMENTS MODAL ---------------- */
 
 function CommentsModal({ open, onClose, postId, user, onPosted }) {
   const [loading, setLoading] = useState(false);
@@ -235,11 +237,14 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
   );
 }
 
+/* ---------------- ITEM (FULLSCREEN SNAP) ---------------- */
+
 function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
-  const [ref, visible] = useVisibility(0.65);
+  const [ref, visible] = useVisibility(0.7);
   const videoRef = useRef(null);
   const audioRef = useRef(null);
 
+  // Global volume multipliers from localStorage
   const [globalVideoVol, setGlobalVideoVol] = useState(() => readVol(LS_VIDEO_VOL, 1));
   const [globalMusicVol, setGlobalMusicVol] = useState(() => readVol(LS_MUSIC_VOL, 0.6));
 
@@ -302,62 +307,29 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
     }
   }, [visible, post.media_type, post.music_url, post.music_start_sec]);
 
-  const onVideoTap = async () => {
-    const v = videoRef.current;
-    const a = audioRef.current;
-    if (!v) return;
-
-    const hasMusic = !!post.music_url && !!a;
-    const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
-
-    if (!v.paused) {
-      try {
-        v.pause();
-      } catch {}
-      if (hasMusic) {
-        try {
-          a.currentTime = start;
-          const p = a.play();
-          if (p?.catch) p.catch(() => {});
-        } catch {}
-      }
-    } else {
-      if (hasMusic) {
-        try {
-          a.pause();
-        } catch {}
-      }
-      try {
-        const p = v.play();
-        if (p?.catch) p.catch(() => {});
-      } catch {}
-    }
-  };
-
   const authorName = post?.author_name || "Utilisateur";
   const authorPhoto = post?.author_photo || "";
 
+  // Tap on media toggles UI (optional)
   const [uiOpen, setUiOpen] = useState(true);
   const toggleUi = () => setUiOpen((v) => !v);
 
   const onMediaTap = () => {
-    if (post.media_type === "video") onVideoTap();
+    // keep simple: toggle UI; video play/pause is already handled by visibility
     toggleUi();
   };
 
   return (
     <section
       ref={ref}
-      className="mf-snap"
       style={{
+        height: "100dvh",
+        width: "100%",
         scrollSnapAlign: "start",
-        height: "100%",
+        scrollSnapStop: "always",
         position: "relative",
-        borderRadius: 0,
         overflow: "hidden",
-        background: "transparent",
-        border: "none",
-        boxShadow: "none"
+        background: "#000"
       }}
     >
       {/* Media */}
@@ -373,12 +345,9 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : post.media_url ? (
-          <img
-            src={post.media_url}
-            alt={post.caption || "Progress"}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
+          <img src={post.media_url} alt={post.caption || "Progress"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
+          // Mock post background
           <div
             style={{
               position: "absolute",
@@ -393,10 +362,10 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
 
       {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
 
-      {/* UI */}
+      {/* UI overlays */}
       {uiOpen ? (
         <>
-          {/* ✅ Auteur (plus petit) */}
+          {/* AUTHOR PILL — SMALLER (your request) */}
           <div
             style={{
               position: "absolute",
@@ -405,12 +374,12 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
               display: "flex",
               gap: 8,
               alignItems: "center",
-              padding: "6px 8px",
+              padding: "6px 10px",
               borderRadius: 999,
-              background: "rgba(0,0,0,0.32)",
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
-              maxWidth: "calc(100% - 150px)"
+              background: "rgba(0,0,0,0.30)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              maxWidth: "calc(100% - 160px)"
             }}
           >
             <img
@@ -423,21 +392,14 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
               }}
             />
             <div style={{ lineHeight: 1.05, minWidth: 0 }}>
-              <div
-                style={{
-                  fontWeight: 900,
-                  fontSize: 13,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis"
-                }}
-              >
+              <div style={{ fontWeight: 850, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {authorName}
               </div>
-              <div style={{ fontSize: 11, opacity: 0.8 }}>{formatAgo(post.created_at)}</div>
+              <div style={{ fontSize: 11, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
             </div>
           </div>
 
+          {/* MUSIC PILL (optional) */}
           {post.music_title ? (
             <div
               title={post.music_title}
@@ -448,24 +410,23 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
                 transform: "translateX(-50%)",
                 padding: "8px 12px",
                 borderRadius: 999,
-                background: "rgba(0,0,0,0.35)",
+                background: "rgba(0,0,0,0.28)",
                 backdropFilter: "blur(10px)",
                 WebkitBackdropFilter: "blur(10px)",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                maxWidth: "min(460px, calc(100% - 40px))",
-                fontSize: 13
+                maxWidth: "min(520px, calc(100% - 40px))"
               }}
             >
               <span aria-hidden>🎵</span>
-              <span style={{ fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span style={{ fontWeight: 800, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {post.music_title}
               </span>
             </div>
           ) : null}
 
-          {/* Right rail actions */}
+          {/* Right rail actions ALWAYS visible */}
           <div
             style={{
               position: "absolute",
@@ -489,7 +450,8 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
               style={{
                 borderRadius: 999,
                 background: liked ? undefined : "rgba(0,0,0,0.35)",
-                backdropFilter: "blur(8px)"
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)"
               }}
             >
               ❤️ {post.likes_count ?? 0}
@@ -504,7 +466,12 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
               }}
               aria-label="Commentaires"
               title="Commentaires"
-              style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+              style={{
+                borderRadius: 999,
+                background: "rgba(0,0,0,0.35)",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)"
+              }}
             >
               💬 {post.comments_count ?? 0}
             </button>
@@ -525,7 +492,8 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
             top: 12,
             borderRadius: 999,
             background: "rgba(0,0,0,0.35)",
-            backdropFilter: "blur(8px)"
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)"
           }}
         >
           👁️
@@ -534,6 +502,8 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
     </section>
   );
 }
+
+/* ---------------- MOCK POSTS ---------------- */
 
 function makeMockPosts() {
   const now = Date.now();
@@ -544,7 +514,7 @@ function makeMockPosts() {
       user_id: "mock",
       media_type: "image",
       media_url: "",
-      caption: "Séance du jour 💪 (mock)",
+      caption: null,
       created_at: new Date(now - 45 * 60 * 1000).toISOString(),
       music_title: "Julia — Mt. Joy",
       likes_count: 128,
@@ -560,7 +530,7 @@ function makeMockPosts() {
       user_id: "mock",
       media_type: "image",
       media_url: "",
-      caption: "Progression : +10kg au squat ✅ (mock)",
+      caption: null,
       created_at: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
       music_title: "Energy — Drake",
       likes_count: 301,
@@ -576,7 +546,7 @@ function makeMockPosts() {
       user_id: "mock",
       media_type: "image",
       media_url: "",
-      caption: "Avant / après 8 semaines 🔥 (mock)",
+      caption: null,
       created_at: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString(),
       music_title: "Blinding Lights — The Weeknd",
       likes_count: 522,
@@ -589,6 +559,8 @@ function makeMockPosts() {
   ];
 }
 
+/* ---------------- MAIN FEED ---------------- */
+
 function ProgressFeed({ user }) {
   const navigate = useNavigate();
 
@@ -597,13 +569,15 @@ function ProgressFeed({ user }) {
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
 
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsPostId, setCommentsPostId] = useState(null);
+
+  // TikTok scroll container ref (pull-to-refresh)
   const scrollerRef = useRef(null);
   const refreshingRef = useRef(false);
   const lastRefreshRef = useRef(0);
 
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  const [commentsPostId, setCommentsPostId] = useState(null);
-
+  // Remove the "vertical seam" noise overlay (if your CSS has body::before noise)
   useEffect(() => {
     document.body.classList.add("mf-noise-off");
     return () => document.body.classList.remove("mf-noise-off");
@@ -630,13 +604,13 @@ function ProgressFeed({ user }) {
       if (error) {
         console.error("progress_posts fetch error:", error);
         setErr("Impossible de charger le feed pour le moment.");
-        setPosts([]);
+        setPosts(makeMockPosts());
         return;
       }
 
       const rows = data || [];
-
       const authorIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
+
       const authorByUser = new Map();
       if (authorIds.length) {
         const { data: profs, error: pErr } = await supabase
@@ -660,38 +634,26 @@ function ProgressFeed({ user }) {
 
       const postIds = rows.map((r) => r.id);
 
+      // likes count
       const likeCounts = new Map();
       if (postIds.length) {
-        const { data: likeRows, error: lErr } = await supabase
-          .from("progress_likes")
-          .select("post_id")
-          .in("post_id", postIds)
-          .limit(8000);
-
+        const { data: likeRows, error: lErr } = await supabase.from("progress_likes").select("post_id").in("post_id", postIds).limit(8000);
         if (lErr) console.error("progress likes fetch error:", lErr);
         for (const lr of likeRows || []) likeCounts.set(lr.post_id, (likeCounts.get(lr.post_id) || 0) + 1);
       }
 
+      // comments count
       const commentCounts = new Map();
       if (postIds.length) {
-        const { data: cRows, error: cErr } = await supabase
-          .from("progress_comments")
-          .select("post_id")
-          .in("post_id", postIds)
-          .limit(8000);
-
+        const { data: cRows, error: cErr } = await supabase.from("progress_comments").select("post_id").in("post_id", postIds).limit(8000);
         if (cErr) console.error("progress comments count fetch error:", cErr);
         for (const cr of cRows || []) commentCounts.set(cr.post_id, (commentCounts.get(cr.post_id) || 0) + 1);
       }
 
+      // my liked set
       let myLiked = new Set();
       if (user?.id && postIds.length) {
-        const { data: my, error: myErr } = await supabase
-          .from("progress_likes")
-          .select("post_id")
-          .eq("user_id", user.id)
-          .in("post_id", postIds);
-
+        const { data: my, error: myErr } = await supabase.from("progress_likes").select("post_id").eq("user_id", user.id).in("post_id", postIds);
         if (myErr) console.error("progress my likes fetch error:", myErr);
         myLiked = new Set((my || []).map((x) => x.post_id));
       }
@@ -708,8 +670,8 @@ function ProgressFeed({ user }) {
         };
       });
 
-      const mixed = [...makeMockPosts(), ...normalized];
-      setPosts(mixed);
+      // Always mix mocks first so you can see render even with empty DB
+      setPosts([...makeMockPosts(), ...normalized]);
     } catch (e) {
       console.error("progress feed exception:", e);
       setErr("Impossible de charger le feed pour le moment.");
@@ -724,6 +686,7 @@ function ProgressFeed({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // Pull-to-refresh when user is at very top and keeps scrolling up
   const handleScroll = () => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -759,6 +722,7 @@ function ProgressFeed({ user }) {
 
     const already = likedSet.has(post.id);
 
+    // optimistic UI
     setLikedSet((prev) => {
       const next = new Set(prev);
       if (already) next.delete(post.id);
@@ -780,6 +744,7 @@ function ProgressFeed({ user }) {
       }
     } catch (e) {
       console.error("progress like error:", e);
+      // revert
       setLikedSet((prev) => {
         const next = new Set(prev);
         if (already) next.add(post.id);
@@ -816,13 +781,14 @@ function ProgressFeed({ user }) {
         background: "transparent"
       }}
     >
+      {/* Local CSS to avoid touching global styles */}
       <style>{`
-        body.mf-noise-off::before{ display:none !important; content:none !important; }
-        .mf-tiktok-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
-        .mf-tiktok-scroll::-webkit-scrollbar{ width:0 !important; height:0 !important; display:none !important; }
+        body.mf-noise-off::before { display: none !important; content: none !important; }
+        .mf-tiktok-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+        .mf-tiktok-scroll::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
       `}</style>
 
-      {/* Header */}
+      {/* HEADER fixed */}
       <div
         style={{
           position: "fixed",
@@ -871,20 +837,13 @@ function ProgressFeed({ user }) {
         </div>
       </div>
 
-      {err ? (
-        <p className="form-message error" style={{ padding: "0 14px 10px" }}>
-          {err}
-        </p>
-      ) : null}
+      {err ? <p className="form-message error" style={{ padding: "0 14px 10px" }}>{err}</p> : null}
 
+      {/* TikTok snap container */}
       {loading ? (
-        <p className="form-message" style={{ padding: "0 14px" }}>
-          Chargement…
-        </p>
+        <p className="form-message" style={{ padding: "0 14px" }}>Chargement…</p>
       ) : posts.length === 0 ? (
-        <p className="form-message" style={{ padding: "0 14px" }}>
-          Aucun post pour le moment.
-        </p>
+        <p className="form-message" style={{ padding: "0 14px" }}>Aucun post pour le moment.</p>
       ) : (
         <div
           className="allowScroll mf-tiktok-scroll"
@@ -902,7 +861,7 @@ function ProgressFeed({ user }) {
           }}
         >
           {posts.map((p) => (
-            <div key={p.id} style={{ height: "var(--appH, 100dvh)", scrollSnapAlign: "start" }}>
+            <div key={p.id} style={{ height: "100dvh", scrollSnapAlign: "start", scrollSnapStop: "always" }}>
               <ProgressItem
                 post={p}
                 user={user}
