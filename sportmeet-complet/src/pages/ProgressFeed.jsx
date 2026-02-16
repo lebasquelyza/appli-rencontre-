@@ -584,6 +584,18 @@ export default function ProgressFeed({ user }) {
     } catch {}
   };
 
+  // Debounced snap: waits for momentum scrolling to calm down (much smoother on iOS)
+  const scheduleSnap = () => {
+    try {
+      if (snapTimerRef.current) window.clearTimeout(snapTimerRef.current);
+      snapTimerRef.current = window.setTimeout(() => {
+        snapAfterGesture();
+      }, 140);
+    } catch {
+      snapAfterGesture();
+    }
+  };
+
   // Header height => CSS var used by pills
   useEffect(() => {
     const measure = () => {
@@ -769,6 +781,9 @@ export default function ProgressFeed({ user }) {
 
     const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - el.clientHeight * 1.5;
     if (nearBottom) loadMoreOlder();
+
+    // Smooth snap once scrolling stops (prevents jank with iOS momentum)
+    scheduleSnap();
   };
 
   const onPointerDown = (e) => {
@@ -789,12 +804,12 @@ export default function ProgressFeed({ user }) {
       return; // already snapped to top
     }
 
-    // Snap to nearest full page
-    snapAfterGesture();
+    // Snap is handled by the debounced scroll-end logic
+    scheduleSnap();
   };
 
-  const onTouchEnd = () => snapAfterGesture();
-  const onMouseUp = () => snapAfterGesture();
+  // NOTE: We intentionally do NOT snap on touchend/mouseup.
+  // Snapping on touchend fights iOS momentum scrolling and feels less fluid.
 
   const onLike = async (post) => {
     if (!user?.id) {
@@ -949,8 +964,6 @@ export default function ProgressFeed({ user }) {
           onScroll={onScroll}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
-          onTouchEnd={onTouchEnd}
-          onMouseUp={onMouseUp}
           style={{
             position: "absolute",
             inset: 0,
@@ -958,7 +971,8 @@ export default function ProgressFeed({ user }) {
             overflowY: "auto",
             // We keep scroll-snap for browsers that support it,
             // and add "snapAfterGesture" for iOS/Safari so posts are always full-screen.
-            scrollSnapType: "y mandatory",
+            // Proximity feels more natural; we still snap ourselves after momentum ends.
+            scrollSnapType: "y proximity",
             scrollSnapStop: "always",
             overscrollBehavior: "contain",
             WebkitOverflowScrolling: "touch"
