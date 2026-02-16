@@ -380,9 +380,9 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
               left: 10,
               top: "calc(var(--mfHeaderH, 92px) + 10px)",
               display: "flex",
-              gap: 8,
+              gap: 6,
               alignItems: "center",
-              padding: "6px 8px",
+              padding: "4px 6px",
               borderRadius: 999,
               background: "rgba(0,0,0,0.35)",
               backdropFilter: "blur(8px)",
@@ -392,17 +392,17 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
             <img
               src={authorPhoto || "/avatar.png"}
               alt={authorName}
-              style={{ width: 26, height: 26, borderRadius: 999, objectFit: "cover" }}
+              style={{ width: 22, height: 22, borderRadius: 999, objectFit: "cover" }}
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = "/avatar.png";
               }}
             />
             <div style={{ lineHeight: 1.05, minWidth: 0 }}>
-              <div style={{ fontWeight: 900, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div style={{ fontWeight: 900, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {authorName}
               </div>
-              <div style={{ fontSize: 11, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
+              <div style={{ fontSize: 10, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
             </div>
           </div>
 
@@ -427,7 +427,7 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
               <span aria-hidden style={{ fontSize: 14 }}>
                 🎵
               </span>
-              <span style={{ fontWeight: 800, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {post.music_title}
               </span>
             </div>
@@ -556,6 +556,7 @@ export default function ProgressFeed({ user }) {
   const [posts, setPosts] = useState([]);
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Snap scroll container
   const scrollerRef = useRef(null);
@@ -565,10 +566,11 @@ export default function ProgressFeed({ user }) {
   const pageSize = 20;
   const hasMoreRef = useRef(true);
   const loadingMoreRef = useRef(false);
+  const snapTimerRef = useRef(null);
   const oldestCursorRef = useRef(null);
 
   // Gesture tracking (for "pull to refresh")
-  const pullRef = useRef({ y0: 0, active: false });
+  const pullRef = useRef({ pulling: false, startY: 0, startScrollTop: 0, touchStartY: 0, touchStartT: 0 });
 
   // ✅ Avoid mobile bug: don't snap during scroll; snap ONLY when the gesture ends.
   const snapAfterGesture = () => {
@@ -757,6 +759,7 @@ export default function ProgressFeed({ user }) {
       hasMoreRef.current = false;
     } finally {
       loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
   };
 
@@ -872,6 +875,7 @@ export default function ProgressFeed({ user }) {
         body.mf-noise-off::before{ display:none !important; content:none !important; }
         .mf-tiktok-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
         .mf-tiktok-scroll::-webkit-scrollbar{ width:0 !important; height:0 !important; display:none !important; }
+        @keyframes mfspin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
       `}</style>
 
       {/* Header */}
@@ -917,7 +921,7 @@ export default function ProgressFeed({ user }) {
             onClick={() => navigate("/post")}
             disabled={!user}
             title="Publier"
-            style={{ padding: "8px 12px", borderRadius: 999, fontSize: 14, lineHeight: "16px" }}
+            style={{ padding: "8px 12px", borderRadius: 999, fontSize: 13, lineHeight: "16px" }}
           >
             + Publier
           </button>
@@ -967,6 +971,41 @@ export default function ProgressFeed({ user }) {
           ))}
         </div>
       )}
+
+
+{loadingMore ? (
+  <div
+    aria-hidden="true"
+    style={{
+      position: "fixed",
+      left: "50%",
+      bottom: "calc(env(safe-area-inset-bottom) + 18px)",
+      transform: "translateX(-50%)",
+      zIndex: 60,
+      padding: "8px 10px",
+      borderRadius: 999,
+      background: "rgba(0,0,0,0.35)",
+      backdropFilter: "blur(10px)",
+      WebkitBackdropFilter: "blur(10px)",
+      display: "flex",
+      alignItems: "center",
+      gap: 8
+    }}
+  >
+    <span
+      style={{
+        width: 14,
+        height: 14,
+        borderRadius: 999,
+        border: "2px solid rgba(255,255,255,0.25)",
+        borderTopColor: "rgba(255,255,255,0.9)",
+        display: "inline-block",
+        animation: "mfspin 0.9s linear infinite"
+      }}
+    />
+    <span style={{ fontSize: 12, opacity: 0.9 }}>Chargement…</span>
+  </div>
+) : null}
 
       <CommentsModal
         open={commentsOpen}
