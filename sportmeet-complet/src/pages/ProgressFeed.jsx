@@ -29,7 +29,7 @@ function formatAgo(iso) {
   return `${d}j`;
 }
 
-function useVisibility(threshold = 0.7) {
+function useVisibility(threshold = 0.65) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
 
@@ -37,19 +37,13 @@ function useVisibility(threshold = 0.7) {
     const el = ref.current;
     if (!el) return;
 
-    const obs = new IntersectionObserver(
-      (entries) => setVisible(!!entries?.[0]?.isIntersecting),
-      { threshold }
-    );
-
+    const obs = new IntersectionObserver((entries) => setVisible(!!entries?.[0]?.isIntersecting), { threshold });
     obs.observe(el);
     return () => obs.disconnect();
   }, [threshold]);
 
   return [ref, visible];
 }
-
-/* ---------------- COMMENTS MODAL ---------------- */
 
 function CommentsModal({ open, onClose, postId, user, onPosted }) {
   const [loading, setLoading] = useState(false);
@@ -237,10 +231,8 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
   );
 }
 
-/* ---------------- ITEM (FULLSCREEN SNAP) ---------------- */
-
-function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
-  const [ref, visible] = useVisibility(0.7);
+function ProgressItem({ post, onLike, liked, onOpenComments }) {
+  const [ref, visible] = useVisibility(0.65);
   const videoRef = useRef(null);
   const audioRef = useRef(null);
 
@@ -306,27 +298,52 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
     }
   }, [visible, post.media_type, post.music_url, post.music_start_sec]);
 
+  const onVideoTap = async () => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v) return;
+
+    const hasMusic = !!post.music_url && !!a;
+    const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
+
+    if (!v.paused) {
+      try {
+        v.pause();
+      } catch {}
+      if (hasMusic) {
+        try {
+          a.currentTime = start;
+          const p = a.play();
+          if (p?.catch) p.catch(() => {});
+        } catch {}
+      }
+    } else {
+      if (hasMusic) {
+        try {
+          a.pause();
+        } catch {}
+      }
+      try {
+        const p = v.play();
+        if (p?.catch) p.catch(() => {});
+      } catch {}
+    }
+  };
+
   const authorName = post?.author_name || "Utilisateur";
   const authorPhoto = post?.author_photo || "";
 
   const [uiOpen, setUiOpen] = useState(true);
 
+  const onMediaTap = () => {
+    if (post.media_type === "video") onVideoTap();
+    setUiOpen((v) => !v);
+  };
+
   return (
-    <section
-      ref={ref}
-      style={{
-        height: "100dvh",
-        width: "100%",
-        scrollSnapAlign: "start",
-        scrollSnapStop: "always",
-        position: "relative",
-        overflow: "hidden",
-        background: "#000"
-      }}
-      onClick={() => setUiOpen((v) => !v)}
-    >
+    <section ref={ref} style={{ height: "100%", position: "relative", overflow: "hidden" }}>
       {/* Media */}
-      <div style={{ position: "absolute", inset: 0, background: "#000" }}>
+      <div onClick={onMediaTap} style={{ position: "absolute", inset: 0, background: "#000" }}>
         {post.media_type === "video" ? (
           <video
             ref={videoRef}
@@ -338,7 +355,7 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : post.media_url ? (
-          <img src={post.media_url} alt={post.caption || "Progress"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <img src={post.media_url} alt="Progress" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
           <div
             style={{
@@ -356,21 +373,20 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
 
       {uiOpen ? (
         <>
-          {/* AUTHOR (smaller) */}
+          {/* Smaller author pill */}
           <div
             style={{
               position: "absolute",
               left: 10,
-              top: 10,
+              top: "calc(var(--mfHeaderH, 92px) + 10px)",
               display: "flex",
               gap: 8,
               alignItems: "center",
-              padding: "6px 10px",
+              padding: "6px 8px",
               borderRadius: 999,
-              background: "rgba(0,0,0,0.30)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              maxWidth: "calc(100% - 170px)"
+              background: "rgba(0,0,0,0.35)",
+              backdropFilter: "blur(8px)",
+              maxWidth: "calc(100% - 160px)"
             }}
           >
             <img
@@ -383,64 +399,63 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
               }}
             />
             <div style={{ lineHeight: 1.05, minWidth: 0 }}>
-              <div style={{ fontWeight: 850, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div style={{ fontWeight: 900, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {authorName}
               </div>
               <div style={{ fontSize: 11, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
             </div>
           </div>
 
-          {/* MUSIC (optional) */}
           {post.music_title ? (
             <div
               title={post.music_title}
               style={{
                 position: "absolute",
                 left: "50%",
-                top: 12,
+                top: "calc(var(--mfHeaderH, 92px) + 12px)",
                 transform: "translateX(-50%)",
                 padding: "8px 12px",
                 borderRadius: 999,
-                background: "rgba(0,0,0,0.28)",
+                background: "rgba(0,0,0,0.35)",
                 backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
                 maxWidth: "min(520px, calc(100% - 40px))"
               }}
             >
-              <span aria-hidden>🎵</span>
-              <span style={{ fontWeight: 800, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span aria-hidden style={{ fontSize: 14 }}>
+                🎵
+              </span>
+              <span style={{ fontWeight: 800, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {post.music_title}
               </span>
             </div>
           ) : null}
 
-          {/* Right rail actions ALWAYS visible */}
+          {/* Right rail actions */}
           <div
             style={{
               position: "absolute",
               right: 12,
-              top: "52%",
+              top: "50%",
               transform: "translateY(-50%)",
               display: "grid",
               gap: 10,
               justifyItems: "end"
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
-              onClick={() => onLike?.(post)}
-              aria-label="Like"
-              title="Like"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLike?.(post);
+              }}
               style={{
                 borderRadius: 999,
                 background: liked ? undefined : "rgba(0,0,0,0.35)",
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)"
+                backdropFilter: "blur(8px)"
               }}
             >
               ❤️ {post.likes_count ?? 0}
@@ -449,15 +464,11 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
             <button
               type="button"
               className="btn-ghost btn-sm"
-              onClick={() => onOpenComments?.(post)}
-              aria-label="Commentaires"
-              title="Commentaires"
-              style={{
-                borderRadius: 999,
-                background: "rgba(0,0,0,0.35)",
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenComments?.(post);
               }}
+              style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
             >
               💬 {post.comments_count ?? 0}
             </button>
@@ -471,15 +482,13 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
             e.stopPropagation();
             setUiOpen(true);
           }}
-          title="Afficher l'UI"
           style={{
             position: "absolute",
             right: 12,
             top: 12,
             borderRadius: 999,
             background: "rgba(0,0,0,0.35)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)"
+            backdropFilter: "blur(8px)"
           }}
         >
           👁️
@@ -488,8 +497,6 @@ function ProgressItem({ post, user, onLike, liked, onOpenComments }) {
     </section>
   );
 }
-
-/* ---------------- MOCK POSTS ---------------- */
 
 function makeMockPosts() {
   const now = Date.now();
@@ -500,7 +507,6 @@ function makeMockPosts() {
       user_id: "mock",
       media_type: "image",
       media_url: "",
-      caption: null,
       created_at: new Date(now - 45 * 60 * 1000).toISOString(),
       music_title: "Julia — Mt. Joy",
       likes_count: 128,
@@ -516,7 +522,6 @@ function makeMockPosts() {
       user_id: "mock",
       media_type: "image",
       media_url: "",
-      caption: null,
       created_at: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
       music_title: "Energy — Drake",
       likes_count: 301,
@@ -532,7 +537,6 @@ function makeMockPosts() {
       user_id: "mock",
       media_type: "image",
       media_url: "",
-      caption: null,
       created_at: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString(),
       music_title: "Blinding Lights — The Weeknd",
       likes_count: 522,
@@ -545,9 +549,7 @@ function makeMockPosts() {
   ];
 }
 
-/* ---------------- MAIN FEED ---------------- */
-
-function ProgressFeed({ user }) {
+export default function ProgressFeed({ user }) {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -555,23 +557,56 @@ function ProgressFeed({ user }) {
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
 
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  const [commentsPostId, setCommentsPostId] = useState(null);
-
+  // Snap scroll container
   const scrollerRef = useRef(null);
-  const refreshingRef = useRef(false);
-  const lastRefreshRef = useRef(0);
+  const headerRef = useRef(null);
 
-  // Track newest post timestamp to fetch "newer posts" when user pulls down at top
-  const newestCreatedAtRef = useRef(null);
+  // Pagination
+  const pageSize = 20;
+  const hasMoreRef = useRef(true);
+  const loadingMoreRef = useRef(false);
+  const oldestCursorRef = useRef(null);
 
+  // Gesture tracking (for "pull to refresh")
+  const pullRef = useRef({ y0: 0, active: false });
+
+  // ✅ Avoid mobile bug: don't snap during scroll; snap ONLY when the gesture ends.
+  const snapAfterGesture = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const page = el.clientHeight || window.innerHeight || 1;
+    const idx = Math.round(el.scrollTop / page);
+    const target = idx * page;
+    try {
+      el.scrollTo({ top: target, behavior: "smooth" });
+    } catch {}
+  };
+
+  // Header height => CSS var used by pills
+  useEffect(() => {
+    const measure = () => {
+      const h = headerRef.current?.getBoundingClientRect?.().height;
+      if (!h) return;
+      document.documentElement.style.setProperty("--mfHeaderH", `${Math.round(h)}px`);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    const id = window.setInterval(measure, 1200);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.clearInterval(id);
+    };
+  }, []);
+
+  // Remove "noise seam" overlay (if your global CSS draws body::before)
   useEffect(() => {
     document.body.classList.add("mf-noise-off");
     return () => document.body.classList.remove("mf-noise-off");
   }, []);
 
-  const normalizeWithAuthorsAndCounts = async (rows) => {
-    const authorIds = Array.from(new Set((rows || []).map((r) => r.user_id).filter(Boolean)));
+  const normalizeRows = async (rows) => {
+    const rws = rows || [];
+    const authorIds = Array.from(new Set(rws.map((r) => r.user_id).filter(Boolean)));
     const authorByUser = new Map();
 
     if (authorIds.length) {
@@ -594,173 +629,169 @@ function ProgressFeed({ user }) {
       }
     }
 
-    const postIds = (rows || []).map((r) => r.id);
+    const postIds = rws.map((r) => r.id);
 
-    // likes count
     const likeCounts = new Map();
     if (postIds.length) {
-      const { data: likeRows, error: lErr } = await supabase
-        .from("progress_likes")
-        .select("post_id")
-        .in("post_id", postIds)
-        .limit(8000);
-
+      const { data: likeRows, error: lErr } = await supabase.from("progress_likes").select("post_id").in("post_id", postIds).limit(8000);
       if (lErr) console.error("progress likes fetch error:", lErr);
       for (const lr of likeRows || []) likeCounts.set(lr.post_id, (likeCounts.get(lr.post_id) || 0) + 1);
     }
 
-    // comments count
     const commentCounts = new Map();
     if (postIds.length) {
-      const { data: cRows, error: cErr } = await supabase
-        .from("progress_comments")
-        .select("post_id")
-        .in("post_id", postIds)
-        .limit(8000);
-
+      const { data: cRows, error: cErr } = await supabase.from("progress_comments").select("post_id").in("post_id", postIds).limit(8000);
       if (cErr) console.error("progress comments count fetch error:", cErr);
       for (const cr of cRows || []) commentCounts.set(cr.post_id, (commentCounts.get(cr.post_id) || 0) + 1);
     }
 
-    return (rows || []).map((r) => {
-      const a = authorByUser.get(r.user_id) || { name: "Utilisateur", photo: "" };
-      return {
-        ...r,
-        author_name: a.name,
-        author_photo: a.photo,
-        likes_count: likeCounts.get(r.id) || 0,
-        comments_count: commentCounts.get(r.id) || 0
-      };
-    });
+    let myLiked = new Set();
+    if (user?.id && postIds.length) {
+      const { data: my, error: myErr } = await supabase.from("progress_likes").select("post_id").eq("user_id", user.id).in("post_id", postIds);
+      if (myErr) console.error("progress my likes fetch error:", myErr);
+      myLiked = new Set((my || []).map((x) => x.post_id));
+    }
+
+    return {
+      normalized: rws.map((r) => {
+        const a = authorByUser.get(r.user_id) || { name: "Utilisateur", photo: "" };
+        return {
+          ...r,
+          author_name: a.name,
+          author_photo: a.photo,
+          likes_count: likeCounts.get(r.id) || 0,
+          comments_count: commentCounts.get(r.id) || 0
+        };
+      }),
+      myLiked
+    };
   };
 
-  const loadInitial = async () => {
+  const fetchNewest = async () => {
+    const { data, error } = await supabase
+      .from("progress_posts")
+      .select("id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public")
+      .eq("is_deleted", false)
+      .eq("is_public", true)
+      .order("created_at", { ascending: false })
+      .limit(pageSize);
+
+    if (error) throw error;
+    return normalizeRows(data || []);
+  };
+
+  const fetchOlder = async (cursorIso) => {
+    if (!cursorIso) return { normalized: [], myLiked: new Set() };
+    const { data, error } = await supabase
+      .from("progress_posts")
+      .select("id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public")
+      .eq("is_deleted", false)
+      .eq("is_public", true)
+      .lt("created_at", cursorIso)
+      .order("created_at", { ascending: false })
+      .limit(pageSize);
+
+    if (error) throw error;
+    return normalizeRows(data || []);
+  };
+
+  const initialLoad = async () => {
     setLoading(true);
     setErr("");
-
     try {
-      const { data, error } = await supabase
-        .from("progress_posts")
-        .select(
-          "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public"
-        )
-        .eq("is_deleted", false)
-        .eq("is_public", true)
-        .order("created_at", { ascending: false })
-        .limit(80);
+      const { normalized, myLiked } = await fetchNewest();
 
-      if (error) {
-        console.error("progress_posts fetch error:", error);
-        setErr("Impossible de charger le feed pour le moment.");
-        setPosts(makeMockPosts());
-        newestCreatedAtRef.current = null;
-        return;
-      }
+      const last = normalized[normalized.length - 1];
+      oldestCursorRef.current = last?.created_at || null;
+      hasMoreRef.current = normalized.length >= pageSize;
 
-      const rows = data || [];
-      const normalized = await normalizeWithAuthorsAndCounts(rows);
-
-      // Track newest timestamp for refresh
-      newestCreatedAtRef.current = normalized?.[0]?.created_at || null;
-
-      // Mix mocks at the end so real posts stay "normal"
-      setPosts(normalized.length ? [...normalized, ...makeMockPosts()] : makeMockPosts());
+      setPosts([...makeMockPosts(), ...normalized]);
+      setLikedSet(myLiked);
     } catch (e) {
-      console.error("progress feed exception:", e);
+      console.error("progress feed load error:", e);
       setErr("Impossible de charger le feed pour le moment.");
       setPosts(makeMockPosts());
-      newestCreatedAtRef.current = null;
+      setLikedSet(new Set());
+      hasMoreRef.current = false;
+      oldestCursorRef.current = null;
     } finally {
       setLoading(false);
+      try {
+        requestAnimationFrame(() => scrollerRef.current?.scrollTo?.({ top: 0, behavior: "auto" }));
+      } catch {}
     }
   };
 
   useEffect(() => {
-    loadInitial();
+    initialLoad();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // ✅ REAL LOGIC: when user scrolls UP at TOP, fetch NEWER posts and show them immediately
-  const fetchNewerPosts = async () => {
-    const newest = newestCreatedAtRef.current;
-    if (!newest) {
-      await loadInitial();
-      return;
-    }
+  const loadMoreOlder = async () => {
+    if (loadingMoreRef.current) return;
+    if (!hasMoreRef.current) return;
+    const cursor = oldestCursorRef.current;
+    if (!cursor) return;
 
+    loadingMoreRef.current = true;
     try {
-      const { data, error } = await supabase
-        .from("progress_posts")
-        .select(
-          "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public"
-        )
-        .eq("is_deleted", false)
-        .eq("is_public", true)
-        .gt("created_at", newest)
-        .order("created_at", { ascending: false })
-        .limit(30);
+      const { normalized, myLiked } = await fetchOlder(cursor);
 
-      if (error) {
-        console.error("fetch newer error:", error);
-        return;
-      }
+      const last = normalized[normalized.length - 1];
+      oldestCursorRef.current = last?.created_at || cursor;
+      hasMoreRef.current = normalized.length >= pageSize;
 
-      const rows = data || [];
-      if (!rows.length) return;
-
-      const normalized = await normalizeWithAuthorsAndCounts(rows);
-
-      // update newest
-      newestCreatedAtRef.current = normalized?.[0]?.created_at || newest;
-
-      setPosts((prev) => {
-        const prevNoMocks = prev.filter((p) => !p.is_mock);
-        const prevMocks = prev.filter((p) => p.is_mock);
-
-        // dedupe by id
-        const existing = new Set(prevNoMocks.map((p) => p.id));
-        const toAdd = normalized.filter((p) => !existing.has(p.id));
-
-        if (!toAdd.length) return prev;
-        return [...toAdd, ...prevNoMocks, ...prevMocks];
+      setLikedSet((prev) => {
+        const next = new Set(prev);
+        for (const x of myLiked) next.add(x);
+        return next;
       });
 
-      // show the newest immediately
-      const el = scrollerRef.current;
-      if (el) {
-        try {
-          requestAnimationFrame(() => {
-            try {
-              el.scrollTo({ top: 0, behavior: "auto" });
-            } catch {}
-          });
-        } catch {}
-      }
+      setPosts((prev) => {
+        const ids = new Set(prev.map((p) => p.id));
+        const add = normalized.filter((r) => !ids.has(r.id));
+        return [...prev, ...add];
+      });
     } catch (e) {
-      console.error("fetchNewerPosts exception:", e);
+      console.error("load older error:", e);
+      hasMoreRef.current = false;
+    } finally {
+      loadingMoreRef.current = false;
     }
   };
 
-  // Pull-to-refresh trigger: at the very top
-  const handleScroll = () => {
+  const onScroll = () => {
     const el = scrollerRef.current;
     if (!el) return;
 
-    if (el.scrollTop > 2) return;
-
-    const now = Date.now();
-    if (refreshingRef.current) return;
-    if (now - lastRefreshRef.current < 1200) return;
-
-    refreshingRef.current = true;
-    lastRefreshRef.current = now;
-
-    Promise.resolve(fetchNewerPosts())
-      .catch(() => {})
-      .finally(() => {
-        refreshingRef.current = false;
-      });
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - el.clientHeight * 1.5;
+    if (nearBottom) loadMoreOlder();
   };
+
+  const onPointerDown = (e) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    pullRef.current = { y0: e.clientY, active: el.scrollTop <= 0.5 };
+  };
+
+  const onPointerUp = async (e) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+
+    // Pull-to-refresh (only if you were at top)
+    const g = pullRef.current;
+    const dy = e.clientY - g.y0;
+    if (g.active && el.scrollTop <= 2 && dy > 42) {
+      await initialLoad();
+      return; // already snapped to top
+    }
+
+    // Snap to nearest full page
+    snapAfterGesture();
+  };
+
+  const onTouchEnd = () => snapAfterGesture();
+  const onMouseUp = () => snapAfterGesture();
 
   const onLike = async (post) => {
     if (!user?.id) {
@@ -780,9 +811,7 @@ function ProgressFeed({ user }) {
 
     setPosts((prev) =>
       prev.map((p) =>
-        p.id === post.id
-          ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? -1 : 1)) }
-          : p
+        p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? -1 : 1)) } : p
       )
     );
 
@@ -796,7 +825,6 @@ function ProgressFeed({ user }) {
       }
     } catch (e) {
       console.error("progress like error:", e);
-      // revert
       setLikedSet((prev) => {
         const next = new Set(prev);
         if (already) next.add(post.id);
@@ -805,13 +833,14 @@ function ProgressFeed({ user }) {
       });
       setPosts((prev) =>
         prev.map((p) =>
-          p.id === post.id
-            ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? 1 : -1)) }
-            : p
+          p.id === post.id ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) + (already ? 1 : -1)) } : p
         )
       );
     }
   };
+
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsPostId, setCommentsPostId] = useState(null);
 
   const openComments = (post) => {
     if (!post?.id || post.is_mock) return;
@@ -839,7 +868,6 @@ function ProgressFeed({ user }) {
         background: "transparent"
       }}
     >
-      {/* Local CSS only */}
       <style>{`
         body.mf-noise-off::before{ display:none !important; content:none !important; }
         .mf-tiktok-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
@@ -848,6 +876,7 @@ function ProgressFeed({ user }) {
 
       {/* Header */}
       <div
+        ref={headerRef}
         style={{
           position: "fixed",
           top: 0,
@@ -901,7 +930,6 @@ function ProgressFeed({ user }) {
         </p>
       ) : null}
 
-      {/* TikTok snap container */}
       {loading ? (
         <p className="form-message" style={{ padding: "0 14px" }}>
           Chargement…
@@ -914,21 +942,27 @@ function ProgressFeed({ user }) {
         <div
           className="allowScroll mf-tiktok-scroll"
           ref={scrollerRef}
-          onScroll={handleScroll}
+          onScroll={onScroll}
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
+          onTouchEnd={onTouchEnd}
+          onMouseUp={onMouseUp}
           style={{
             position: "absolute",
             inset: 0,
             height: "var(--appH, 100dvh)",
             overflowY: "auto",
+            // We keep scroll-snap for browsers that support it,
+            // and add "snapAfterGesture" for iOS/Safari so posts are always full-screen.
             scrollSnapType: "y mandatory",
+            scrollSnapStop: "always",
             overscrollBehavior: "contain",
-            WebkitOverflowScrolling: "touch",
-            scrollPaddingTop: "96px"
+            WebkitOverflowScrolling: "touch"
           }}
         >
           {posts.map((p) => (
-            <div key={p.id} style={{ height: "100dvh", scrollSnapAlign: "start", scrollSnapStop: "always" }}>
-              <ProgressItem post={p} user={user} onLike={onLike} liked={likedSet.has(p.id)} onOpenComments={openComments} />
+            <div key={p.id} style={{ height: "100%", minHeight: "var(--appH, 100dvh)", scrollSnapAlign: "start" }}>
+              <ProgressItem post={p} onLike={onLike} liked={likedSet.has(p.id)} onOpenComments={openComments} />
             </div>
           ))}
         </div>
@@ -939,10 +973,10 @@ function ProgressFeed({ user }) {
         onClose={() => setCommentsOpen(false)}
         postId={commentsPostId}
         user={user}
-        onPosted={onCommentPosted}
+        onPosted={() => {
+          onCommentPosted();
+        }}
       />
     </main>
   );
 }
-
-export default ProgressFeed;
