@@ -378,31 +378,32 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
             style={{
               position: "absolute",
               left: 10,
-              top: "calc(var(--mfHeaderH, 92px) + 10px)",
+              top: "calc(var(--mfHeaderH, 92px) + 8px)",
               display: "flex",
               gap: 6,
               alignItems: "center",
-              padding: "4px 6px",
+              padding: "3px 5px",
               borderRadius: 999,
-              background: "rgba(0,0,0,0.35)",
+              background: "rgba(0,0,0,0.32)",
               backdropFilter: "blur(8px)",
-              maxWidth: "calc(100% - 160px)"
+              WebkitBackdropFilter: "blur(8px)",
+              maxWidth: "calc(100% - 170px)"
             }}
           >
             <img
               src={authorPhoto || "/avatar.png"}
               alt={authorName}
-              style={{ width: 22, height: 22, borderRadius: 999, objectFit: "cover" }}
+              style={{ width: 18, height: 18, borderRadius: 999, objectFit: "cover" }}
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = "/avatar.png";
               }}
             />
             <div style={{ lineHeight: 1.05, minWidth: 0 }}>
-              <div style={{ fontWeight: 900, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div style={{ fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {authorName}
               </div>
-              <div style={{ fontSize: 10, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
+              <div style={{ fontSize: 9, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
             </div>
           </div>
 
@@ -563,11 +564,18 @@ export default function ProgressFeed({ user }) {
   const headerRef = useRef(null);
 
   // Pagination
-  const pageSize = 20;
+  // ✅ On charge 100 posts par "page".
+  // - quand l’utilisateur arrive en bas (après ~100 posts), on charge la page suivante
+  // - si l’utilisateur fait 2 "pull down" rapides en haut, on recharge les posts les plus récents
+  const pageSize = 100;
   const hasMoreRef = useRef(true);
   const loadingMoreRef = useRef(false);
   const snapTimerRef = useRef(null);
   const oldestCursorRef = useRef(null);
+
+  // Double pull-to-refresh
+  const pullCountRef = useRef(0);
+  const lastPullAtRef = useRef(0);
 
   // Gesture tracking (for "pull to refresh")
   const pullRef = useRef({ pulling: false, startY: 0, startScrollTop: 0, touchStartY: 0, touchStartT: 0 });
@@ -748,6 +756,7 @@ export default function ProgressFeed({ user }) {
     if (!cursor) return;
 
     loadingMoreRef.current = true;
+    setLoadingMore(true);
     try {
       const { normalized, myLiked } = await fetchOlder(cursor);
 
@@ -799,9 +808,19 @@ export default function ProgressFeed({ user }) {
     // Pull-to-refresh (only if you were at top)
     const g = pullRef.current;
     const dy = e.clientY - g.y0;
-    if (g.active && el.scrollTop <= 2 && dy > 42) {
-      await initialLoad();
-      return; // already snapped to top
+    if (g.active && el.scrollTop <= 2 && dy > 36) {
+      const now = Date.now();
+      // count quick pulls
+      if (now - lastPullAtRef.current < 650) pullCountRef.current += 1;
+      else pullCountRef.current = 1;
+      lastPullAtRef.current = now;
+
+      // ✅ Only refresh on the SECOND quick pull
+      if (pullCountRef.current >= 2) {
+        pullCountRef.current = 0;
+        await initialLoad();
+        return; // already snapped to top
+      }
     }
 
     // Snap is handled by the debounced scroll-end logic
