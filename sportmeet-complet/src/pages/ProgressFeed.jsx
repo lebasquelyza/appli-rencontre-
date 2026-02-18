@@ -1,7 +1,16 @@
 // sportmeet-complet/src/pages/ProgressFeed.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+
+/**
+ * ✅ Objectif:
+ * - Jamais de post "à moitié" : toujours 1 post plein écran (TikTok).
+ * - Snap fluide: on laisse l’inertie, puis on "snap" à la fin du scroll.
+ * - Pagination: charge initiale 100, load-more en bas.
+ * - Double pull-down rapide tout en haut => refresh (nouveaux posts).
+ * - Loader rond en bas quand on charge plus.
+ */
 
 const LS_VIDEO_VOL = "mf_feed_video_vol";
 const LS_MUSIC_VOL = "mf_feed_music_vol";
@@ -36,13 +45,29 @@ function useVisibility(threshold = 0.65) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-
     const obs = new IntersectionObserver((entries) => setVisible(!!entries?.[0]?.isIntersecting), { threshold });
     obs.observe(el);
     return () => obs.disconnect();
   }, [threshold]);
 
   return [ref, visible];
+}
+
+function Spinner({ size = 18 }) {
+  return (
+    <span
+      aria-label="Chargement"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 999,
+        border: "2px solid rgba(255,255,255,0.25)",
+        borderTopColor: "rgba(255,255,255,0.9)",
+        display: "inline-block",
+        animation: "mfspin 0.9s linear infinite"
+      }}
+    />
+  );
 }
 
 function CommentsModal({ open, onClose, postId, user, onPosted }) {
@@ -231,7 +256,7 @@ function CommentsModal({ open, onClose, postId, user, onPosted }) {
   );
 }
 
-function ProgressItem({ post, onLike, liked, onOpenComments }) {
+function ProgressItem({ post, onLike, liked, onOpenComments, headerOffset = 92 }) {
   const [ref, visible] = useVisibility(0.65);
   const videoRef = useRef(null);
   const audioRef = useRef(null);
@@ -307,9 +332,7 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
     const start = Math.min(29, Math.max(0, Number(post.music_start_sec || 0)));
 
     if (!v.paused) {
-      try {
-        v.pause();
-      } catch {}
+      try { v.pause(); } catch {}
       if (hasMusic) {
         try {
           a.currentTime = start;
@@ -318,11 +341,7 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
         } catch {}
       }
     } else {
-      if (hasMusic) {
-        try {
-          a.pause();
-        } catch {}
-      }
+      if (hasMusic) { try { a.pause(); } catch {} }
       try {
         const p = v.play();
         if (p?.catch) p.catch(() => {});
@@ -333,17 +352,14 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
   const authorName = post?.author_name || "Utilisateur";
   const authorPhoto = post?.author_photo || "";
 
-  const [uiOpen, setUiOpen] = useState(true);
-
-  const onMediaTap = () => {
-    if (post.media_type === "video") onVideoTap();
-    setUiOpen((v) => !v);
-  };
-
+  // UI always visible (like TikTok)
   return (
     <section ref={ref} style={{ height: "100%", position: "relative", overflow: "hidden" }}>
       {/* Media */}
-      <div onClick={onMediaTap} style={{ position: "absolute", inset: 0, background: "#000" }}>
+      <div
+        onClick={() => { if (post.media_type === "video") onVideoTap(); }}
+        style={{ position: "absolute", inset: 0, background: "#000" }}
+      >
         {post.media_type === "video" ? (
           <video
             ref={videoRef}
@@ -371,130 +387,91 @@ function ProgressItem({ post, onLike, liked, onOpenComments }) {
 
       {post.music_url ? <audio ref={audioRef} src={post.music_url} preload="auto" /> : null}
 
-      {uiOpen ? (
-        <>
-          {/* Smaller author pill */}
-          <div
-            style={{
-              position: "absolute",
-              left: 10,
-              top: "calc(var(--mfHeaderH, 92px) + 8px)",
-              display: "flex",
-              gap: 6,
-              alignItems: "center",
-              padding: "3px 5px",
-              borderRadius: 999,
-              background: "rgba(0,0,0,0.32)",
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
-              maxWidth: "calc(100% - 170px)"
-            }}
-          >
-            <img
-              src={authorPhoto || "/avatar.png"}
-              alt={authorName}
-              style={{ width: 18, height: 18, borderRadius: 999, objectFit: "cover" }}
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = "/avatar.png";
-              }}
-            />
-            <div style={{ lineHeight: 1.05, minWidth: 0 }}>
-              <div style={{ fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {authorName}
-              </div>
-              <div style={{ fontSize: 9, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
-            </div>
+      {/* Smaller author pill */}
+      <div
+        style={{
+          position: "absolute",
+          left: 10,
+          top: `calc(${headerOffset}px + 10px)`,
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: "6px 8px",
+          borderRadius: 999,
+          background: "rgba(0,0,0,0.35)",
+          backdropFilter: "blur(8px)",
+          maxWidth: "calc(100% - 160px)"
+        }}
+      >
+        <img
+          src={authorPhoto || "/avatar.png"}
+          alt={authorName}
+          style={{ width: 26, height: 26, borderRadius: 999, objectFit: "cover" }}
+          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/avatar.png"; }}
+        />
+        <div style={{ lineHeight: 1.05, minWidth: 0 }}>
+          <div style={{ fontWeight: 900, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {authorName}
           </div>
+          <div style={{ fontSize: 11, opacity: 0.85 }}>{formatAgo(post.created_at)}</div>
+        </div>
+      </div>
 
-          {post.music_title ? (
-            <div
-              title={post.music_title}
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "calc(var(--mfHeaderH, 92px) + 12px)",
-                transform: "translateX(-50%)",
-                padding: "8px 12px",
-                borderRadius: 999,
-                background: "rgba(0,0,0,0.35)",
-                backdropFilter: "blur(10px)",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                maxWidth: "min(520px, calc(100% - 40px))"
-              }}
-            >
-              <span aria-hidden style={{ fontSize: 14 }}>
-                🎵
-              </span>
-              <span style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {post.music_title}
-              </span>
-            </div>
-          ) : null}
+      {post.music_title ? (
+        <div
+          title={post.music_title}
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: `calc(${headerOffset}px + 12px)`,
+            transform: "translateX(-50%)",
+            padding: "8px 12px",
+            borderRadius: 999,
+            background: "rgba(0,0,0,0.35)",
+            backdropFilter: "blur(10px)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            maxWidth: "min(520px, calc(100% - 40px))"
+          }}
+        >
+          <span aria-hidden style={{ fontSize: 14 }}>🎵</span>
+          <span style={{ fontWeight: 800, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {post.music_title}
+          </span>
+        </div>
+      ) : null}
 
-          {/* Right rail actions */}
-          <div
-            style={{
-              position: "absolute",
-              right: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              display: "grid",
-              gap: 10,
-              justifyItems: "end"
-            }}
-          >
-            <button
-              type="button"
-              className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
-              onClick={(e) => {
-                e.stopPropagation();
-                onLike?.(post);
-              }}
-              style={{
-                borderRadius: 999,
-                background: liked ? undefined : "rgba(0,0,0,0.35)",
-                backdropFilter: "blur(8px)"
-              }}
-            >
-              ❤️ {post.likes_count ?? 0}
-            </button>
+      {/* Right rail actions */}
+      <div
+        style={{
+          position: "absolute",
+          right: 12,
+          top: "50%",
+          transform: "translateY(-50%)",
+          display: "grid",
+          gap: 10,
+          justifyItems: "end"
+        }}
+      >
+        <button
+          type="button"
+          className={liked ? "btn-primary btn-sm" : "btn-ghost btn-sm"}
+          onClick={(e) => { e.stopPropagation(); onLike?.(post); }}
+          style={{ borderRadius: 999, background: liked ? undefined : "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
+        >
+          ❤️ {post.likes_count ?? 0}
+        </button>
 
-            <button
-              type="button"
-              className="btn-ghost btn-sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenComments?.(post);
-              }}
-              style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
-            >
-              💬 {post.comments_count ?? 0}
-            </button>
-          </div>
-        </>
-      ) : (
         <button
           type="button"
           className="btn-ghost btn-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setUiOpen(true);
-          }}
-          style={{
-            position: "absolute",
-            right: 12,
-            top: 12,
-            borderRadius: 999,
-            background: "rgba(0,0,0,0.35)",
-            backdropFilter: "blur(8px)"
-          }}
+          onClick={(e) => { e.stopPropagation(); onOpenComments?.(post); }}
+          style={{ borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)" }}
         >
-          👁️
+          💬 {post.comments_count ?? 0}
         </button>
-      )}
+      </div>
     </section>
   );
 }
@@ -557,73 +534,51 @@ export default function ProgressFeed({ user }) {
   const [posts, setPosts] = useState([]);
   const [err, setErr] = useState("");
   const [likedSet, setLikedSet] = useState(() => new Set());
-  const [loadingMore, setLoadingMore] = useState(false);
 
-  // Snap scroll container
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsPostId, setCommentsPostId] = useState(null);
+
+  // UI refs
   const scrollerRef = useRef(null);
   const headerRef = useRef(null);
 
-  // Pagination
-  // ✅ On charge 100 posts par "page".
-  // - quand l’utilisateur arrive en bas (après ~100 posts), on charge la page suivante
-  // - si l’utilisateur fait 2 "pull down" rapides en haut, on recharge les posts les plus récents
-  const pageSize = 100;
+  const [headerH, setHeaderH] = useState(92);
+
+  // Loading-more indicator
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Paging
+  const PAGE_SIZE = 100;
   const hasMoreRef = useRef(true);
+  const cursorOldestRef = useRef(null);
   const loadingMoreRef = useRef(false);
+
+  // Refresh-on-top (double pull)
+  const topPullRef = useRef({ lastAt: 0, armed: false, y0: 0 });
+
+  // Snap timing (for "never half post")
   const snapTimerRef = useRef(null);
-  const oldestCursorRef = useRef(null);
+  const lastKnownIndexRef = useRef(0);
 
-  // Double pull-to-refresh
-  const pullCountRef = useRef(0);
-  const lastPullAtRef = useRef(0);
+  // Disable noise overlay seam if your CSS draws body::before
+  useEffect(() => {
+    document.body.classList.add("mf-noise-off");
+    return () => document.body.classList.remove("mf-noise-off");
+  }, []);
 
-  // Gesture tracking (for "pull to refresh")
-  const pullRef = useRef({ pulling: false, startY: 0, startScrollTop: 0, touchStartY: 0, touchStartT: 0 });
-
-  // ✅ Avoid mobile bug: don't snap during scroll; snap ONLY when the gesture ends.
-  const snapAfterGesture = () => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const page = el.clientHeight || window.innerHeight || 1;
-    const idx = Math.round(el.scrollTop / page);
-    const target = idx * page;
-    try {
-      el.scrollTo({ top: target, behavior: "smooth" });
-    } catch {}
-  };
-
-  // Debounced snap: waits for momentum scrolling to calm down (much smoother on iOS)
-  const scheduleSnap = () => {
-    try {
-      if (snapTimerRef.current) window.clearTimeout(snapTimerRef.current);
-      snapTimerRef.current = window.setTimeout(() => {
-        snapAfterGesture();
-      }, 140);
-    } catch {
-      snapAfterGesture();
-    }
-  };
-
-  // Header height => CSS var used by pills
   useEffect(() => {
     const measure = () => {
       const h = headerRef.current?.getBoundingClientRect?.().height;
       if (!h) return;
-      document.documentElement.style.setProperty("--mfHeaderH", `${Math.round(h)}px`);
+      setHeaderH(Math.round(h));
     };
     measure();
     window.addEventListener("resize", measure);
-    const id = window.setInterval(measure, 1200);
+    const id = window.setInterval(measure, 900);
     return () => {
       window.removeEventListener("resize", measure);
       window.clearInterval(id);
     };
-  }, []);
-
-  // Remove "noise seam" overlay (if your global CSS draws body::before)
-  useEffect(() => {
-    document.body.classList.add("mf-noise-off");
-    return () => document.body.classList.remove("mf-noise-off");
   }, []);
 
   const normalizeRows = async (rows) => {
@@ -696,7 +651,7 @@ export default function ProgressFeed({ user }) {
       .eq("is_deleted", false)
       .eq("is_public", true)
       .order("created_at", { ascending: false })
-      .limit(pageSize);
+      .limit(PAGE_SIZE);
 
     if (error) throw error;
     return normalizeRows(data || []);
@@ -711,10 +666,21 @@ export default function ProgressFeed({ user }) {
       .eq("is_public", true)
       .lt("created_at", cursorIso)
       .order("created_at", { ascending: false })
-      .limit(pageSize);
+      .limit(PAGE_SIZE);
 
     if (error) throw error;
     return normalizeRows(data || []);
+  };
+
+  const snapToNearest = (behavior = "smooth") => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const page = el.clientHeight || window.innerHeight || 1;
+    const idx = Math.round(el.scrollTop / page);
+    lastKnownIndexRef.current = idx;
+    try {
+      el.scrollTo({ top: idx * page, behavior });
+    } catch {}
   };
 
   const initialLoad = async () => {
@@ -722,25 +688,27 @@ export default function ProgressFeed({ user }) {
     setErr("");
     try {
       const { normalized, myLiked } = await fetchNewest();
-
       const last = normalized[normalized.length - 1];
-      oldestCursorRef.current = last?.created_at || null;
-      hasMoreRef.current = normalized.length >= pageSize;
+      cursorOldestRef.current = last?.created_at || null;
+      hasMoreRef.current = normalized.length >= PAGE_SIZE;
 
       setPosts([...makeMockPosts(), ...normalized]);
+
       setLikedSet(myLiked);
+      // return to top (full post)
+      requestAnimationFrame(() => {
+        try { scrollerRef.current?.scrollTo?.({ top: 0, behavior: "auto" }); } catch {}
+      });
+      requestAnimationFrame(() => snapToNearest("auto"));
     } catch (e) {
       console.error("progress feed load error:", e);
       setErr("Impossible de charger le feed pour le moment.");
       setPosts(makeMockPosts());
       setLikedSet(new Set());
       hasMoreRef.current = false;
-      oldestCursorRef.current = null;
+      cursorOldestRef.current = null;
     } finally {
       setLoading(false);
-      try {
-        requestAnimationFrame(() => scrollerRef.current?.scrollTo?.({ top: 0, behavior: "auto" }));
-      } catch {}
     }
   };
 
@@ -752,17 +720,16 @@ export default function ProgressFeed({ user }) {
   const loadMoreOlder = async () => {
     if (loadingMoreRef.current) return;
     if (!hasMoreRef.current) return;
-    const cursor = oldestCursorRef.current;
+    const cursor = cursorOldestRef.current;
     if (!cursor) return;
 
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
       const { normalized, myLiked } = await fetchOlder(cursor);
-
       const last = normalized[normalized.length - 1];
-      oldestCursorRef.current = last?.created_at || cursor;
-      hasMoreRef.current = normalized.length >= pageSize;
+      cursorOldestRef.current = last?.created_at || cursor;
+      hasMoreRef.current = normalized.length >= PAGE_SIZE;
 
       setLikedSet((prev) => {
         const next = new Set(prev);
@@ -779,62 +746,61 @@ export default function ProgressFeed({ user }) {
       console.error("load older error:", e);
       hasMoreRef.current = false;
     } finally {
-      loadingMoreRef.current = false;
       setLoadingMore(false);
+      loadingMoreRef.current = false;
     }
+  };
+
+  const scheduleSnap = () => {
+    if (snapTimerRef.current) window.clearTimeout(snapTimerRef.current);
+    // "Fluide": on attend que l’inertie s’arrête (~120ms sans scroll) puis on snap.
+    snapTimerRef.current = window.setTimeout(() => snapToNearest("smooth"), 140);
   };
 
   const onScroll = () => {
     const el = scrollerRef.current;
     if (!el) return;
 
-    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - el.clientHeight * 1.5;
-    if (nearBottom) loadMoreOlder();
-
-    // Smooth snap once scrolling stops (prevents jank with iOS momentum)
+    // keep snap at end => no half post
     scheduleSnap();
+
+    // load more near bottom
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - el.clientHeight * 1.2;
+    if (nearBottom) loadMoreOlder();
   };
 
+  // Double pull-down quick at top -> refresh
   const onPointerDown = (e) => {
     const el = scrollerRef.current;
     if (!el) return;
-    pullRef.current = { y0: e.clientY, active: el.scrollTop <= 0.5 };
+    topPullRef.current = { ...topPullRef.current, y0: e.clientY, armed: el.scrollTop <= 2 };
   };
 
   const onPointerUp = async (e) => {
     const el = scrollerRef.current;
     if (!el) return;
 
-    // Pull-to-refresh (only if you were at top)
-    const g = pullRef.current;
+    const g = topPullRef.current;
     const dy = e.clientY - g.y0;
-    if (g.active && el.scrollTop <= 2 && dy > 36) {
-      const now = Date.now();
-      // count quick pulls
-      if (now - lastPullAtRef.current < 650) pullCountRef.current += 1;
-      else pullCountRef.current = 1;
-      lastPullAtRef.current = now;
 
-      // ✅ Only refresh on the SECOND quick pull
-      if (pullCountRef.current >= 2) {
-        pullCountRef.current = 0;
+    if (g.armed && el.scrollTop <= 2 && dy > 30) {
+      const now = Date.now();
+      // if second pull within 900ms => refresh
+      if (now - g.lastAt < 900) {
+        topPullRef.current.lastAt = 0;
         await initialLoad();
-        return; // already snapped to top
+        return;
+      } else {
+        topPullRef.current.lastAt = now;
       }
     }
 
-    // Snap is handled by the debounced scroll-end logic
+    // final snap
     scheduleSnap();
   };
 
-  // NOTE: We intentionally do NOT snap on touchend/mouseup.
-  // Snapping on touchend fights iOS momentum scrolling and feels less fluid.
-
   const onLike = async (post) => {
-    if (!user?.id) {
-      navigate("/settings");
-      return;
-    }
+    if (!user?.id) { navigate("/settings"); return; }
     if (!post?.id || post.is_mock) return;
 
     const already = likedSet.has(post.id);
@@ -876,9 +842,6 @@ export default function ProgressFeed({ user }) {
     }
   };
 
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  const [commentsPostId, setCommentsPostId] = useState(null);
-
   const openComments = (post) => {
     if (!post?.id || post.is_mock) return;
     setCommentsPostId(post.id);
@@ -891,6 +854,23 @@ export default function ProgressFeed({ user }) {
       prev.map((p) => (p.id === commentsPostId ? { ...p, comments_count: (p.comments_count || 0) + 1 } : p))
     );
   };
+
+  const styles = useMemo(() => {
+    return `
+      @keyframes mfspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      body.mf-noise-off::before{ display:none !important; content:none !important; }
+
+      /* hide scrollbar */
+      .mf-tiktok-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
+      .mf-tiktok-scroll::-webkit-scrollbar{ width:0 !important; height:0 !important; display:none !important; }
+
+      /* IMPORTANT: snap strict */
+      .mf-tiktok-scroll{
+        scroll-snap-type: y mandatory;
+        scroll-snap-stop: always;
+      }
+    `;
+  }, []);
 
   return (
     <main
@@ -905,12 +885,7 @@ export default function ProgressFeed({ user }) {
         background: "transparent"
       }}
     >
-      <style>{`
-        body.mf-noise-off::before{ display:none !important; content:none !important; }
-        .mf-tiktok-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
-        .mf-tiktok-scroll::-webkit-scrollbar{ width:0 !important; height:0 !important; display:none !important; }
-        @keyframes mfspin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
-      `}</style>
+      <style>{styles}</style>
 
       {/* Header */}
       <div
@@ -955,27 +930,19 @@ export default function ProgressFeed({ user }) {
             onClick={() => navigate("/post")}
             disabled={!user}
             title="Publier"
-            style={{ padding: "8px 12px", borderRadius: 999, fontSize: 13, lineHeight: "16px" }}
+            style={{ padding: "8px 12px", borderRadius: 999, fontSize: 14, lineHeight: "16px" }}
           >
             + Publier
           </button>
         </div>
       </div>
 
-      {err ? (
-        <p className="form-message error" style={{ padding: "0 14px 10px" }}>
-          {err}
-        </p>
-      ) : null}
+      {err ? <p className="form-message error" style={{ padding: "0 14px 10px" }}>{err}</p> : null}
 
       {loading ? (
-        <p className="form-message" style={{ padding: "0 14px" }}>
-          Chargement…
-        </p>
+        <p className="form-message" style={{ padding: "0 14px" }}>Chargement…</p>
       ) : posts.length === 0 ? (
-        <p className="form-message" style={{ padding: "0 14px" }}>
-          Aucun post pour le moment.
-        </p>
+        <p className="form-message" style={{ padding: "0 14px" }}>Aucun post pour le moment.</p>
       ) : (
         <div
           className="allowScroll mf-tiktok-scroll"
@@ -988,57 +955,40 @@ export default function ProgressFeed({ user }) {
             inset: 0,
             height: "var(--appH, 100dvh)",
             overflowY: "auto",
-            // We keep scroll-snap for browsers that support it,
-            // and add "snapAfterGesture" for iOS/Safari so posts are always full-screen.
-            // Proximity feels more natural; we still snap ourselves after momentum ends.
-            scrollSnapType: "y proximity",
-            scrollSnapStop: "always",
-            overscrollBehavior: "contain",
-            WebkitOverflowScrolling: "touch"
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain"
           }}
         >
           {posts.map((p) => (
-            <div key={p.id} style={{ height: "100%", minHeight: "var(--appH, 100dvh)", scrollSnapAlign: "start" }}>
-              <ProgressItem post={p} onLike={onLike} liked={likedSet.has(p.id)} onOpenComments={openComments} />
+            <div
+              key={p.id}
+              style={{
+                height: "var(--appH, 100dvh)",
+                scrollSnapAlign: "start",
+                position: "relative"
+              }}
+            >
+              <ProgressItem
+                post={p}
+                onLike={onLike}
+                liked={likedSet.has(p.id)}
+                onOpenComments={openComments}
+                headerOffset={headerH}
+              />
             </div>
           ))}
+
+          {/* Loader en bas (quand on charge +) */}
+          <div style={{ height: loadingMore ? 62 : 26, display: "grid", placeItems: "center" }}>
+            {loadingMore ? (
+              <div style={{ display: "flex", gap: 10, alignItems: "center", padding: 10, borderRadius: 999, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(10px)" }}>
+                <Spinner size={18} />
+                <span style={{ fontWeight: 800, fontSize: 13 }}>Chargement…</span>
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
-
-
-{loadingMore ? (
-  <div
-    aria-hidden="true"
-    style={{
-      position: "fixed",
-      left: "50%",
-      bottom: "calc(env(safe-area-inset-bottom) + 18px)",
-      transform: "translateX(-50%)",
-      zIndex: 60,
-      padding: "8px 10px",
-      borderRadius: 999,
-      background: "rgba(0,0,0,0.35)",
-      backdropFilter: "blur(10px)",
-      WebkitBackdropFilter: "blur(10px)",
-      display: "flex",
-      alignItems: "center",
-      gap: 8
-    }}
-  >
-    <span
-      style={{
-        width: 14,
-        height: 14,
-        borderRadius: 999,
-        border: "2px solid rgba(255,255,255,0.25)",
-        borderTopColor: "rgba(255,255,255,0.9)",
-        display: "inline-block",
-        animation: "mfspin 0.9s linear infinite"
-      }}
-    />
-    <span style={{ fontSize: 12, opacity: 0.9 }}>Chargement…</span>
-  </div>
-) : null}
 
       <CommentsModal
         open={commentsOpen}
