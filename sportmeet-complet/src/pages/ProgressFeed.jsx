@@ -562,7 +562,9 @@ export default function ProgressFeed({ user }) {
   const [headerH, setHeaderH] = useState(92);
 
   const [loadingMore, setLoadingMore] = useState(false);
-  const [refreshingTop, setRefreshingTop] = useState(false);
+  const \[refreshingTop, setRefreshingTop\] = useState\(false\);
+
+  const scrollLocked = loadingMore || refreshingTop;
 
   const PAGE_SIZE = 100;
   const hasMoreRef = useRef(true);
@@ -859,6 +861,7 @@ export default function ProgressFeed({ user }) {
   const onScroll = () => {
     const el = scrollerRef.current;
     if (!el) return;
+    if (scrollLocked) return;
 
     scheduleSnap();
 
@@ -1031,8 +1034,9 @@ export default function ProgressFeed({ user }) {
             position: "absolute",
             inset: 0,
             height: "var(--appH, 100dvh)",
-            overflowY: "auto",
+            overflowY: scrollLocked ? "hidden" : "auto",
             WebkitOverflowScrolling: "touch",
+            touchAction: scrollLocked ? "none" : "pan-y",
             overscrollBehavior: "contain"
           }}
         >
