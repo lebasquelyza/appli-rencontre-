@@ -586,6 +586,205 @@ function makeMockPostsDynamic(prefix = "mock", count = 3) {
   return out;
 }
 
+
+/** ✅ Mes publications: grille type Instagram + viewer plein écran (réutilise ProgressItem) */
+function MyPostsModal({
+  open,
+  onClose,
+  user,
+  loading,
+  err,
+  posts,
+  headerOffset = 92,
+  viewIndex,
+  setViewIndex,
+  onOpenAt,
+  onLike,
+  likedSet,
+  onOpenComments,
+  myViewerRef
+}) {
+  if (!open) return null;
+
+  const showViewer = Number.isFinite(viewIndex);
+
+  return (
+    <div className="modal-backdrop modal-backdrop--blur" onClick={onClose}>
+      <div
+        className="modal-card modal-card--sheet allowScroll"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(980px, 98vw)",
+          maxHeight: "calc(var(--appH, 100vh) - 18px)",
+          height: "calc(var(--appH, 100vh) - 18px)",
+          overflow: "hidden",
+          borderRadius: 18
+        }}
+      >
+        <div className="modal-header" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {showViewer ? (
+            <button className="btn-ghost btn-sm" onClick={() => setViewIndex(null)} title="Retour à la grille">
+              ←
+            </button>
+          ) : null}
+
+          <h3 style={{ marginRight: "auto" }}>{showViewer ? "Publication" : "Mes publications"}</h3>
+
+          <button className="btn-ghost btn-sm" onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+
+        <div className="modal-body" style={{ padding: 0, height: "100%", overflow: "hidden" }}>
+          {err ? (
+            <p className="form-message error" style={{ padding: 12, margin: 0 }}>
+              {err}
+            </p>
+          ) : null}
+
+          {loading ? (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", padding: 12 }}>
+              <Spinner size={18} />
+              <span className="form-message" style={{ margin: 0 }}>
+                Chargement…
+              </span>
+            </div>
+          ) : posts.length === 0 ? (
+            <div style={{ padding: 12 }}>
+              <p className="form-message" style={{ margin: 0 }}>
+                Aucune publication pour le moment.
+              </p>
+            </div>
+          ) : showViewer ? (
+            <div
+              ref={myViewerRef}
+              className="allowScroll mf-tiktok-scroll"
+              style={{
+                position: "relative",
+                height: "100%",
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehavior: "contain"
+              }}
+              onScroll={() => {
+                const el = myViewerRef?.current;
+                if (!el) return;
+                const page = el.clientHeight || window.innerHeight || 1;
+                const idx = Math.round(el.scrollTop / page);
+                if (idx !== viewIndex) setViewIndex(idx);
+              }}
+            >
+              {posts.map((p) => (
+                <div
+                  key={p.id}
+                  style={{
+                    height: "var(--appH, 100dvh)",
+                    scrollSnapAlign: "start",
+                    position: "relative"
+                  }}
+                >
+                  <ProgressItem
+                    post={p}
+                    onLike={onLike}
+                    liked={likedSet.has(p.id)}
+                    onOpenComments={onOpenComments}
+                    headerOffset={headerOffset}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              className="allowScroll"
+              style={{
+                height: "100%",
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                padding: 6
+              }}
+            >
+              <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 6px 10px" }}>
+                <img
+                  src={"/avatar.png"}
+                  alt="Profil"
+                  style={{ width: 40, height: 40, borderRadius: 999, objectFit: "cover" }}
+                />
+                <div style={{ lineHeight: 1.1 }}>
+                  <div style={{ fontWeight: 900 }}>{user?.user_metadata?.name || "Mon profil"}</div>
+                  <div style={{ fontSize: 12, opacity: 0.75 }}>
+                    {posts.length} publication{posts.length > 1 ? "s" : ""}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
+                {posts.map((p, idx) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onOpenAt(idx)}
+                    style={{
+                      border: "none",
+                      padding: 0,
+                      background: "transparent",
+                      aspectRatio: "1 / 1",
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      position: "relative",
+                      cursor: "pointer"
+                    }}
+                    title={p.caption || "Ouvrir"}
+                  >
+                    {p.media_type === "video" ? (
+                      <video
+                        src={p.media_url}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : p.media_url ? (
+                      <img src={p.media_url} alt="Post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          background:
+                            p.mock_bg ||
+                            "radial-gradient(800px 500px at 20% 20%, rgba(255,77,109,.30), transparent 55%), radial-gradient(700px 520px at 80% 30%, rgba(255,138,75,.22), transparent 55%), linear-gradient(180deg, rgba(8,8,12,.95), rgba(8,8,12,.95))"
+                        }}
+                      />
+                    )}
+
+                    {p.media_type === "video" ? (
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 6,
+                          top: 6,
+                          background: "rgba(0,0,0,0.45)",
+                          color: "#fff",
+                          borderRadius: 999,
+                          padding: "2px 6px",
+                          fontSize: 11,
+                          fontWeight: 800
+                        }}
+                      >
+                        ▶︎
+                      </div>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProgressFeed({ user }) {
   const navigate = useNavigate();
 
@@ -597,7 +796,16 @@ export default function ProgressFeed({ user }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState(null);
 
-  const scrollerRef = useRef(null);
+  
+  // --- Mes publications (grille Instagram-like) ---
+  const [myOpen, setMyOpen] = useState(false);
+  const [myLoading, setMyLoading] = useState(false);
+  const [myErr, setMyErr] = useState("");
+  const [myPosts, setMyPosts] = useState([]);
+  const [myViewIndex, setMyViewIndex] = useState(null); // null = grille, number = viewer
+  const myViewerRef = useRef(null);
+
+const scrollerRef = useRef(null);
   const headerRef = useRef(null);
   const [headerH, setHeaderH] = useState(92);
 
@@ -711,6 +919,63 @@ export default function ProgressFeed({ user }) {
       myLiked
     };
   };
+
+  const fetchMine = async () => {
+    if (!user?.id) return { normalized: [], myLiked: new Set() };
+
+    const { data, error } = await supabase
+      .from("progress_posts")
+      .select(
+        "id, user_id, media_url, media_type, caption, created_at, music_url, music_title, music_start_sec, music_volume, video_volume, is_public"
+      )
+      .eq("is_deleted", false)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    if (error) throw error;
+    return normalizeRows(data || []);
+  };
+
+  const openMyPosts = async () => {
+    if (!user?.id) {
+      navigate("/settings");
+      return;
+    }
+    setMyOpen(true);
+    setMyViewIndex(null);
+    setMyErr("");
+    setMyLoading(true);
+
+    try {
+      const { normalized, myLiked } = await fetchMine();
+      setMyPosts(normalized);
+      setLikedSet((prev) => {
+        const next = new Set(prev);
+        for (const x of myLiked) next.add(x);
+        return next;
+      });
+    } catch (e) {
+      console.error("my posts load error:", e);
+      setMyErr("Impossible de charger tes publications.");
+      setMyPosts([]);
+    } finally {
+      setMyLoading(false);
+    }
+  };
+
+  const openMyViewerAt = (index) => {
+    setMyViewIndex(index);
+    requestAnimationFrame(() => {
+      const el = myViewerRef.current;
+      if (!el) return;
+      const page = el.clientHeight || window.innerHeight || 1;
+      try {
+        el.scrollTo({ top: index * page, behavior: "auto" });
+      } catch {}
+    });
+  };
+
 
   const fetchNewest = async () => {
     const { data, error } = await supabase
@@ -1050,7 +1315,7 @@ export default function ProgressFeed({ user }) {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             className="btn-ghost btn-sm"
-            onClick={() => navigate("/feed/mine")}
+            onClick={() => openMyPosts()}
             title="Mes publications"
             style={{ borderRadius: 999, background: "rgba(255,255,255,0.10)", fontSize: 10, padding: "4px 8px" }}
           >
@@ -1170,7 +1435,25 @@ export default function ProgressFeed({ user }) {
         </div>
       )}
 
-      <CommentsModal
+      
+      <MyPostsModal
+        open={myOpen}
+        onClose={() => setMyOpen(false)}
+        user={user}
+        loading={myLoading}
+        err={myErr}
+        posts={myPosts}
+        headerOffset={headerH}
+        viewIndex={myViewIndex}
+        setViewIndex={setMyViewIndex}
+        onOpenAt={openMyViewerAt}
+        onLike={onLike}
+        likedSet={likedSet}
+        onOpenComments={openComments}
+        myViewerRef={myViewerRef}
+      />
+
+<CommentsModal
         open={commentsOpen}
         onClose={() => setCommentsOpen(false)}
         postId={commentsPostId}
