@@ -562,7 +562,7 @@ export default function ProgressFeed({ user }) {
   const [headerH, setHeaderH] = useState(92);
 
   const [loadingMore, setLoadingMore] = useState(false);
-  const \[refreshingTop, setRefreshingTop\] = useState\(false\);
+  const [refreshingTop, setRefreshingTop] = useState(false);
 
   const scrollLocked = loadingMore || refreshingTop;
 
