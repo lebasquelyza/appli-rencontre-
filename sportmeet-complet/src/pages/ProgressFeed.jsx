@@ -496,6 +496,7 @@ function ProgressItem({ post, onLike, liked, onOpenComments, headerOffset = 92 }
 }
 
 function makeMockPosts() {
+
   const now = Date.now();
   return [
     {
@@ -544,6 +545,45 @@ function makeMockPosts() {
         "radial-gradient(820px 520px at 20% 20%, rgba(255,138,75,.28), transparent 55%), radial-gradient(720px 520px at 70% 80%, rgba(255,77,109,.22), transparent 55%), linear-gradient(180deg, rgba(8,8,12,.95), rgba(8,8,12,.95))"
     }
   ];
+}
+
+
+function makeMockPostsDynamic(prefix = "mock", count = 3) {
+  const now = Date.now();
+  const names = ["Alex", "Maya", "Nina", "Sam", "Léa", "Yanis", "Inès", "Hugo"];
+  const tracks = [
+    "Julia — Mt. Joy",
+    "Energy — Drake",
+    "Blinding Lights — The Weeknd",
+    "Starboy — The Weeknd",
+    "Lose Yourself — Eminem",
+    "Sunset Lover — Petit Biscuit"
+  ];
+
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const id = `${prefix}-${now}-${i}`;
+    const name = names[(now + i) % names.length];
+    const track = tracks[(now + i * 7) % tracks.length];
+    out.push({
+      id,
+      is_mock: true,
+      user_id: "mock",
+      media_type: "image",
+      media_url: "",
+      created_at: new Date(now - (i + 1) * 17 * 60 * 1000).toISOString(),
+      music_title: track,
+      likes_count: 50 + ((now >> 2) + i * 31) % 600,
+      comments_count: 3 + ((now >> 3) + i * 11) % 90,
+      author_name: name,
+      author_photo: "",
+      mock_bg:
+        i % 2 === 0
+          ? "radial-gradient(800px 500px at 10% 10%, rgba(255,77,109,.35), transparent 55%), radial-gradient(700px 520px at 85% 25%, rgba(255,138,75,.22), transparent 55%), linear-gradient(180deg, rgba(8,8,12,.95), rgba(8,8,12,.95))"
+          : "radial-gradient(820px 520px at 80% 20%, rgba(124,58,237,.30), transparent 55%), radial-gradient(720px 520px at 25% 80%, rgba(70,80,255,.20), transparent 55%), linear-gradient(180deg, rgba(8,8,12,.95), rgba(8,8,12,.95))"
+    });
+  }
+  return out;
 }
 
 export default function ProgressFeed({ user }) {
@@ -774,7 +814,17 @@ export default function ProgressFeed({ user }) {
       const currentIds = new Set(currentReal.map((p) => p.id));
 
       const newOnTop = normalized.filter((p) => !currentIds.has(p.id));
-      if (!newOnTop.length) return;
+
+      // If there is no real new post, add a few mock posts so you can still see a refresh effect.
+      if (!newOnTop.length) {
+        const mocks = makeMockPostsDynamic("top", 3);
+        setPosts((prev) => [...mocks, ...prev]);
+        requestAnimationFrame(() => {
+          try { el.scrollTo({ top: 0, behavior: "auto" }); } catch {}
+          requestAnimationFrame(() => snapToNearest("auto"));
+        });
+        return;
+      }
 
       // Keep visual position: we are at top => we want to still see the first post fully.
       // Because we prepend items, adjust scrollTop by addedCount * pageHeight.
@@ -820,6 +870,14 @@ export default function ProgressFeed({ user }) {
 
     try {
       const { normalized, myLiked } = await fetchOlder(cursor);
+
+      // If there is no older real post, append a few mock posts (preview rendering) and stop pagination.
+      if (!normalized.length) {
+        hasMoreRef.current = false;
+        setPosts((prev) => [...prev, ...makeMockPostsDynamic("bottom", 3)]);
+        return;
+      }
+
       const last = normalized[normalized.length - 1];
       cursorOldestRef.current = last?.created_at || cursor;
       hasMoreRef.current = normalized.length >= PAGE_SIZE;
